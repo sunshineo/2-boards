@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"],
+  "references": [
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/domain" }
+  ]
+}

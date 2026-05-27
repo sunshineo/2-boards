@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
+    "tsBuildInfoFile": "node_modules/.cache/tsconfig.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"],
+  "references": [
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/domain" }
+  ]
+}
