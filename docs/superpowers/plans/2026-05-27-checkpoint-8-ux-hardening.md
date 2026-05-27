@@ -88,3 +88,5 @@ Evidence: `npm install` found 0 vulnerabilities. Fresh `npm run typecheck && npm
 - [x] **Step 4: Update roadmap and commit**
 
 Mark checkpoint 8 complete and commit with `git commit -m "feat: harden match ux"`.
+
+Evidence: Checkpoint 8 implementation commit `cbd1cd7`.

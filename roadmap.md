@@ -269,7 +269,7 @@ Checkpoint 7 implementation commit: `1746f23`.
 
 Checkpoint: the product is comfortable to use repeatedly, not just technically playable.
 
-Checkpoint 8 implementation commit: pending.
+Checkpoint 8 implementation commit: `cbd1cd7`.
 
 ### 9. Production Hardening
 
