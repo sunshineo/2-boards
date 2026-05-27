@@ -196,18 +196,18 @@ Checkpoint 3 implementation commit: `4c7f421`.
 
 ### 4. Persistence And Recovery
 
-- [ ] Persist matches and moves in durable PGlite storage.
-  Evidence: Not started. Future online deployment should be able to move to Neon Postgres.
+- [x] Persist matches and moves in durable PGlite storage.
+  Evidence: Added PGlite-backed match persistence under `fairgame-rebuild/apps/server/src/persistence`, wired `MatchService` to persist create/join/move commands, and configured startup hydration from `FAIRGAME_DB_DIR` or `.data/pglite`.
 - [x] Decide and document the persistence shape: event log, snapshots, or both.
   Evidence: User chose both event log and snapshots on 2026-05-27; technical defaults document this decision.
-- [ ] Implement append-only event storage for match commands/events.
-  Evidence: Not started.
-- [ ] Implement current match snapshots as the fast load path.
-  Evidence: Not started.
-- [ ] Restore active matches after server restart.
-  Evidence: Not started.
-- [ ] Add verification for create, move, restart, reload, continue.
-  Evidence: Not started.
+- [x] Implement append-only event storage for match commands/events.
+  Evidence: Added `match_events` schema and repository `appendEvent()` calls for `match.created`, `seat.joined`, and `move.applied`.
+- [x] Implement current match snapshots as the fast load path.
+  Evidence: Added `match_snapshots` schema and repository `saveSnapshot()` / `loadSnapshots()` methods storing serializable match, joined-seat, and seat-claim state.
+- [x] Restore active matches after server restart.
+  Evidence: Server startup opens PGlite, calls `matchService.loadFromRepository()`, and hydrates active matches before registering realtime handlers.
+- [x] Add verification for create, move, restart, reload, continue.
+  Evidence: Added `apps/server/tests/persistence.test.ts`; full verification passed with `npm install` and `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-27.
 
 Checkpoint: matches survive process restarts without losing canonical state.
 

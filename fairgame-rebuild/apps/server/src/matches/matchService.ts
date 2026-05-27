@@ -8,6 +8,7 @@ import {
 import type { BoardId, SeatId } from "@fairgame/shared";
 import { randomUUID } from "node:crypto";
 
+import type { MatchEventInput, MatchRepository, SerializedStoredMatch } from "./matchRepository";
 import { toMatchView, type MatchView } from "./matchView";
 
 type StoredMatch = {
@@ -45,21 +46,45 @@ export class MatchService {
   private readonly matches = new Map<string, StoredMatch>();
   private readonly createId: () => string;
   private readonly createSecret: () => string;
+  private readonly repository: MatchRepository<TicTacToeState> | null;
   private readonly listeners = new Set<(match: MatchView) => void>();
 
-  constructor(options: { readonly createId?: () => string; readonly createSecret?: () => string } = {}) {
+  constructor(
+    options: {
+      readonly createId?: () => string;
+      readonly createSecret?: () => string;
+      readonly repository?: MatchRepository<TicTacToeState>;
+    } = {}
+  ) {
     this.createId = options.createId ?? randomUUID;
     this.createSecret = options.createSecret ?? randomUUID;
+    this.repository = options.repository ?? null;
   }
 
-  createMatch(): CreateMatchResult {
+  async loadFromRepository(): Promise<void> {
+    if (!this.repository) return;
+    const snapshots = await this.repository.loadSnapshots();
+    this.matches.clear();
+
+    for (const snapshot of snapshots) {
+      this.matches.set(snapshot.match.id, deserializeStoredMatch(snapshot));
+    }
+  }
+
+  async createMatch(): Promise<CreateMatchResult> {
     const match = createTicTacToeMatch(this.createId());
     const seatClaims = new Map<SeatId, string>();
     const claim = this.createSeatClaim(match.id, "seat1", seatClaims);
-    this.matches.set(match.id, {
+    const storedMatch: StoredMatch = {
       match,
       joinedSeats: new Set(["seat1"]),
       seatClaims
+    };
+    this.matches.set(match.id, storedMatch);
+    await this.persistChange(storedMatch, {
+      matchId: match.id,
+      eventType: "match.created",
+      payload: { seat: "seat1" }
     });
 
     return {
@@ -69,7 +94,9 @@ export class MatchService {
     };
   }
 
-  joinMatch(id: string): CreateMatchResult | null | { readonly error: "seat-unavailable"; readonly match: MatchView } {
+  async joinMatch(
+    id: string
+  ): Promise<CreateMatchResult | null | { readonly error: "seat-unavailable"; readonly match: MatchView }> {
     const stored = this.matches.get(id);
     if (!stored) return null;
 
@@ -83,6 +110,11 @@ export class MatchService {
     stored.joinedSeats.add("seat2");
     const claim = this.createSeatClaim(id, "seat2", stored.seatClaims);
     const match = toMatchView(stored.match);
+    await this.persistChange(stored, {
+      matchId: id,
+      eventType: "seat.joined",
+      payload: { seat: "seat2" }
+    });
     this.emitMatchUpdated(match);
 
     return {
@@ -107,12 +139,12 @@ export class MatchService {
     };
   }
 
-  applyMove(input: {
+  async applyMove(input: {
     readonly id: string;
     readonly boardId: BoardId;
     readonly seat: SeatId;
     readonly move: TicTacToeMove;
-  }): MoveResult {
+  }): Promise<MoveResult> {
     const stored = this.matches.get(input.id);
     if (!stored) {
       return { ok: false, status: 404, reason: "match-not-found" };
@@ -135,6 +167,15 @@ export class MatchService {
 
     stored.match = result.match;
     const match = toMatchView(stored.match);
+    await this.persistChange(stored, {
+      matchId: input.id,
+      eventType: "move.applied",
+      payload: {
+        boardId: input.boardId,
+        seat: input.seat,
+        move: input.move
+      }
+    });
     this.emitMatchUpdated(match);
 
     return {
@@ -168,4 +209,26 @@ export class MatchService {
       listener(match);
     }
   }
+
+  private async persistChange(stored: StoredMatch, event: MatchEventInput) {
+    if (!this.repository) return;
+    await this.repository.appendEvent(event);
+    await this.repository.saveSnapshot(serializeStoredMatch(stored));
+  }
+}
+
+function serializeStoredMatch(stored: StoredMatch): SerializedStoredMatch<TicTacToeState> {
+  return {
+    match: stored.match,
+    joinedSeats: [...stored.joinedSeats],
+    seatClaims: [...stored.seatClaims.entries()]
+  };
+}
+
+function deserializeStoredMatch(snapshot: SerializedStoredMatch<TicTacToeState>): StoredMatch {
+  return {
+    match: snapshot.match,
+    joinedSeats: new Set(snapshot.joinedSeats),
+    seatClaims: new Map(snapshot.seatClaims)
+  };
 }

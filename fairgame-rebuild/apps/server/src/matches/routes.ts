@@ -15,14 +15,14 @@ type MoveBody = {
 export function createMatchRouter(matchService: MatchService) {
   const router = Router();
 
-  router.post("/", (_request, response) => {
-    const result = matchService.createMatch();
+  router.post("/", async (_request, response) => {
+    const result = await matchService.createMatch();
     setSeatClaimCookie(response, result.claim);
     response.status(201).json({ seat: result.seat, match: result.match });
   });
 
-  router.post("/:id/join", (request, response) => {
-    const result = matchService.joinMatch(request.params["id"] ?? "");
+  router.post("/:id/join", async (request, response) => {
+    const result = await matchService.joinMatch(request.params["id"] ?? "");
 
     if (!result) {
       response.status(404).json({ error: "match-not-found" });
@@ -61,7 +61,7 @@ export function createMatchRouter(matchService: MatchService) {
     response.json({ match });
   });
 
-  router.post("/:id/moves", (request, response) => {
+  router.post("/:id/moves", async (request, response) => {
     const body = request.body as MoveBody;
 
     if (!body.boardId || !body.seat || typeof body.move?.cell !== "number") {
@@ -69,7 +69,7 @@ export function createMatchRouter(matchService: MatchService) {
       return;
     }
 
-    const result = matchService.applyMove({
+    const result = await matchService.applyMove({
       id: request.params["id"] ?? "",
       boardId: body.boardId,
       seat: body.seat,
