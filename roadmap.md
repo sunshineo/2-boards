@@ -175,7 +175,7 @@ Checkpoint 1 implementation commit: `534a28b`.
 
 Checkpoint: the product is playable end-to-end with the simplest supported game.
 
-Checkpoint 2 commit: pending.
+Checkpoint 2 implementation commit: `36fc701`.
 
 ### 3. Real-Time Room Flow
 
