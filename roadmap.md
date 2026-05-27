@@ -258,16 +258,18 @@ Checkpoint 7 implementation commit: `1746f23`.
 
 ### 8. UX Hardening
 
-- [ ] Improve active-board and active-player affordances.
-  Evidence: Not started.
-- [ ] Add player names, rematch, copy invite link, and match history view.
-  Evidence: Not started.
-- [ ] Improve desktop and mobile layouts.
-  Evidence: Not started.
-- [ ] Add browser tests for create, join, play, finish, reconnect, and spectator flows.
-  Evidence: Not started.
+- [x] Improve active-board and active-player affordances.
+  Evidence: Added active-board styling and `Your move` affordances for TicTacToe, Connect Four, and Chess board renderers; built-in browser verification confirmed Board A as the only active board for Player 1 while Board B was disabled.
+- [x] Add player names, rematch, copy invite link, and match history view.
+  Evidence: Added generic player-name metadata to match snapshots and `MatchView`, setup name inputs, copy-invite feedback, completed-match rematch control, and local recent-match history.
+- [x] Improve desktop and mobile layouts.
+  Evidence: Added match action layout, recent-match panel styling, active-board focus treatment, screen-reader-only utility text, and tightened board panel affordances in `apps/web/src/styles.css`.
+- [x] Add browser tests for create, join, play, finish, reconnect, and spectator flows.
+  Evidence: Added web tests for player-name inputs, copy invite, recent history, and rematch; existing Playwright E2E coverage remained green for create/join/play/finish, reconnect/refresh/spectator, Connect Four, and Chess smoke flows. Full verification passed with `npm install` and fresh `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-27. Built-in browser verification loaded `http://192.168.4.149:5173/`, created a TicTacToe match as `Clara`, confirmed `Clara (Player 1)`, active Board A, disabled Board B cells, `Copy invite` -> `Copied`, and recent-match history.
 
 Checkpoint: the product is comfortable to use repeatedly, not just technically playable.
+
+Checkpoint 8 implementation commit: pending.
 
 ### 9. Production Hardening
 

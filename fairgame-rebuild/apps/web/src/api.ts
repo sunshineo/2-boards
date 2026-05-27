@@ -15,17 +15,17 @@ export class ApiError extends Error {
   }
 }
 
-export async function createMatch(gameType: GameType = "tictactoe"): Promise<SeatSession> {
+export async function createMatch(gameType: GameType = "tictactoe", playerName?: string): Promise<SeatSession> {
   return request<SeatSession>("/api/matches", {
     method: "POST",
-    body: JSON.stringify({ gameType })
+    body: JSON.stringify({ gameType, playerName })
   });
 }
 
-export async function joinMatch(matchId: string): Promise<SeatSession> {
+export async function joinMatch(matchId: string, playerName?: string): Promise<SeatSession> {
   return request<SeatSession>(`/api/matches/${encodeURIComponent(matchId)}/join`, {
     method: "POST",
-    body: JSON.stringify({})
+    body: JSON.stringify({ playerName })
   });
 }
 

@@ -13,12 +13,17 @@ export type MatchView = {
   readonly gameType: SupportedGameType;
   readonly gameLabel: string;
   readonly seats: readonly SeatId[];
+  readonly players: Readonly<Record<SeatId, { readonly label: string; readonly name: string }>>;
   readonly outcome: MatchOutcome;
   readonly clock: MatchClockView | null;
   readonly boards: readonly MatchBoardView[];
 };
 
-export function toMatchView(match: FairMatch<SupportedGameState>, clock: MatchClockView | null = null): MatchView {
+export function toMatchView(
+  match: FairMatch<SupportedGameState>,
+  clock: MatchClockView | null = null,
+  playerNames: ReadonlyMap<SeatId, string> = new Map()
+): MatchView {
   const game = getGameDefinition(match.gameType);
   if (!game) {
     throw new Error(`Unsupported game type in match view: ${match.gameType}`);
@@ -29,6 +34,10 @@ export function toMatchView(match: FairMatch<SupportedGameState>, clock: MatchCl
     gameType: game.gameType,
     gameLabel: game.label,
     seats: match.seats,
+    players: {
+      seat1: { label: "Player 1", name: playerNames.get("seat1") ?? "Player 1" },
+      seat2: { label: "Player 2", name: playerNames.get("seat2") ?? "Player 2" }
+    },
     outcome: getMatchOutcome(match),
     clock,
     boards: match.boards.map((board) => game.toBoardView(board))

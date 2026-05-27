@@ -5,6 +5,7 @@ export type SerializedStoredMatch<TState = unknown> = {
   readonly match: FairMatch<TState>;
   readonly joinedSeats: readonly SeatId[];
   readonly seatClaims: readonly (readonly [SeatId, string])[];
+  readonly playerNames?: readonly (readonly [SeatId, string])[];
   readonly clock?: MatchClock | null;
 };
 

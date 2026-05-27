@@ -139,6 +139,15 @@ input {
   padding: 12px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .primary-button,
 .secondary-button {
   min-height: 42px;
@@ -168,6 +177,12 @@ button:disabled {
 .match-room {
   display: grid;
   gap: 18px;
+}
+
+.match-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .match-summary {
@@ -224,6 +239,11 @@ button:disabled {
 
 .board-panel {
   padding: 18px;
+}
+
+.board-panel.active-board {
+  border-color: #245d63;
+  box-shadow: 0 0 0 2px rgb(36 93 99 / 14%), 0 16px 42px rgb(25 37 24 / 8%);
 }
 
 .board-heading {
@@ -368,6 +388,23 @@ button:disabled {
   color: #7f1d1d;
   padding: 12px 14px;
   font-weight: 700;
+}
+
+.recent-panel {
+  grid-column: 1 / -1;
+}
+
+.recent-match {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #c5ccda;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #1f2a3d;
+  padding: 10px 12px;
+  text-align: left;
 }
 
 @media (max-width: 560px) {

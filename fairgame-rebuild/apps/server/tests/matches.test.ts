@@ -121,6 +121,24 @@ describe("match API", () => {
     expect(response.body.match.id).toBe("match-1");
   });
 
+  it("stores display names for both seats", async () => {
+    const app = appWithDeterministicIds();
+
+    const created = await request(app)
+      .post("/api/matches")
+      .send({ playerName: "Alice" })
+      .expect(201);
+    expect(created.body.match.players.seat1).toEqual({ label: "Player 1", name: "Alice" });
+    expect(created.body.match.players.seat2).toEqual({ label: "Player 2", name: "Player 2" });
+
+    const joined = await request(app)
+      .post("/api/matches/match-1/join")
+      .send({ playerName: "Bob" })
+      .expect(200);
+    expect(joined.body.match.players.seat1).toEqual({ label: "Player 1", name: "Alice" });
+    expect(joined.body.match.players.seat2).toEqual({ label: "Player 2", name: "Bob" });
+  });
+
   it("starts shared clocks only after both seats have joined", async () => {
     let now = 1_000;
     const app = appWithDeterministicIds({

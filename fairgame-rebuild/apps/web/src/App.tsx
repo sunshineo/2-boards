@@ -24,10 +24,22 @@ const gameOptions: readonly { readonly gameType: GameType; readonly label: strin
   { gameType: "chess", label: "Chess" }
 ];
 
+const recentMatchesKey = "fairgame.recentMatches";
+
+type RecentMatch = {
+  readonly id: string;
+  readonly gameLabel: string;
+  readonly result: string;
+};
+
 export function App() {
   const [session, setSession] = useState<SeatSession | null>(null);
   const [selectedGame, setSelectedGame] = useState<GameType>("tictactoe");
+  const [playerName, setPlayerName] = useState("Player 1");
+  const [joinName, setJoinName] = useState("Player 2");
   const [joinCode, setJoinCode] = useState("");
+  const [recentMatches, setRecentMatches] = useState<RecentMatch[]>(() => loadRecentMatches());
+  const [copiedInvite, setCopiedInvite] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
@@ -73,6 +85,16 @@ export function App() {
     };
   }, [session?.match.id]);
 
+  useEffect(() => {
+    if (!session) return;
+    saveRecentMatch(session.match);
+    setRecentMatches(loadRecentMatches());
+  }, [session]);
+
+  useEffect(() => {
+    setCopiedInvite(false);
+  }, [session?.match.id]);
+
   async function run(action: () => Promise<void>) {
     setIsBusy(true);
     setError(null);
@@ -94,7 +116,7 @@ export function App() {
 
   async function handleCreate() {
     await run(async () => {
-      const nextSession = await createMatch(selectedGame);
+      const nextSession = await createMatch(selectedGame, playerName);
       setSession(nextSession);
       setMatchUrl(nextSession.match.id);
     });
@@ -106,7 +128,15 @@ export function App() {
     if (!matchId) return;
 
     await run(async () => {
-      const nextSession = await joinMatch(matchId);
+      const nextSession = await joinMatch(matchId, joinName);
+      setSession(nextSession);
+      setMatchUrl(nextSession.match.id);
+    });
+  }
+
+  async function handleOpenRecent(matchId: string) {
+    await run(async () => {
+      const nextSession = await restoreSession(matchId);
       setSession(nextSession);
       setMatchUrl(nextSession.match.id);
     });
@@ -135,6 +165,27 @@ export function App() {
     });
   }
 
+  async function handleCopyInvite() {
+    if (!session) return;
+    const inviteUrl = getInviteUrl(session.match.id);
+    const copied = await copyTextToClipboard(inviteUrl);
+    if (copied) {
+      setCopiedInvite(true);
+      return;
+    }
+    setError("Unable to copy invite link.");
+  }
+
+  async function handleRematch() {
+    if (!session) return;
+    await run(async () => {
+      const nextSession = await createMatch(session.match.gameType, session.match.players.seat1.name);
+      setSession(nextSession);
+      setMatchUrl(nextSession.match.id);
+      setCopiedInvite(false);
+    });
+  }
+
   const selectedGameLabel = getGameLabel(selectedGame);
 
   return (
@@ -156,6 +207,9 @@ export function App() {
           match={session.match}
           seat={session.seat}
           onMove={handleMove}
+          onCopyInvite={handleCopyInvite}
+          onRematch={handleRematch}
+          copiedInvite={copiedInvite}
           isBusy={isBusy}
         />
       ) : (
@@ -175,6 +229,12 @@ export function App() {
                 </label>
               ))}
             </fieldset>
+            <label htmlFor="player-name">Your name</label>
+            <input
+              id="player-name"
+              value={playerName}
+              onChange={(event) => setPlayerName(event.target.value)}
+            />
             <p>Start a new fair two-board {selectedGameLabel} match as Player 1.</p>
             <button className="primary-button" onClick={handleCreate} disabled={isBusy}>
               Create {selectedGameLabel} match
@@ -189,10 +249,31 @@ export function App() {
               onChange={(event) => setJoinCode(event.target.value)}
               placeholder="match id"
             />
+            <label htmlFor="join-name">Join as</label>
+            <input id="join-name" value={joinName} onChange={(event) => setJoinName(event.target.value)} />
             <button className="primary-button" disabled={isBusy || !joinCode.trim()}>
               Join match
             </button>
           </form>
+          {recentMatches.length > 0 ? (
+            <section className="panel recent-panel" aria-label="Recent matches">
+              <h2>Recent matches</h2>
+              {recentMatches.map((match) => (
+                <button
+                  aria-label={`Open ${match.id}`}
+                  className="recent-match"
+                  key={match.id}
+                  onClick={() => void handleOpenRecent(match.id)}
+                  type="button"
+                >
+                  <span>{match.gameLabel}</span>
+                  <strong>{match.id}</strong>
+                  <span>{match.result}</span>
+                  <span className="sr-only">Open {match.id}</span>
+                </button>
+              ))}
+            </section>
+          ) : null}
         </section>
       )}
 
@@ -205,6 +286,9 @@ function MatchRoom(props: {
   match: MatchView;
   seat: SeatId | null;
   onMove: (boardId: BoardId, move: MovePayload) => void;
+  onCopyInvite: () => void;
+  onRematch: () => void;
+  copiedInvite: boolean;
   isBusy: boolean;
 }) {
   return (
@@ -216,7 +300,7 @@ function MatchRoom(props: {
         </div>
         <div>
           <span className="meta-label">Your seat</span>
-          <strong>{props.seat ? formatSeat(props.seat) : "Spectator"}</strong>
+          <strong>{props.seat ? formatPlayer(props.match, props.seat) : "Spectator"}</strong>
         </div>
         <div>
           <span className="meta-label">Invite URL</span>
@@ -230,6 +314,17 @@ function MatchRoom(props: {
           <span className="meta-label">Result</span>
           <strong>{formatMatchOutcome(props.match)}</strong>
         </div>
+      </div>
+
+      <div className="match-actions">
+        <button className="secondary-button" onClick={props.onCopyInvite} type="button">
+          {props.copiedInvite ? "Copied" : "Copy invite"}
+        </button>
+        {props.match.outcome.status !== "in_progress" ? (
+          <button className="primary-button" onClick={props.onRematch} type="button">
+            Rematch
+          </button>
+        ) : null}
       </div>
 
       <ClockStrip clock={props.match.clock} />
@@ -342,10 +437,10 @@ function ChessBoard(props: {
   }
 
   return (
-    <section className="board-panel" aria-label={`Board ${props.board.id}`}>
+    <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
       <div className="board-heading">
         <h2>Board {props.board.id}</h2>
-        <p>{formatBoardStatus(props.board)}</p>
+        <p>{canAct ? "Your move" : formatBoardStatus(props.board)}</p>
       </div>
       <div className="chess-layout">
         <div className="chess-grid">
@@ -392,10 +487,10 @@ function TicTacToeBoard(props: {
     props.board.seatsToAct.includes(props.currentSeat);
 
   return (
-    <section className="board-panel" aria-label={`Board ${props.board.id}`}>
+    <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
       <div className="board-heading">
         <h2>Board {props.board.id}</h2>
-        <p>{formatBoardStatus(props.board)}</p>
+        <p>{canAct ? "Your move" : formatBoardStatus(props.board)}</p>
       </div>
       <div className="tic-tac-toe-grid">
         {props.board.cells.map((cell, index) => (
@@ -428,10 +523,10 @@ function ConnectFourBoard(props: {
   const rows = Array.from({ length: props.board.rows }, (_, row) => row);
 
   return (
-    <section className="board-panel" aria-label={`Board ${props.board.id}`}>
+    <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
       <div className="board-heading">
         <h2>Board {props.board.id}</h2>
-        <p>{formatBoardStatus(props.board)}</p>
+        <p>{canAct ? "Your move" : formatBoardStatus(props.board)}</p>
       </div>
       <div className="connect-four-grid">
         {columns.map((column) => (
@@ -468,6 +563,11 @@ function getGameLabel(gameType: GameType) {
 
 function formatSeat(seat: SeatId) {
   return seat === "seat1" ? "Player 1" : "Player 2";
+}
+
+function formatPlayer(match: MatchView, seat: SeatId) {
+  const player = match.players[seat];
+  return player.name === player.label ? player.label : `${player.name} (${player.label})`;
 }
 
 function formatMark(seat: SeatId) {
@@ -556,4 +656,45 @@ function getInviteUrl(matchId: string) {
   const url = new URL(window.location.href);
   url.searchParams.set("match", matchId);
   return url.toString();
+}
+
+function loadRecentMatches(): RecentMatch[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(recentMatchesKey) ?? "[]") as RecentMatch[];
+    return Array.isArray(parsed) ? parsed.slice(0, 5) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentMatch(match: MatchView) {
+  const next = [
+    { id: match.id, gameLabel: match.gameLabel, result: formatMatchOutcome(match) },
+    ...loadRecentMatches().filter((candidate) => candidate.id !== match.id)
+  ].slice(0, 5);
+  localStorage.setItem(recentMatchesKey, JSON.stringify(next));
+}
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  if (navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to the selection fallback for non-secure dev URLs.
+    }
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.opacity = "0";
+  document.body.append(textArea);
+  textArea.select();
+  try {
+    return document.execCommand("copy");
+  } finally {
+    textArea.remove();
+  }
 }

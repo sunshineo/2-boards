@@ -25,6 +25,7 @@ type StoredMatch = {
   match: SupportedFairMatch;
   joinedSeats: Set<SeatId>;
   seatClaims: Map<SeatId, string>;
+  playerNames: Map<SeatId, string>;
   clock: MatchClock | null;
 };
 
@@ -89,7 +90,7 @@ export class MatchService {
     }
   }
 
-  async createMatch(gameType: SupportedGameType): Promise<CreateMatchResult> {
+  async createMatch(gameType: SupportedGameType, playerName?: string): Promise<CreateMatchResult> {
     const game = getGameDefinition(gameType);
     if (!game) {
       throw new Error(`Unsupported game type: ${gameType}`);
@@ -102,6 +103,10 @@ export class MatchService {
       match,
       joinedSeats: new Set(["seat1"]),
       seatClaims,
+      playerNames: new Map([
+        ["seat1", sanitizePlayerName(playerName, "Player 1")],
+        ["seat2", "Player 2"]
+      ]),
       clock: this.clockConfig ? createMatchClock(this.clockConfig, this.nowMs()) : null
     };
     this.matches.set(match.id, storedMatch);
@@ -119,7 +124,8 @@ export class MatchService {
   }
 
   async joinMatch(
-    id: string
+    id: string,
+    playerName?: string
   ): Promise<CreateMatchResult | null | { readonly error: "seat-unavailable"; readonly match: MatchView }> {
     const stored = this.matches.get(id);
     if (!stored) return null;
@@ -132,6 +138,7 @@ export class MatchService {
     }
 
     stored.joinedSeats.add("seat2");
+    stored.playerNames.set("seat2", sanitizePlayerName(playerName, "Player 2"));
     stored.clock = stored.clock
       ? setClockRunningSeats(stored.clock, getActiveSeats(stored.match), this.nowMs())
       : null;
@@ -271,7 +278,7 @@ export class MatchService {
   }
 
   private createMatchView(stored: StoredMatch, nowMs = this.nowMs()): MatchView {
-    return toMatchView(stored.match, stored.clock ? toClockView(stored.clock, nowMs) : null);
+    return toMatchView(stored.match, stored.clock ? toClockView(stored.clock, nowMs) : null, stored.playerNames);
   }
 
   private async applyClockTimeoutIfNeeded(stored: StoredMatch, nowMs: number): Promise<boolean> {
@@ -304,6 +311,7 @@ function serializeStoredMatch(stored: StoredMatch): SerializedStoredMatch<Suppor
     match: stored.match,
     joinedSeats: [...stored.joinedSeats],
     seatClaims: [...stored.seatClaims.entries()],
+    playerNames: [...stored.playerNames.entries()],
     clock: stored.clock
   };
 }
@@ -313,6 +321,15 @@ function deserializeStoredMatch(snapshot: SerializedStoredMatch<SupportedGameSta
     match: snapshot.match,
     joinedSeats: new Set(snapshot.joinedSeats),
     seatClaims: new Map(snapshot.seatClaims),
+    playerNames: new Map(snapshot.playerNames ?? [
+      ["seat1", "Player 1"],
+      ["seat2", "Player 2"]
+    ]),
     clock: snapshot.clock ?? null
   };
+}
+
+function sanitizePlayerName(value: string | undefined, fallback: string): string {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.slice(0, 40) : fallback;
 }

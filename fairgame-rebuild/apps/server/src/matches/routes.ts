@@ -7,6 +7,11 @@ import type { MatchService, SeatClaim } from "./matchService";
 
 type CreateBody = {
   readonly gameType?: unknown;
+  readonly playerName?: unknown;
+};
+
+type JoinBody = {
+  readonly playerName?: unknown;
 };
 
 type MoveBody = {
@@ -26,13 +31,17 @@ export function createMatchRouter(matchService: MatchService) {
       return;
     }
 
-    const result = await matchService.createMatch(gameType);
+    const result = await matchService.createMatch(gameType, typeof body.playerName === "string" ? body.playerName : undefined);
     setSeatClaimCookie(response, result.claim);
     response.status(201).json({ seat: result.seat, match: result.match });
   });
 
   router.post("/:id/join", async (request, response) => {
-    const result = await matchService.joinMatch(request.params["id"] ?? "");
+    const body = request.body as JoinBody;
+    const result = await matchService.joinMatch(
+      request.params["id"] ?? "",
+      typeof body.playerName === "string" ? body.playerName : undefined
+    );
 
     if (!result) {
       response.status(404).json({ error: "match-not-found" });

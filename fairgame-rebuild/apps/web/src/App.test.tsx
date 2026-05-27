@@ -6,6 +6,7 @@ import { App } from "./App";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  localStorage.clear();
   window.history.replaceState(null, "", "/");
 });
 
@@ -17,6 +18,8 @@ describe("App", () => {
     expect(screen.getByRole("radio", { name: "TicTacToe" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Connect Four" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Chess" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Your name")).toHaveValue("Player 1");
+    expect(screen.getByLabelText("Join as")).toHaveValue("Player 2");
     expect(screen.getByRole("button", { name: "Create TicTacToe match" })).toBeInTheDocument();
     expect(screen.getByLabelText("Match code")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Join match" })).toBeDisabled();
@@ -32,6 +35,7 @@ describe("App", () => {
           gameType: "tictactoe",
           gameLabel: "TicTacToe",
           seats: ["seat1", "seat2"],
+          players: createPlayersMock(),
           outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
           clock: createClockMock(),
           boards: [
@@ -66,6 +70,8 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Board A cell 1" })).toBeEnabled();
     expect(screen.getByLabelText("Player 1 clock")).toHaveTextContent("5:00");
     expect(screen.getByLabelText("Player 2 clock")).toHaveTextContent("5:00");
+    expect(screen.getByRole("button", { name: "Copy invite" })).toBeInTheDocument();
+    expect(screen.getByText("Your move")).toBeInTheDocument();
 
   });
 
@@ -79,6 +85,7 @@ describe("App", () => {
           gameType: "connect4",
           gameLabel: "Connect Four",
           seats: ["seat1", "seat2"],
+          players: createPlayersMock(),
           outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
           clock: createClockMock(),
           boards: [
@@ -118,7 +125,7 @@ describe("App", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        body: JSON.stringify({ gameType: "connect4" })
+        body: JSON.stringify({ gameType: "connect4", playerName: "Player 1" })
       })
     );
     expect(screen.getByRole("button", { name: "Board A column 1" })).toBeEnabled();
@@ -135,6 +142,7 @@ describe("App", () => {
           gameType: "chess",
           gameLabel: "Chess",
           seats: ["seat1", "seat2"],
+          players: createPlayersMock(),
           outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
           clock: createClockMock(),
           boards: [
@@ -177,7 +185,79 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Board B square e2 white pawn" })).toBeDisabled();
     expect(screen.getAllByText("No moves")).toHaveLength(2);
   });
+
+  it("renders recent match history from local storage", () => {
+    localStorage.setItem(
+      "fairgame.recentMatches",
+      JSON.stringify([{ id: "match-old", gameLabel: "Chess", result: "In progress" }])
+    );
+
+    render(<App />);
+
+    expect(screen.getByText("Recent matches")).toBeInTheDocument();
+    expect(screen.getByLabelText("Recent matches")).toHaveTextContent("Chess");
+    expect(screen.getByRole("button", { name: "Open match-old" })).toBeInTheDocument();
+  });
+
+  it("copies the invite link and shows rematch for completed matches", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        seat: "seat1",
+        match: {
+          id: "match-done",
+          gameType: "tictactoe",
+          gameLabel: "TicTacToe",
+          seats: ["seat1", "seat2"],
+          players: createPlayersMock(),
+          outcome: { status: "completed", score: { seat1: 1, seat2: 1 }, winner: null },
+          clock: createClockMock(),
+          boards: [
+            {
+              kind: "tictactoe",
+              id: "A",
+              firstSeat: "seat1",
+              cells: Array(9).fill(null),
+              seatsToAct: [],
+              outcome: { status: "draw", reason: "board-full" }
+            },
+            {
+              kind: "tictactoe",
+              id: "B",
+              firstSeat: "seat2",
+              cells: Array(9).fill(null),
+              seatsToAct: [],
+              outcome: { status: "draw", reason: "board-full" }
+            }
+          ]
+        }
+      })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    screen.getByRole("button", { name: "Create TicTacToe match" }).click();
+
+    await screen.findByText("match-done");
+    screen.getByRole("button", { name: "Copy invite" }).click();
+
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("match-done"));
+    expect(screen.getByRole("button", { name: "Rematch" })).toBeInTheDocument();
+  });
 });
+
+function createPlayersMock() {
+  return {
+    seat1: { label: "Player 1", name: "Player 1" },
+    seat2: { label: "Player 2", name: "Player 2" }
+  };
+}
 
 function createClockMock() {
   return {

@@ -93,6 +93,7 @@ export type MatchView = {
   gameType: GameType;
   gameLabel: string;
   seats: SeatId[];
+  players: Record<SeatId, { label: string; name: string }>;
   outcome: MatchOutcome;
   clock: MatchClockView | null;
   boards: MatchBoardView[];
