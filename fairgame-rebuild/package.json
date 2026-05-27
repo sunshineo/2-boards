@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "dev": "concurrently -n server,web -c blue,green \"npm run dev -w @fairgame/server\" \"npm run dev -w @fairgame/web\"",
+    "dev:e2e": "concurrently -k -s first -n server,web -c blue,green \"npm run dev -w @fairgame/server\" \"npm run dev -w @fairgame/web -- --host 0.0.0.0 --port 5173\"",
     "dev:server": "npm run dev -w @fairgame/server --",
     "dev:web": "npm run dev -w @fairgame/web --",
     "build": "npm run build --workspaces --if-present",

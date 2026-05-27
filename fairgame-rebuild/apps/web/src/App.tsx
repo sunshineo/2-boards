@@ -1,27 +1,225 @@
-import { createBootstrapBoardAssignments } from "@fairgame/domain";
-import { projectName } from "@fairgame/shared";
+import { type FormEvent, useState } from "react";
 
-const assignments = createBootstrapBoardAssignments();
+import { ApiError, createMatch, getMatch, joinMatch, makeMove } from "./api";
+import type { BoardId, MatchView, SeatId, SeatSession, TicTacToeBoardView } from "./types";
 
 export function App() {
+  const [session, setSession] = useState<SeatSession | null>(null);
+  const [joinCode, setJoinCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isBusy, setIsBusy] = useState(false);
+
+  async function run(action: () => Promise<void>) {
+    setIsBusy(true);
+    setError(null);
+    try {
+      await action();
+    } catch (caught) {
+      if (caught instanceof ApiError) {
+        if (caught.match && session) {
+          setSession({ ...session, match: caught.match });
+        }
+        setError(formatError(caught.message));
+      } else {
+        setError("Something went wrong.");
+      }
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleCreate() {
+    await run(async () => {
+      setSession(await createMatch());
+    });
+  }
+
+  async function handleJoin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const matchId = joinCode.trim();
+    if (!matchId) return;
+
+    await run(async () => {
+      setSession(await joinMatch(matchId));
+    });
+  }
+
+  async function handleRefresh() {
+    if (!session) return;
+    await run(async () => {
+      setSession({ ...session, match: await getMatch(session.match.id) });
+    });
+  }
+
+  async function handleMove(boardId: BoardId, cell: number) {
+    if (!session) return;
+    await run(async () => {
+      setSession({
+        ...session,
+        match: await makeMove({
+          matchId: session.match.id,
+          boardId,
+          seat: session.seat,
+          cell
+        })
+      });
+    });
+  }
+
   return (
     <main className="app-shell">
-      <section className="status-panel" aria-labelledby="app-title">
-        <p className="eyebrow">Checkpoint 0</p>
-        <h1 id="app-title">{projectName} Rebuild</h1>
-        <p className="summary">
-          Clean workspace, tracked roadmap, and browser-based testing are ready for
-          the fair two-board game implementation.
-        </p>
-        <div className="assignment-grid" aria-label="Bootstrap board assignments">
-          {assignments.map((assignment) => (
-            <div className="assignment" key={assignment.boardId}>
-              <span className="board-label">Board {assignment.boardId}</span>
-              <span className="seat-label">{assignment.firstSeat} starts</span>
-            </div>
-          ))}
+      <header className="top-bar">
+        <div>
+          <p className="eyebrow">FairGame</p>
+          <h1>Two-board TicTacToe</h1>
         </div>
-      </section>
+        {session ? (
+          <button className="secondary-button" onClick={handleRefresh} disabled={isBusy}>
+            Refresh
+          </button>
+        ) : null}
+      </header>
+
+      {session ? (
+        <MatchRoom
+          match={session.match}
+          seat={session.seat}
+          onMove={handleMove}
+          isBusy={isBusy}
+        />
+      ) : (
+        <section className="setup-grid" aria-label="Match setup">
+          <div className="panel">
+            <h2>Create</h2>
+            <p>Start a new fair two-board TicTacToe match as Player 1.</p>
+            <button className="primary-button" onClick={handleCreate} disabled={isBusy}>
+              Create TicTacToe match
+            </button>
+          </div>
+          <form className="panel" onSubmit={handleJoin}>
+            <h2>Join</h2>
+            <label htmlFor="join-code">Match code</label>
+            <input
+              id="join-code"
+              value={joinCode}
+              onChange={(event) => setJoinCode(event.target.value)}
+              placeholder="match id"
+            />
+            <button className="primary-button" disabled={isBusy || !joinCode.trim()}>
+              Join match
+            </button>
+          </form>
+        </section>
+      )}
+
+      {error ? <p className="error-banner">{error}</p> : null}
     </main>
   );
+}
+
+function MatchRoom(props: {
+  match: MatchView;
+  seat: SeatId;
+  onMove: (boardId: BoardId, cell: number) => void;
+  isBusy: boolean;
+}) {
+  return (
+    <section className="match-room" aria-label="TicTacToe match">
+      <div className="match-summary">
+        <div>
+          <span className="meta-label">Match code</span>
+          <strong data-testid="match-code">{props.match.id}</strong>
+        </div>
+        <div>
+          <span className="meta-label">Your seat</span>
+          <strong>{formatSeat(props.seat)}</strong>
+        </div>
+        <div>
+          <span className="meta-label">Score</span>
+          <strong>{formatScore(props.match)}</strong>
+        </div>
+        <div>
+          <span className="meta-label">Result</span>
+          <strong>{formatMatchOutcome(props.match)}</strong>
+        </div>
+      </div>
+
+      <div className="boards-grid">
+        {props.match.boards.map((board) => (
+          <TicTacToeBoard
+            board={board}
+            currentSeat={props.seat}
+            isBusy={props.isBusy}
+            key={board.id}
+            onMove={(cell) => props.onMove(board.id, cell)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TicTacToeBoard(props: {
+  board: TicTacToeBoardView;
+  currentSeat: SeatId;
+  isBusy: boolean;
+  onMove: (cell: number) => void;
+}) {
+  const canAct =
+    props.board.outcome.status === "in_progress" &&
+    props.board.seatsToAct.includes(props.currentSeat);
+
+  return (
+    <section className="board-panel" aria-label={`Board ${props.board.id}`}>
+      <div className="board-heading">
+        <h2>Board {props.board.id}</h2>
+        <p>{formatBoardStatus(props.board)}</p>
+      </div>
+      <div className="tic-tac-toe-grid">
+        {props.board.cells.map((cell, index) => (
+          <button
+            aria-label={`Board ${props.board.id} cell ${index + 1}`}
+            className="cell-button"
+            disabled={props.isBusy || !canAct || cell !== null}
+            key={index}
+            onClick={() => props.onMove(index)}
+          >
+            {cell ? formatMark(cell) : ""}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function formatSeat(seat: SeatId) {
+  return seat === "seat1" ? "Player 1" : "Player 2";
+}
+
+function formatMark(seat: SeatId) {
+  return seat === "seat1" ? "X" : "O";
+}
+
+function formatBoardStatus(board: TicTacToeBoardView) {
+  if (board.outcome.status === "win") return `${formatSeat(board.outcome.winner)} won`;
+  if (board.outcome.status === "draw") return "Draw";
+  if (board.outcome.status === "canceled") return "Canceled";
+  if (board.seatsToAct.length === 0) return "Waiting";
+  return `${formatSeat(board.seatsToAct[0] ?? "seat1")} to move`;
+}
+
+function formatScore(match: MatchView) {
+  if (match.outcome.status === "canceled") return "Canceled";
+  return `${match.outcome.score.seat1} - ${match.outcome.score.seat2}`;
+}
+
+function formatMatchOutcome(match: MatchView) {
+  if (match.outcome.status === "canceled") return "Canceled";
+  if (match.outcome.status === "in_progress") return "In progress";
+  if (match.outcome.winner === null) return "Draw match";
+  return `${formatSeat(match.outcome.winner)} wins`;
+}
+
+function formatError(error: string) {
+  return error.replaceAll("-", " ");
 }

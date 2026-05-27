@@ -162,18 +162,20 @@ Checkpoint 1 implementation commit: `534a28b`.
 
 ### 2. TicTacToe Playable Slice
 
-- [ ] Implement TicTacToe through the generic game-rules interface.
-  Evidence: Not started.
-- [ ] Build create/join/play flow for a two-player TicTacToe match.
-  Evidence: Not started.
-- [ ] Show two boards, board-level turn state, board results, and match result.
-  Evidence: Not started.
-- [ ] Verify that two players can finish both boards and receive the correct combined result.
-  Evidence: Not started.
-- [ ] Add Playwright coverage for the basic TicTacToe create, join, play, and finish flow.
-  Evidence: Not started.
+- [x] Implement TicTacToe through the generic game-rules interface.
+  Evidence: Added `packages/domain/src/games/tictactoe.ts` and tests; `ticTacToeRules` owns cells, turns, occupied-cell validation, win detection, and draw detection.
+- [x] Build create/join/play flow for a two-player TicTacToe match.
+  Evidence: Added in-memory server match service and REST API under `/api/matches`; added React create/join/play flow in `apps/web/src/App.tsx`.
+- [x] Show two boards, board-level turn state, board results, and match result.
+  Evidence: Web UI shows board A/B, per-board to-move/result labels, current seat, score, and match outcome.
+- [x] Verify that two players can finish both boards and receive the correct combined result.
+  Evidence: Playwright two-context flow completed board A and board B with final `1 - 1` draw match; server API tests verify final combined score.
+- [x] Add Playwright coverage for the basic TicTacToe create, join, play, and finish flow.
+  Evidence: Replaced bootstrap E2E with `tests/e2e/tictactoe.spec.ts`; full verification passed with `npm run typecheck && npm test && npm run build && npm run test:e2e`. Built-in browser verification loaded `http://192.168.4.149:5173/`, created a match, confirmed board A/B visibility, Player 1 seat, board A cell enabled, and board B cell disabled.
 
 Checkpoint: the product is playable end-to-end with the simplest supported game.
+
+Checkpoint 2 commit: pending.
 
 ### 3. Real-Time Room Flow
 
