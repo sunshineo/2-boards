@@ -17,6 +17,19 @@ export type MatchOutcome =
   | { status: "completed"; score: MatchScore; winner: SeatId | null }
   | { status: "canceled"; reason: string };
 
+export type MatchClockView = {
+  config: {
+    initialMs: number;
+    incrementMs: number;
+  };
+  seats: Record<SeatId, { remainingMs: number; isRunning: boolean }>;
+  runningSeats: SeatId[];
+  updatedAtMs: number;
+  serverNowMs: number;
+  status: "active" | "expired";
+  expiredSeats: SeatId[];
+};
+
 type BaseBoardView = {
   id: BoardId;
   firstSeat: SeatId;
@@ -47,6 +60,7 @@ export type MatchView = {
   gameLabel: string;
   seats: SeatId[];
   outcome: MatchOutcome;
+  clock: MatchClockView | null;
   boards: MatchBoardView[];
 };
 

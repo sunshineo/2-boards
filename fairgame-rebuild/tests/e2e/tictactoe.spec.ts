@@ -12,20 +12,20 @@ test("two players can finish both TicTacToe boards", async ({ browser }) => {
   await playerOne.getByRole("button", { name: "Create TicTacToe match" }).click();
   const matchCode = await playerOne.getByTestId("match-code").textContent();
   expect(matchCode).toBeTruthy();
-  await expect(playerOne.getByText("Player 1", { exact: true })).toBeVisible();
+  await expect(playerOne.locator(".match-summary").getByText("Player 1", { exact: true })).toBeVisible();
 
   await playerOne.reload();
-  await expect(playerOne.getByText("Player 1", { exact: true })).toBeVisible();
+  await expect(playerOne.locator(".match-summary").getByText("Player 1", { exact: true })).toBeVisible();
   await expect(playerOne.getByRole("region", { name: "Board A" })).toBeVisible();
 
   await playerTwo.goto("/");
   await playerTwo.getByLabel("Match code").fill(matchCode ?? "");
   await playerTwo.getByRole("button", { name: "Join match" }).click();
   await expect(playerTwo.getByTestId("match-code")).toHaveText(matchCode ?? "");
-  await expect(playerTwo.getByText("Player 2", { exact: true })).toBeVisible();
+  await expect(playerTwo.locator(".match-summary").getByText("Player 2", { exact: true })).toBeVisible();
 
   await playerTwo.reload();
-  await expect(playerTwo.getByText("Player 2", { exact: true })).toBeVisible();
+  await expect(playerTwo.locator(".match-summary").getByText("Player 2", { exact: true })).toBeVisible();
 
   await spectator.goto(`/?match=${matchCode ?? ""}`);
   await expect(spectator.getByText("Spectator")).toBeVisible();

@@ -32,6 +32,7 @@ describe("App", () => {
           gameLabel: "TicTacToe",
           seats: ["seat1", "seat2"],
           outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
+          clock: createClockMock(),
           boards: [
             {
               kind: "tictactoe",
@@ -62,6 +63,8 @@ describe("App", () => {
     expect(screen.getByRole("region", { name: "Board A" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Board B" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Board A cell 1" })).toBeEnabled();
+    expect(screen.getByLabelText("Player 1 clock")).toHaveTextContent("5:00");
+    expect(screen.getByLabelText("Player 2 clock")).toHaveTextContent("5:00");
 
   });
 
@@ -76,6 +79,7 @@ describe("App", () => {
           gameLabel: "Connect Four",
           seats: ["seat1", "seat2"],
           outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
+          clock: createClockMock(),
           boards: [
             {
               kind: "connect4",
@@ -120,3 +124,18 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Board B column 1" })).toBeDisabled();
   });
 });
+
+function createClockMock() {
+  return {
+    config: { initialMs: 300_000, incrementMs: 2_000 },
+    seats: {
+      seat1: { remainingMs: 300_000, isRunning: false },
+      seat2: { remainingMs: 300_000, isRunning: false }
+    },
+    runningSeats: [],
+    updatedAtMs: 0,
+    serverNowMs: 0,
+    status: "active",
+    expiredSeats: []
+  };
+}

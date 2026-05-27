@@ -12,9 +12,9 @@ export function registerRealtime(io: Server, matchService: MatchService) {
   });
 
   io.on("connection", (socket) => {
-    socket.on("watch-match", (payload: WatchMatchPayload) => {
+    socket.on("watch-match", async (payload: WatchMatchPayload) => {
       if (!payload.matchId) return;
-      const match = matchService.getMatch(payload.matchId);
+      const match = await matchService.getMatch(payload.matchId);
       if (!match) return;
 
       socket.join(getMatchRoom(match.id));

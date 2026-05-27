@@ -7,6 +7,7 @@ import type {
   ConnectFourBoardView,
   GameType,
   MatchBoardView,
+  MatchClockView,
   MatchView,
   MovePayload,
   SeatId,
@@ -227,6 +228,8 @@ function MatchRoom(props: {
         </div>
       </div>
 
+      <ClockStrip clock={props.match.clock} />
+
       <div className="boards-grid">
         {props.match.boards.map((board) => (
           <BoardRenderer
@@ -238,6 +241,29 @@ function MatchRoom(props: {
           />
         ))}
       </div>
+    </section>
+  );
+}
+
+function ClockStrip(props: { clock: MatchClockView | null }) {
+  if (!props.clock) return null;
+
+  return (
+    <section className="clock-strip" aria-label="Player clocks">
+      {(["seat1", "seat2"] as const).map((seat) => {
+        const seatClock = props.clock?.seats[seat];
+        return (
+          <div
+            aria-label={`${formatSeat(seat)} clock`}
+            className={`clock-card${seatClock?.isRunning ? " running" : ""}`}
+            key={seat}
+          >
+            <span className="meta-label">{formatSeat(seat)}</span>
+            <strong>{formatClockMs(seatClock?.remainingMs ?? 0)}</strong>
+            <span>{seatClock?.isRunning ? "Running" : "Paused"}</span>
+          </div>
+        );
+      })}
     </section>
   );
 }
@@ -361,6 +387,13 @@ function formatSeat(seat: SeatId) {
 
 function formatMark(seat: SeatId) {
   return seat === "seat1" ? "X" : "O";
+}
+
+function formatClockMs(ms: number) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1_000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
 function formatBoardStatus(board: MatchBoardView) {

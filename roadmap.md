@@ -228,14 +228,14 @@ Checkpoint 5 implementation commit: `abbd04c`.
 
 ### 6. Clock System
 
-- [ ] Add shared player clocks.
-  Evidence: Not started.
-- [ ] Make a player's clock run when that player is to-move on at least one unfinished board.
-  Evidence: Not started.
-- [ ] Add increments and timeout handling.
-  Evidence: Not started.
-- [ ] Test clock behavior when a player is to-move on zero, one, or two boards.
-  Evidence: Not started.
+- [x] Add shared player clocks.
+  Evidence: Added pure domain clock types/functions in `packages/domain/src/clocks.ts`, persisted clock snapshots, and projected `match.clock` through the server and web UI.
+- [x] Make a player's clock run when that player is to-move on at least one unfinished board.
+  Evidence: `MatchService` starts clocks only after both seats join, uses the game registry to compute active seats from unfinished boards, and supports both seats running at once.
+- [x] Add increments and timeout handling.
+  Evidence: Accepted moves charge elapsed time, add increment to the mover, recompute running seats, and resolve unfinished boards by `timeout` or `mutual-timeout` when clocks expire.
+- [x] Test clock behavior when a player is to-move on zero, one, or two boards.
+  Evidence: Added `packages/domain/src/clocks.test.ts` and server tests with injected time for no-running, one-running, two-running, post-move increment, and timeout behavior. Full verification passed with `npm install` and `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-27. Built-in browser verification loaded `http://192.168.4.149:5173/`, created a TicTacToe match, confirmed both player clocks showed `5:00` paused before Player 2 joined, and confirmed Board A was playable for Player 1.
 
 Checkpoint: timed matches work without breaking independent board turns.
 

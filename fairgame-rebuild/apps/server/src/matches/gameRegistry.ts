@@ -47,6 +47,7 @@ type SupportedGameDefinition<TState, TMove> = {
   readonly label: string;
   createMatch(id: string): FairMatch<TState>;
   parseMove(move: unknown): TMove | null;
+  getSeatsToAct(state: TState): readonly SeatId[];
   applyMove(match: FairMatch<TState>, command: ApplyMoveCommand<TMove>): ApplyMoveResult<TState>;
   toBoardView(board: FairBoard<TState>): MatchBoardView;
 };
@@ -56,6 +57,7 @@ type AnySupportedGameDefinition = {
   readonly label: string;
   createMatch(id: string): SupportedFairMatch;
   parseMove(move: unknown): SupportedGameMove | null;
+  getSeatsToAct(state: SupportedGameState): readonly SeatId[];
   applyMove(match: SupportedFairMatch, command: ApplyMoveCommand<SupportedGameMove>): ApplyMoveResult<SupportedGameState>;
   toBoardView(board: FairBoard<SupportedGameState>): MatchBoardView;
 };
@@ -71,6 +73,10 @@ const ticTacToeDefinition: SupportedGameDefinition<TicTacToeState, TicTacToeMove
   parseMove(move) {
     if (!isRecord(move) || typeof move["cell"] !== "number") return null;
     return { cell: move["cell"] };
+  },
+
+  getSeatsToAct(state) {
+    return ticTacToeRules.getSeatsToAct(state);
   },
 
   applyMove(match, command) {
@@ -100,6 +106,10 @@ const connectFourDefinition: SupportedGameDefinition<ConnectFourState, ConnectFo
   parseMove(move) {
     if (!isRecord(move) || typeof move["column"] !== "number") return null;
     return { column: move["column"] };
+  },
+
+  getSeatsToAct(state) {
+    return connectFourRules.getSeatsToAct(state);
   },
 
   applyMove(match, command) {
@@ -139,6 +149,40 @@ export function getGameDefinition(gameType: string): AnySupportedGameDefinition 
   return gameType === "tictactoe" || gameType === "connect4" ? supportedGames[gameType] : null;
 }
 
+export function getActiveSeats(match: SupportedFairMatch): SeatId[] {
+  const game = getGameDefinition(match.gameType);
+  if (!game) return [];
+
+  const activeSeats = new Set<SeatId>();
+  for (const board of match.boards) {
+    if (board.outcome.status !== "in_progress") continue;
+    for (const seat of game.getSeatsToAct(board.state)) {
+      activeSeats.add(seat);
+    }
+  }
+
+  return match.seats.filter((seat) => activeSeats.has(seat));
+}
+
+export function applyTimeoutToMatch(match: SupportedFairMatch, expiredSeats: readonly SeatId[]): SupportedFairMatch {
+  if (expiredSeats.length === 0) return match;
+
+  const expiredSeatSet = new Set(expiredSeats);
+  const nextBoards = match.boards.map((board) => {
+    if (board.outcome.status !== "in_progress") return board;
+
+    return {
+      ...board,
+      outcome: getTimeoutBoardOutcome(match.seats, expiredSeatSet)
+    };
+  }) as unknown as SupportedFairMatch["boards"];
+
+  return {
+    ...match,
+    boards: nextBoards
+  };
+}
+
 function getPlayableColumns(state: ConnectFourState): number[] {
   if (state.outcome.status !== "in_progress") return [];
 
@@ -155,10 +199,21 @@ function asAnyDefinition<TState extends SupportedGameState, TMove extends Suppor
     label: definition.label,
     createMatch: (id) => definition.createMatch(id) as SupportedFairMatch,
     parseMove: (move) => definition.parseMove(move),
+    getSeatsToAct: (state) => definition.getSeatsToAct(state as TState),
     applyMove: (match, command) =>
       definition.applyMove(match as FairMatch<TState>, command as ApplyMoveCommand<TMove>) as ApplyMoveResult<SupportedGameState>,
     toBoardView: (board) => definition.toBoardView(board as FairBoard<TState>)
   };
+}
+
+function getTimeoutBoardOutcome(seats: readonly [SeatId, SeatId], expiredSeatSet: ReadonlySet<SeatId>): BoardOutcome {
+  if (expiredSeatSet.has("seat1") && expiredSeatSet.has("seat2")) {
+    return { status: "draw", reason: "mutual-timeout" };
+  }
+
+  const loser = expiredSeatSet.has("seat1") ? seats[0] : seats[1];
+  const winner = loser === seats[0] ? seats[1] : seats[0];
+  return { status: "win", winner, loser, reason: "timeout" };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

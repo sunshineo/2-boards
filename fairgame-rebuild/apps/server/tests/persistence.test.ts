@@ -45,10 +45,10 @@ describe("PGlite match persistence", () => {
     const restoredService = new MatchService({ repository: restoredRepository });
     await restoredService.loadFromRepository();
 
-    const restoredMatch = restoredService.getMatch("match-1");
+    const restoredMatch = await restoredService.getMatch("match-1");
     expect(restoredMatch?.boards[0]?.cells[0]).toBe("seat1");
     expect(restoredMatch?.boards[0]?.seatsToAct).toEqual(["seat2"]);
-    expect(restoredService.restoreSession("match-1", "seat1.secret-1")?.seat).toBe("seat1");
+    expect((await restoredService.restoreSession("match-1", "seat1.secret-1"))?.seat).toBe("seat1");
 
     const continued = await restoredService.applyMove({
       id: "match-1",
@@ -58,7 +58,7 @@ describe("PGlite match persistence", () => {
     });
 
     expect(continued.ok).toBe(true);
-    expect(restoredService.getMatch("match-1")?.boards[0]?.cells[3]).toBe("seat2");
+    expect((await restoredService.getMatch("match-1"))?.boards[0]?.cells[3]).toBe("seat2");
     expect(await restoredRepository.countEvents("match-1")).toBe(4);
     await restoredRepository.close();
   });

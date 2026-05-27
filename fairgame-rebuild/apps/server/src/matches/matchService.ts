@@ -1,7 +1,18 @@
+import {
+  advanceMatchClock,
+  completeClockMove,
+  createMatchClock,
+  setClockRunningSeats,
+  toClockView,
+  type ClockConfig,
+  type MatchClock
+} from "@fairgame/domain";
 import type { BoardId, SeatId } from "@fairgame/shared";
 import { randomUUID } from "node:crypto";
 
 import {
+  applyTimeoutToMatch,
+  getActiveSeats,
   getGameDefinition,
   type SupportedFairMatch,
   type SupportedGameState,
@@ -14,6 +25,7 @@ type StoredMatch = {
   match: SupportedFairMatch;
   joinedSeats: Set<SeatId>;
   seatClaims: Map<SeatId, string>;
+  clock: MatchClock | null;
 };
 
 type CreateMatchResult = {
@@ -37,11 +49,18 @@ type MoveResult =
   | { readonly ok: true; readonly match: MatchView }
   | { readonly ok: false; readonly status: 400 | 404; readonly reason: string; readonly match?: MatchView };
 
+const defaultClockConfig: ClockConfig = {
+  initialMs: 5 * 60 * 1_000,
+  incrementMs: 2_000
+};
+
 export class MatchService {
   private readonly matches = new Map<string, StoredMatch>();
   private readonly createId: () => string;
   private readonly createSecret: () => string;
   private readonly repository: MatchRepository<SupportedGameState> | null;
+  private readonly clockConfig: ClockConfig | null;
+  private readonly nowMs: () => number;
   private readonly listeners = new Set<(match: MatchView) => void>();
 
   constructor(
@@ -49,11 +68,15 @@ export class MatchService {
       readonly createId?: () => string;
       readonly createSecret?: () => string;
       readonly repository?: MatchRepository<SupportedGameState>;
+      readonly clockConfig?: ClockConfig | null;
+      readonly nowMs?: () => number;
     } = {}
   ) {
     this.createId = options.createId ?? randomUUID;
     this.createSecret = options.createSecret ?? randomUUID;
     this.repository = options.repository ?? null;
+    this.clockConfig = options.clockConfig === undefined ? defaultClockConfig : options.clockConfig;
+    this.nowMs = options.nowMs ?? Date.now;
   }
 
   async loadFromRepository(): Promise<void> {
@@ -78,7 +101,8 @@ export class MatchService {
     const storedMatch: StoredMatch = {
       match,
       joinedSeats: new Set(["seat1"]),
-      seatClaims
+      seatClaims,
+      clock: this.clockConfig ? createMatchClock(this.clockConfig, this.nowMs()) : null
     };
     this.matches.set(match.id, storedMatch);
     await this.persistChange(storedMatch, {
@@ -89,7 +113,7 @@ export class MatchService {
 
     return {
       seat: "seat1",
-      match: toMatchView(match),
+      match: this.createMatchView(storedMatch),
       claim
     };
   }
@@ -103,13 +127,16 @@ export class MatchService {
     if (stored.joinedSeats.has("seat2")) {
       return {
         error: "seat-unavailable",
-        match: toMatchView(stored.match)
+        match: this.createMatchView(stored)
       };
     }
 
     stored.joinedSeats.add("seat2");
+    stored.clock = stored.clock
+      ? setClockRunningSeats(stored.clock, getActiveSeats(stored.match), this.nowMs())
+      : null;
     const claim = this.createSeatClaim(id, "seat2", stored.seatClaims);
-    const match = toMatchView(stored.match);
+    const match = this.createMatchView(stored);
     await this.persistChange(stored, {
       matchId: id,
       eventType: "seat.joined",
@@ -124,18 +151,21 @@ export class MatchService {
     };
   }
 
-  getMatch(id: string): MatchView | null {
-    const stored = this.matches.get(id);
-    return stored ? toMatchView(stored.match) : null;
-  }
-
-  restoreSession(id: string, claimValue: string | null): RestoredSession | null {
+  async getMatch(id: string): Promise<MatchView | null> {
     const stored = this.matches.get(id);
     if (!stored) return null;
+    await this.applyClockTimeoutIfNeeded(stored, this.nowMs());
+    return this.createMatchView(stored);
+  }
+
+  async restoreSession(id: string, claimValue: string | null): Promise<RestoredSession | null> {
+    const stored = this.matches.get(id);
+    if (!stored) return null;
+    await this.applyClockTimeoutIfNeeded(stored, this.nowMs());
 
     return {
       seat: this.validateSeatClaim(stored, claimValue),
-      match: toMatchView(stored.match)
+      match: this.createMatchView(stored)
     };
   }
 
@@ -150,14 +180,25 @@ export class MatchService {
       return { ok: false, status: 404, reason: "match-not-found" };
     }
 
+    const nowMs = this.nowMs();
+    if (await this.applyClockTimeoutIfNeeded(stored, nowMs)) {
+      return { ok: false, status: 400, reason: "clock-expired", match: this.createMatchView(stored, nowMs) };
+    }
+
     const game = getGameDefinition(stored.match.gameType);
     if (!game) {
-      return { ok: false, status: 400, reason: "unsupported-game", match: toMatchView(stored.match) };
+      return { ok: false, status: 400, reason: "unsupported-game", match: this.createMatchView(stored, nowMs) };
     }
 
     const move = game.parseMove(input.move);
     if (!move) {
-      return { ok: false, status: 400, reason: "invalid-move", match: toMatchView(stored.match) };
+      return { ok: false, status: 400, reason: "invalid-move", match: this.createMatchView(stored, nowMs) };
+    }
+
+    const advancedClock = stored.clock ? advanceMatchClock(stored.clock, nowMs) : null;
+    if (advancedClock && advancedClock.expiredSeats.length > 0) {
+      await this.expireMatchByClock(stored, advancedClock.clock, advancedClock.expiredSeats);
+      return { ok: false, status: 400, reason: "clock-expired", match: this.createMatchView(stored, nowMs) };
     }
 
     const result = game.applyMove(stored.match, {
@@ -171,12 +212,15 @@ export class MatchService {
         ok: false,
         status: 400,
         reason: result.reason,
-        match: toMatchView(result.match)
+        match: this.createMatchView(stored, nowMs)
       };
     }
 
     stored.match = result.match;
-    const match = toMatchView(stored.match);
+    stored.clock = advancedClock
+      ? completeClockMove(advancedClock.clock, input.seat, getActiveSeats(stored.match), nowMs)
+      : null;
+    const match = this.createMatchView(stored, nowMs);
     await this.persistChange(stored, {
       matchId: input.id,
       eventType: "move.applied",
@@ -225,13 +269,42 @@ export class MatchService {
     await this.repository.appendEvent(event);
     await this.repository.saveSnapshot(serializeStoredMatch(stored));
   }
+
+  private createMatchView(stored: StoredMatch, nowMs = this.nowMs()): MatchView {
+    return toMatchView(stored.match, stored.clock ? toClockView(stored.clock, nowMs) : null);
+  }
+
+  private async applyClockTimeoutIfNeeded(stored: StoredMatch, nowMs: number): Promise<boolean> {
+    if (!stored.clock) return false;
+    const result = advanceMatchClock(stored.clock, nowMs);
+    if (result.expiredSeats.length === 0) return false;
+
+    await this.expireMatchByClock(stored, result.clock, result.expiredSeats);
+    return true;
+  }
+
+  private async expireMatchByClock(
+    stored: StoredMatch,
+    clock: MatchClock,
+    expiredSeats: readonly SeatId[]
+  ): Promise<void> {
+    stored.clock = clock;
+    stored.match = applyTimeoutToMatch(stored.match, expiredSeats);
+    await this.persistChange(stored, {
+      matchId: stored.match.id,
+      eventType: "clock.timeout",
+      payload: { expiredSeats }
+    });
+    this.emitMatchUpdated(this.createMatchView(stored, clock.updatedAtMs));
+  }
 }
 
 function serializeStoredMatch(stored: StoredMatch): SerializedStoredMatch<SupportedGameState> {
   return {
     match: stored.match,
     joinedSeats: [...stored.joinedSeats],
-    seatClaims: [...stored.seatClaims.entries()]
+    seatClaims: [...stored.seatClaims.entries()],
+    clock: stored.clock
   };
 }
 
@@ -239,6 +312,7 @@ function deserializeStoredMatch(snapshot: SerializedStoredMatch<SupportedGameSta
   return {
     match: snapshot.match,
     joinedSeats: new Set(snapshot.joinedSeats),
-    seatClaims: new Map(snapshot.seatClaims)
+    seatClaims: new Map(snapshot.seatClaims),
+    clock: snapshot.clock ?? null
   };
 }

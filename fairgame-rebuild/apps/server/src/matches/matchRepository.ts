@@ -1,15 +1,16 @@
-import type { FairMatch } from "@fairgame/domain";
+import type { FairMatch, MatchClock } from "@fairgame/domain";
 import type { BoardId, SeatId } from "@fairgame/shared";
 
 export type SerializedStoredMatch<TState = unknown> = {
   readonly match: FairMatch<TState>;
   readonly joinedSeats: readonly SeatId[];
   readonly seatClaims: readonly (readonly [SeatId, string])[];
+  readonly clock?: MatchClock | null;
 };
 
 export type MatchEventInput<TPayload = unknown> = {
   readonly matchId: string;
-  readonly eventType: "match.created" | "seat.joined" | "move.applied";
+  readonly eventType: "match.created" | "seat.joined" | "move.applied" | "clock.timeout";
   readonly payload: TPayload;
 };
 

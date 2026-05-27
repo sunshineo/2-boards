@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import { createApp } from "../src/app";
 import { MatchService } from "../src/matches/matchService";
 
-function appWithDeterministicIds() {
+function appWithDeterministicIds(options: Partial<ConstructorParameters<typeof MatchService>[0]> = {}) {
   return createApp({
-    matchService: new MatchService({ createId: () => "match-1" })
+    matchService: new MatchService({ createId: () => "match-1", ...options })
   });
 }
 
@@ -88,6 +88,26 @@ describe("match API", () => {
     expect(response.body.match.id).toBe("match-1");
   });
 
+  it("starts shared clocks only after both seats have joined", async () => {
+    let now = 1_000;
+    const app = appWithDeterministicIds({
+      clockConfig: { initialMs: 1_000, incrementMs: 100 },
+      nowMs: () => now
+    });
+
+    const created = await request(app).post("/api/matches").send({}).expect(201);
+    expect(created.body.match.clock.seats.seat1).toEqual({ remainingMs: 1_000, isRunning: false });
+    expect(created.body.match.clock.seats.seat2).toEqual({ remainingMs: 1_000, isRunning: false });
+
+    const joined = await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+    expect(joined.body.match.clock.runningSeats).toEqual(["seat1", "seat2"]);
+
+    now = 1_250;
+    const response = await request(app).get("/api/matches/match-1").expect(200);
+    expect(response.body.match.clock.seats.seat1).toEqual({ remainingMs: 750, isRunning: true });
+    expect(response.body.match.clock.seats.seat2).toEqual({ remainingMs: 750, isRunning: true });
+  });
+
   it("restores a player seat from the seat cookie", async () => {
     const app = appWithDeterministicIds();
     const agent = request.agent(app);
@@ -131,6 +151,65 @@ describe("match API", () => {
     expect(response.body.match.boards[0].cells[0]).toBe("seat1");
     expect(response.body.match.boards[0].seatsToAct).toEqual(["seat2"]);
     expect(response.body.match.boards[1].cells).toEqual(Array(9).fill(null));
+  });
+
+  it("charges shared clocks, adds increment, and recomputes running seats after a move", async () => {
+    let now = 0;
+    const app = appWithDeterministicIds({
+      clockConfig: { initialMs: 1_000, incrementMs: 100 },
+      nowMs: () => now
+    });
+    await request(app).post("/api/matches").send({}).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    now = 250;
+    const response = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { cell: 0 } })
+      .expect(200);
+
+    expect(response.body.match.clock.seats.seat1).toEqual({ remainingMs: 850, isRunning: false });
+    expect(response.body.match.clock.seats.seat2).toEqual({ remainingMs: 750, isRunning: true });
+    expect(response.body.match.clock.runningSeats).toEqual(["seat2"]);
+  });
+
+  it("resolves unfinished boards when a running clock expires", async () => {
+    let now = 0;
+    const app = appWithDeterministicIds({
+      clockConfig: { initialMs: 1_000, incrementMs: 0 },
+      nowMs: () => now
+    });
+    await request(app).post("/api/matches").send({}).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    now = 100;
+    await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { cell: 0 } })
+      .expect(200);
+
+    now = 1_200;
+    const response = await request(app).get("/api/matches/match-1").expect(200);
+
+    expect(response.body.match.clock.status).toBe("expired");
+    expect(response.body.match.clock.expiredSeats).toEqual(["seat2"]);
+    expect(response.body.match.outcome).toEqual({
+      status: "completed",
+      score: { seat1: 2, seat2: 0 },
+      winner: "seat1"
+    });
+    expect(response.body.match.boards[0].outcome).toMatchObject({
+      status: "win",
+      winner: "seat1",
+      loser: "seat2",
+      reason: "timeout"
+    });
+    expect(response.body.match.boards[1].outcome).toMatchObject({
+      status: "win",
+      winner: "seat1",
+      loser: "seat2",
+      reason: "timeout"
+    });
   });
 
   it("applies a legal Connect Four move through the server command", async () => {

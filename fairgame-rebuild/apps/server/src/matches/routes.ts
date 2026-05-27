@@ -48,9 +48,9 @@ export function createMatchRouter(matchService: MatchService) {
     response.json({ seat: result.seat, match: result.match });
   });
 
-  router.get("/:id/session", (request, response) => {
+  router.get("/:id/session", async (request, response) => {
     const id = request.params["id"] ?? "";
-    const result = matchService.restoreSession(id, getSeatClaimCookie(request.headers.cookie, id));
+    const result = await matchService.restoreSession(id, getSeatClaimCookie(request.headers.cookie, id));
 
     if (!result) {
       response.status(404).json({ error: "match-not-found" });
@@ -60,8 +60,8 @@ export function createMatchRouter(matchService: MatchService) {
     response.json(result);
   });
 
-  router.get("/:id", (request, response) => {
-    const match = matchService.getMatch(request.params["id"] ?? "");
+  router.get("/:id", async (request, response) => {
+    const match = await matchService.getMatch(request.params["id"] ?? "");
 
     if (!match) {
       response.status(404).json({ error: "match-not-found" });
