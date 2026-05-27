@@ -1,10 +1,16 @@
 import {
   applyMoveToMatch,
+  chessRules,
   connectFourRules,
   createFairMatch,
+  getChessSquares,
   ticTacToeRules,
   type ApplyMoveCommand,
   type ApplyMoveResult,
+  type ChessMove,
+  type ChessMoveRecord,
+  type ChessState,
+  type ChessSquareView,
   type ConnectFourMove,
   type ConnectFourState,
   type FairBoard,
@@ -14,9 +20,9 @@ import {
 } from "@fairgame/domain";
 import type { BoardId, BoardOutcome, SeatId } from "@fairgame/shared";
 
-export type SupportedGameType = "tictactoe" | "connect4";
-export type SupportedGameState = TicTacToeState | ConnectFourState;
-export type SupportedGameMove = TicTacToeMove | ConnectFourMove;
+export type SupportedGameType = "tictactoe" | "connect4" | "chess";
+export type SupportedGameState = TicTacToeState | ConnectFourState | ChessState;
+export type SupportedGameMove = TicTacToeMove | ConnectFourMove | ChessMove;
 export type SupportedFairMatch = FairMatch<SupportedGameState>;
 
 export type TicTacToeBoardView = {
@@ -40,7 +46,20 @@ export type ConnectFourBoardView = {
   readonly outcome: BoardOutcome;
 };
 
-export type MatchBoardView = TicTacToeBoardView | ConnectFourBoardView;
+export type ChessBoardView = {
+  readonly kind: "chess";
+  readonly id: BoardId;
+  readonly firstSeat: SeatId;
+  readonly fen: string;
+  readonly whiteSeat: SeatId;
+  readonly blackSeat: SeatId;
+  readonly squares: readonly ChessSquareView[];
+  readonly moveHistory: readonly ChessMoveRecord[];
+  readonly seatsToAct: readonly SeatId[];
+  readonly outcome: BoardOutcome;
+};
+
+export type MatchBoardView = TicTacToeBoardView | ConnectFourBoardView | ChessBoardView;
 
 type SupportedGameDefinition<TState, TMove> = {
   readonly gameType: SupportedGameType;
@@ -131,9 +150,51 @@ const connectFourDefinition: SupportedGameDefinition<ConnectFourState, ConnectFo
   }
 };
 
+const chessDefinition: SupportedGameDefinition<ChessState, ChessMove> = {
+  gameType: "chess",
+  label: "Chess",
+
+  createMatch(id) {
+    return createFairMatch({ id, rules: chessRules });
+  },
+
+  parseMove(move) {
+    if (!isRecord(move) || typeof move["from"] !== "string" || typeof move["to"] !== "string") return null;
+    const promotion = move["promotion"];
+    if (promotion !== undefined && promotion !== "q" && promotion !== "r" && promotion !== "b" && promotion !== "n") {
+      return null;
+    }
+    return promotion ? { from: move["from"], to: move["to"], promotion } : { from: move["from"], to: move["to"] };
+  },
+
+  getSeatsToAct(state) {
+    return chessRules.getSeatsToAct(state);
+  },
+
+  applyMove(match, command) {
+    return applyMoveToMatch(match, chessRules, command);
+  },
+
+  toBoardView(board) {
+    return {
+      kind: "chess",
+      id: board.id,
+      firstSeat: board.firstSeat,
+      fen: board.state.fen,
+      whiteSeat: board.state.whiteSeat,
+      blackSeat: board.state.blackSeat,
+      squares: getChessSquares(board.state),
+      moveHistory: board.state.moveHistory,
+      seatsToAct: chessRules.getSeatsToAct(board.state),
+      outcome: board.outcome
+    };
+  }
+};
+
 const supportedGames = {
   tictactoe: asAnyDefinition(ticTacToeDefinition),
-  connect4: asAnyDefinition(connectFourDefinition)
+  connect4: asAnyDefinition(connectFourDefinition),
+  chess: asAnyDefinition(chessDefinition)
 } as const satisfies Record<SupportedGameType, AnySupportedGameDefinition>;
 
 export function getDefaultGameType(): SupportedGameType {
@@ -142,11 +203,11 @@ export function getDefaultGameType(): SupportedGameType {
 
 export function parseSupportedGameType(value: unknown): SupportedGameType | null {
   if (value === undefined || value === null || value === "") return getDefaultGameType();
-  return value === "tictactoe" || value === "connect4" ? value : null;
+  return value === "tictactoe" || value === "connect4" || value === "chess" ? value : null;
 }
 
 export function getGameDefinition(gameType: string): AnySupportedGameDefinition | null {
-  return gameType === "tictactoe" || gameType === "connect4" ? supportedGames[gameType] : null;
+  return gameType === "tictactoe" || gameType === "connect4" || gameType === "chess" ? supportedGames[gameType] : null;
 }
 
 export function getActiveSeats(match: SupportedFairMatch): SeatId[] {

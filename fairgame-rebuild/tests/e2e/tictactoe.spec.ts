@@ -113,10 +113,35 @@ test("two players can finish both Connect Four boards", async ({ browser }) => {
   await playerTwoContext.close();
 });
 
+test("player can make an opening Chess move", async ({ browser }) => {
+  const playerOneContext = await browser.newContext();
+  const playerOne = await playerOneContext.newPage();
+
+  await playerOne.goto("/");
+  await playerOne.getByRole("radio", { name: "Chess" }).check();
+  await playerOne.getByRole("button", { name: "Create Chess match" }).click();
+  const matchCode = await playerOne.getByTestId("match-code").textContent();
+  expect(matchCode).toBeTruthy();
+
+  await expect(playerOne.getByRole("button", { name: "Board A square e2 white pawn" })).toBeEnabled();
+  await expect(playerOne.getByRole("button", { name: "Board B square e2 white pawn" })).toBeDisabled();
+  await playChessMove(playerOne, "A", "e2", "e4");
+
+  await expect(playerOne.getByRole("button", { name: "Board A square e4 white pawn" })).toBeVisible();
+  await expect(playerOne.getByRole("region", { name: "Board A move history" }).getByText("e4")).toBeVisible();
+
+  await playerOneContext.close();
+});
+
 async function playMove(page: Page, board: "A" | "B", cellNumber: number) {
   await page.getByRole("button", { name: `Board ${board} cell ${cellNumber}` }).click();
 }
 
 async function playColumn(page: Page, board: "A" | "B", columnNumber: number) {
   await page.getByRole("button", { name: `Board ${board} column ${columnNumber}` }).click();
+}
+
+async function playChessMove(page: Page, board: "A" | "B", from: string, to: string) {
+  await page.getByRole("button", { name: new RegExp(`Board ${board} square ${from} `) }).click();
+  await page.getByRole("button", { name: new RegExp(`Board ${board} square ${to} `) }).click();
 }

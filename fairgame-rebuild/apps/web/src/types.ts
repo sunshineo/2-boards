@@ -2,7 +2,7 @@ export type SeatId = "seat1" | "seat2";
 
 export type BoardId = "A" | "B";
 
-export type GameType = "tictactoe" | "connect4";
+export type GameType = "tictactoe" | "connect4" | "chess";
 
 export type BoardOutcome =
   | { status: "in_progress" }
@@ -50,9 +50,43 @@ export type ConnectFourBoardView = BaseBoardView & {
   playableColumns: number[];
 };
 
-export type MatchBoardView = TicTacToeBoardView | ConnectFourBoardView;
+export type ChessPiece = {
+  color: "w" | "b";
+  type: "p" | "n" | "b" | "r" | "q" | "k";
+};
 
-export type MovePayload = { cell: number } | { column: number };
+export type ChessSquareView = {
+  square: string;
+  piece: ChessPiece | null;
+};
+
+export type ChessMoveRecord = {
+  seat: SeatId;
+  color: "w" | "b";
+  piece: ChessPiece["type"];
+  from: string;
+  to: string;
+  san: string;
+  lan: string;
+  captured?: ChessPiece["type"];
+  promotion?: "q" | "r" | "b" | "n";
+};
+
+export type ChessBoardView = BaseBoardView & {
+  kind: "chess";
+  fen: string;
+  whiteSeat: SeatId;
+  blackSeat: SeatId;
+  squares: ChessSquareView[];
+  moveHistory: ChessMoveRecord[];
+};
+
+export type MatchBoardView = TicTacToeBoardView | ConnectFourBoardView | ChessBoardView;
+
+export type MovePayload =
+  | { cell: number }
+  | { column: number }
+  | { from: string; to: string; promotion?: "q" | "r" | "b" | "n" };
 
 export type MatchView = {
   id: string;

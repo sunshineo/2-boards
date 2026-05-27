@@ -66,6 +66,39 @@ describe("match API", () => {
     });
   });
 
+  it("creates a Chess match and assigns first-seat colors per board", async () => {
+    const response = await request(appWithDeterministicIds())
+      .post("/api/matches")
+      .send({ gameType: "chess" })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      seat: "seat1",
+      match: {
+        id: "match-1",
+        gameType: "chess",
+        gameLabel: "Chess",
+        boards: [
+          {
+            id: "A",
+            kind: "chess",
+            whiteSeat: "seat1",
+            blackSeat: "seat2",
+            seatsToAct: ["seat1"]
+          },
+          {
+            id: "B",
+            kind: "chess",
+            whiteSeat: "seat2",
+            blackSeat: "seat1",
+            seatsToAct: ["seat2"]
+          }
+        ]
+      }
+    });
+    expect(response.body.match.boards[0].squares).toHaveLength(64);
+  });
+
   it("rejects unsupported game types", async () => {
     const response = await request(appWithDeterministicIds())
       .post("/api/matches")
@@ -227,6 +260,36 @@ describe("match API", () => {
     expect(response.body.match.boards[1].cells).toEqual(Array(42).fill(null));
   });
 
+  it("applies a legal Chess move through the server command", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+
+    const response = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { from: "e2", to: "e4" } })
+      .expect(200);
+
+    const board = response.body.match.boards[0];
+    expect(board.squares.find((square: { square: string }) => square.square === "e4").piece).toEqual({
+      color: "w",
+      type: "p"
+    });
+    expect(board.moveHistory[0]).toMatchObject({ from: "e2", to: "e4", san: "e4", seat: "seat1" });
+    expect(board.seatsToAct).toEqual(["seat2"]);
+  });
+
+  it("rejects move shapes that do not match a Chess game", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+
+    const response = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { cell: 0 } })
+      .expect(400);
+
+    expect(response.body.error).toBe("invalid-move");
+  });
+
   it("rejects move shapes that do not match the stored game", async () => {
     const app = appWithDeterministicIds();
     await request(app).post("/api/matches").send({ gameType: "connect4" }).expect(201);
@@ -276,6 +339,43 @@ describe("match API", () => {
       status: "completed",
       score: { seat1: 1, seat2: 1 },
       winner: null
+    });
+  });
+
+  it("scores a completed two-board Chess match through generic board outcomes", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    for (const command of [
+      { boardId: "A", seat: "seat1", move: { from: "f2", to: "f3" } },
+      { boardId: "A", seat: "seat2", move: { from: "e7", to: "e5" } },
+      { boardId: "A", seat: "seat1", move: { from: "g2", to: "g4" } },
+      { boardId: "A", seat: "seat2", move: { from: "d8", to: "h4" } },
+      { boardId: "B", seat: "seat2", move: { from: "f2", to: "f3" } },
+      { boardId: "B", seat: "seat1", move: { from: "e7", to: "e5" } },
+      { boardId: "B", seat: "seat2", move: { from: "g2", to: "g4" } },
+      { boardId: "B", seat: "seat1", move: { from: "d8", to: "h4" } }
+    ]) {
+      await request(app).post("/api/matches/match-1/moves").send(command).expect(200);
+    }
+
+    const response = await request(app).get("/api/matches/match-1").expect(200);
+
+    expect(response.body.match.outcome).toEqual({
+      status: "completed",
+      score: { seat1: 1, seat2: 1 },
+      winner: null
+    });
+    expect(response.body.match.boards[0].outcome).toMatchObject({
+      status: "win",
+      winner: "seat2",
+      reason: "checkmate"
+    });
+    expect(response.body.match.boards[1].outcome).toMatchObject({
+      status: "win",
+      winner: "seat1",
+      reason: "checkmate"
     });
   });
 });

@@ -4,6 +4,9 @@ import { io } from "socket.io-client";
 import { ApiError, createMatch, getApiBaseUrl, joinMatch, makeMove, restoreSession } from "./api";
 import type {
   BoardId,
+  ChessBoardView,
+  ChessPiece,
+  ChessSquareView,
   ConnectFourBoardView,
   GameType,
   MatchBoardView,
@@ -17,7 +20,8 @@ import type {
 
 const gameOptions: readonly { readonly gameType: GameType; readonly label: string }[] = [
   { gameType: "tictactoe", label: "TicTacToe" },
-  { gameType: "connect4", label: "Connect Four" }
+  { gameType: "connect4", label: "Connect Four" },
+  { gameType: "chess", label: "Chess" }
 ];
 
 export function App() {
@@ -285,6 +289,17 @@ function BoardRenderer(props: {
     );
   }
 
+  if (props.board.kind === "chess") {
+    return (
+      <ChessBoard
+        board={props.board}
+        currentSeat={props.currentSeat}
+        isBusy={props.isBusy}
+        onMove={(move) => props.onMove(move)}
+      />
+    );
+  }
+
   return (
     <TicTacToeBoard
       board={props.board}
@@ -292,6 +307,76 @@ function BoardRenderer(props: {
       isBusy={props.isBusy}
       onMove={(cell) => props.onMove({ cell })}
     />
+  );
+}
+
+function ChessBoard(props: {
+  board: ChessBoardView;
+  currentSeat: SeatId | null;
+  isBusy: boolean;
+  onMove: (move: { from: string; to: string; promotion?: "q" }) => void;
+}) {
+  const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
+  const canAct =
+    props.currentSeat !== null &&
+    props.board.outcome.status === "in_progress" &&
+    props.board.seatsToAct.includes(props.currentSeat);
+
+  function handleSquareClick(square: ChessSquareView) {
+    if (!canAct) return;
+
+    if (selectedSquare) {
+      if (selectedSquare === square.square) {
+        setSelectedSquare(null);
+        return;
+      }
+
+      props.onMove({ from: selectedSquare, to: square.square, promotion: "q" });
+      setSelectedSquare(null);
+      return;
+    }
+
+    if (square.piece && getPieceSeat(props.board, square.piece) === props.currentSeat) {
+      setSelectedSquare(square.square);
+    }
+  }
+
+  return (
+    <section className="board-panel" aria-label={`Board ${props.board.id}`}>
+      <div className="board-heading">
+        <h2>Board {props.board.id}</h2>
+        <p>{formatBoardStatus(props.board)}</p>
+      </div>
+      <div className="chess-layout">
+        <div className="chess-grid">
+          {props.board.squares.map((square, index) => (
+            <button
+              aria-label={formatChessSquareLabel(props.board.id, square)}
+              className={`chess-square ${getChessSquareTone(index)}${
+                selectedSquare === square.square ? " selected" : ""
+              }`}
+              disabled={props.isBusy || !canAct}
+              key={square.square}
+              onClick={() => handleSquareClick(square)}
+            >
+              {square.piece ? getChessPieceSymbol(square.piece) : ""}
+            </button>
+          ))}
+        </div>
+        <div className="move-history" aria-label={`Board ${props.board.id} move history`} role="region">
+          <h3>Moves</h3>
+          {props.board.moveHistory.length === 0 ? (
+            <p>No moves</p>
+          ) : (
+            <ol>
+              {props.board.moveHistory.map((move, index) => (
+                <li key={`${move.lan}-${index}`}>{move.san}</li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -387,6 +472,47 @@ function formatSeat(seat: SeatId) {
 
 function formatMark(seat: SeatId) {
   return seat === "seat1" ? "X" : "O";
+}
+
+function formatChessSquareLabel(boardId: BoardId, square: ChessSquareView) {
+  if (!square.piece) return `Board ${boardId} square ${square.square} empty`;
+  return `Board ${boardId} square ${square.square} ${formatChessColor(square.piece.color)} ${formatChessPieceType(
+    square.piece.type
+  )}`;
+}
+
+function getPieceSeat(board: ChessBoardView, piece: ChessPiece) {
+  return piece.color === "w" ? board.whiteSeat : board.blackSeat;
+}
+
+function formatChessColor(color: ChessPiece["color"]) {
+  return color === "w" ? "white" : "black";
+}
+
+function formatChessPieceType(type: ChessPiece["type"]) {
+  const names: Record<ChessPiece["type"], string> = {
+    p: "pawn",
+    n: "knight",
+    b: "bishop",
+    r: "rook",
+    q: "queen",
+    k: "king"
+  };
+  return names[type];
+}
+
+function getChessPieceSymbol(piece: ChessPiece) {
+  const symbols: Record<ChessPiece["color"], Record<ChessPiece["type"], string>> = {
+    w: { k: "♔", q: "♕", r: "♖", b: "♗", n: "♘", p: "♙" },
+    b: { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" }
+  };
+  return symbols[piece.color][piece.type];
+}
+
+function getChessSquareTone(index: number) {
+  const row = Math.floor(index / 8);
+  const column = index % 8;
+  return (row + column) % 2 === 0 ? "light" : "dark";
 }
 
 function formatClockMs(ms: number) {

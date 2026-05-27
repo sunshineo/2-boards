@@ -16,6 +16,7 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Two-board fair games" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "TicTacToe" })).toBeChecked();
     expect(screen.getByRole("radio", { name: "Connect Four" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Chess" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create TicTacToe match" })).toBeInTheDocument();
     expect(screen.getByLabelText("Match code")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Join match" })).toBeDisabled();
@@ -123,6 +124,59 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Board A column 1" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Board B column 1" })).toBeDisabled();
   });
+
+  it("creates and renders a Chess match from the game selector", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        seat: "seat1",
+        match: {
+          id: "match-3",
+          gameType: "chess",
+          gameLabel: "Chess",
+          seats: ["seat1", "seat2"],
+          outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
+          clock: createClockMock(),
+          boards: [
+            {
+              kind: "chess",
+              id: "A",
+              firstSeat: "seat1",
+              fen: "start",
+              whiteSeat: "seat1",
+              blackSeat: "seat2",
+              squares: createChessSquares(),
+              moveHistory: [],
+              seatsToAct: ["seat1"],
+              outcome: { status: "in_progress" }
+            },
+            {
+              kind: "chess",
+              id: "B",
+              firstSeat: "seat2",
+              fen: "start",
+              whiteSeat: "seat2",
+              blackSeat: "seat1",
+              squares: createChessSquares(),
+              moveHistory: [],
+              seatsToAct: ["seat2"],
+              outcome: { status: "in_progress" }
+            }
+          ]
+        }
+      })
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    screen.getByRole("radio", { name: "Chess" }).click();
+    screen.getByRole("button", { name: "Create Chess match" }).click();
+
+    expect(await screen.findByText("match-3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Board A square e2 white pawn" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Board B square e2 white pawn" })).toBeDisabled();
+    expect(screen.getAllByText("No moves")).toHaveLength(2);
+  });
 });
 
 function createClockMock() {
@@ -138,4 +192,17 @@ function createClockMock() {
     status: "active",
     expiredSeats: []
   };
+}
+
+function createChessSquares() {
+  const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
+  return ranks.flatMap((rank) =>
+    files.map((file) => {
+      const square = `${file}${rank}`;
+      if (rank === "2") return { square, piece: { color: "w", type: "p" } };
+      if (rank === "7") return { square, piece: { color: "b", type: "p" } };
+      return { square, piece: null };
+    })
+  );
 }

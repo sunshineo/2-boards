@@ -85,7 +85,7 @@ input {
 
 .game-selector {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin: 0;
   border: 1px solid #c5ccda;
@@ -301,6 +301,65 @@ button:disabled {
   background: #b74f2a;
 }
 
+.chess-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 0.36fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.chess-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  border: 1px solid #8c947f;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chess-square {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 0;
+  color: #151b24;
+  font-size: clamp(1.05rem, 3.8vw, 2rem);
+  font-weight: 900;
+}
+
+.chess-square.light {
+  background: #f1e4c8;
+}
+
+.chess-square.dark {
+  background: #6f8f72;
+}
+
+.chess-square.selected {
+  outline: 3px solid #b74f2a;
+  outline-offset: -3px;
+}
+
+.move-history {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.move-history h3,
+.move-history p,
+.move-history ol {
+  margin: 0;
+}
+
+.move-history h3 {
+  font-size: 0.95rem;
+}
+
+.move-history ol {
+  padding-left: 20px;
+}
+
 .error-banner {
   margin: 18px 0 0;
   border: 1px solid #d98282;
@@ -319,6 +378,7 @@ button:disabled {
   .top-bar,
   .setup-grid,
   .boards-grid,
+  .chess-layout,
   .clock-strip,
   .match-summary {
     grid-template-columns: 1fr;

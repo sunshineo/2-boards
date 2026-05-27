@@ -243,14 +243,14 @@ Checkpoint 6 implementation commit: `df84fe5`.
 
 ### 7. Chess
 
-- [ ] Implement chess as a rules adapter using `chess.js`.
-  Evidence: Not started.
-- [ ] Support legal moves, check, checkmate, stalemate, draws, promotion, castling, and en passant.
-  Evidence: Not started.
-- [ ] Add chess-specific UI interactions and move history.
-  Evidence: Not started.
-- [ ] Verify both-board chess scoring and match completion.
-  Evidence: Not started.
+- [x] Implement chess as a rules adapter using `chess.js`.
+  Evidence: Added `chess.js` to `@fairgame/domain` and implemented `packages/domain/src/games/chess.ts` with coordinate moves, FEN state, color-to-seat mapping, and generic outcomes.
+- [x] Support legal moves, check, checkmate, stalemate, draws, promotion, castling, and en passant.
+  Evidence: Added `packages/domain/src/games/chess.test.ts` covering legal/illegal moves, Fool's Mate checkmate, stalemate, castling, en passant, and promotion.
+- [x] Add chess-specific UI interactions and move history.
+  Evidence: Added Chess to the game selector, server chess board views with squares and move history, an 8x8 web chess renderer, click source/destination move input, and per-board move history.
+- [x] Verify both-board chess scoring and match completion.
+  Evidence: Added server tests for a two-board Fool's Mate match scoring `1 - 1`, plus Playwright coverage for creating a Chess match and making `e2-e4`. Full verification passed with `npm install` and `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-27. Built-in browser verification loaded `http://192.168.4.149:5173/`, created a Chess match, confirmed Board A `e2` was enabled for Player 1, Board B `e2` was disabled, made `e2-e4`, confirmed a white pawn on `e4`, and confirmed move history showed `e4`.
 
 Checkpoint: chess works as another game plugged into the same fair-match system.
 
