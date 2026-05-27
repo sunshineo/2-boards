@@ -158,7 +158,7 @@ Checkpoint 0 implementation commit: `6c933e3`.
 
 Checkpoint: the core fairness model is proven without relying on UI behavior.
 
-Checkpoint 1 commit: pending.
+Checkpoint 1 implementation commit: `534a28b`.
 
 ### 2. TicTacToe Playable Slice
 
