@@ -149,14 +149,16 @@ Checkpoint 0 implementation commit: `6c933e3`.
 
 ### 1. Domain Model And Match Engine
 
-- [ ] Define generic match, player, board, move, result, and scoring types.
-  Evidence: Not started.
-- [ ] Implement the server-side fair-match engine that composes two independent boards.
-  Evidence: Not started.
-- [ ] Add tests for board assignment, independent turns, illegal move rejection, and match scoring.
-  Evidence: Not started.
+- [x] Define generic match, player, board, move, result, and scoring types.
+  Evidence: Added `packages/domain/src/types.ts` with `FairMatch`, `FairBoard`, `GameRules`, `ApplyMoveCommand`, `ApplyMoveResult`, `MatchScore`, and `MatchOutcome`.
+- [x] Implement the server-side fair-match engine that composes two independent boards.
+  Evidence: Added `packages/domain/src/engine.ts` and `packages/domain/src/scoring.ts`; `createFairMatch` creates board A with `seat1` first and board B with `seat2` first; `applyMoveToMatch` applies valid moves to one board only.
+- [x] Add tests for board assignment, independent turns, illegal move rejection, and match scoring.
+  Evidence: Added `packages/domain/src/engine.test.ts` and `packages/domain/src/scoring.test.ts`; `npm test -w @fairgame/domain -- scoring engine` passed 13 tests; full verification passed with `npm run typecheck && npm test && npm run build && npm run test:e2e`.
 
 Checkpoint: the core fairness model is proven without relying on UI behavior.
+
+Checkpoint 1 commit: pending.
 
 ### 2. TicTacToe Playable Slice
 
