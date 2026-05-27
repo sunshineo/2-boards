@@ -1,6 +1,7 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
+import { io } from "socket.io-client";
 
-import { ApiError, createMatch, getMatch, joinMatch, makeMove } from "./api";
+import { ApiError, createMatch, getApiBaseUrl, joinMatch, makeMove, restoreSession } from "./api";
 import type { BoardId, MatchView, SeatId, SeatSession, TicTacToeBoardView } from "./types";
 
 export function App() {
@@ -8,6 +9,48 @@ export function App() {
   const [joinCode, setJoinCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+
+  useEffect(() => {
+    const matchId = new URLSearchParams(window.location.search).get("match");
+    if (!matchId) return;
+
+    let isCurrent = true;
+    setIsBusy(true);
+    restoreSession(matchId)
+      .then((restoredSession) => {
+        if (isCurrent) setSession(restoredSession);
+      })
+      .catch((caught: unknown) => {
+        if (isCurrent) setError(caught instanceof Error ? formatError(caught.message) : "Session restore failed.");
+      })
+      .finally(() => {
+        if (isCurrent) setIsBusy(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session?.match.id) return;
+
+    const socket = io(getApiBaseUrl(), {
+      withCredentials: true
+    });
+
+    socket.emit("watch-match", { matchId: session.match.id });
+    socket.on("match:update", (match: MatchView) => {
+      setSession((current) => {
+        if (!current || current.match.id !== match.id) return current;
+        return { ...current, match };
+      });
+    });
+
+    return () => {
+      socket.close();
+    };
+  }, [session?.match.id]);
 
   async function run(action: () => Promise<void>) {
     setIsBusy(true);
@@ -30,7 +73,9 @@ export function App() {
 
   async function handleCreate() {
     await run(async () => {
-      setSession(await createMatch());
+      const nextSession = await createMatch();
+      setSession(nextSession);
+      setMatchUrl(nextSession.match.id);
     });
   }
 
@@ -40,26 +85,29 @@ export function App() {
     if (!matchId) return;
 
     await run(async () => {
-      setSession(await joinMatch(matchId));
+      const nextSession = await joinMatch(matchId);
+      setSession(nextSession);
+      setMatchUrl(nextSession.match.id);
     });
   }
 
   async function handleRefresh() {
     if (!session) return;
     await run(async () => {
-      setSession({ ...session, match: await getMatch(session.match.id) });
+      setSession(await restoreSession(session.match.id));
     });
   }
 
   async function handleMove(boardId: BoardId, cell: number) {
-    if (!session) return;
+    if (!session?.seat) return;
+    const seat = session.seat;
     await run(async () => {
       setSession({
         ...session,
         match: await makeMove({
           matchId: session.match.id,
           boardId,
-          seat: session.seat,
+          seat,
           cell
         })
       });
@@ -119,7 +167,7 @@ export function App() {
 
 function MatchRoom(props: {
   match: MatchView;
-  seat: SeatId;
+  seat: SeatId | null;
   onMove: (boardId: BoardId, cell: number) => void;
   isBusy: boolean;
 }) {
@@ -132,7 +180,11 @@ function MatchRoom(props: {
         </div>
         <div>
           <span className="meta-label">Your seat</span>
-          <strong>{formatSeat(props.seat)}</strong>
+          <strong>{props.seat ? formatSeat(props.seat) : "Spectator"}</strong>
+        </div>
+        <div>
+          <span className="meta-label">Invite URL</span>
+          <strong data-testid="invite-url">{getInviteUrl(props.match.id)}</strong>
         </div>
         <div>
           <span className="meta-label">Score</span>
@@ -161,11 +213,12 @@ function MatchRoom(props: {
 
 function TicTacToeBoard(props: {
   board: TicTacToeBoardView;
-  currentSeat: SeatId;
+  currentSeat: SeatId | null;
   isBusy: boolean;
   onMove: (cell: number) => void;
 }) {
   const canAct =
+    props.currentSeat !== null &&
     props.board.outcome.status === "in_progress" &&
     props.board.seatsToAct.includes(props.currentSeat);
 
@@ -222,4 +275,16 @@ function formatMatchOutcome(match: MatchView) {
 
 function formatError(error: string) {
   return error.replaceAll("-", " ");
+}
+
+function setMatchUrl(matchId: string) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("match", matchId);
+  window.history.replaceState(null, "", url);
+}
+
+function getInviteUrl(matchId: string) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("match", matchId);
+  return url.toString();
 }

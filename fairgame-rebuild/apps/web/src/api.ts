@@ -1,6 +1,9 @@
 import type { BoardId, MatchView, SeatId, SeatSession } from "./types";
 
-const apiBaseUrl = import.meta.env["VITE_API_URL"] ?? "http://127.0.0.1:4000";
+export function getApiBaseUrl() {
+  if (import.meta.env["VITE_API_URL"]) return import.meta.env["VITE_API_URL"];
+  return `${window.location.protocol}//${window.location.hostname}:4000`;
+}
 
 export class ApiError extends Error {
   readonly match: MatchView | undefined;
@@ -31,6 +34,10 @@ export async function getMatch(matchId: string): Promise<MatchView> {
   return response.match;
 }
 
+export async function restoreSession(matchId: string): Promise<SeatSession> {
+  return request<SeatSession>(`/api/matches/${encodeURIComponent(matchId)}/session`);
+}
+
 export async function makeMove(input: {
   matchId: string;
   boardId: BoardId;
@@ -53,8 +60,9 @@ export async function makeMove(input: {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...init,
+    credentials: "include",
     headers: {
       "content-type": "application/json",
       ...init.headers

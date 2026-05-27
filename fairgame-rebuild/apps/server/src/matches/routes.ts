@@ -1,7 +1,8 @@
 import { Router } from "express";
+import type { Response } from "express";
 import type { BoardId, SeatId } from "@fairgame/shared";
 
-import type { MatchService } from "./matchService";
+import type { MatchService, SeatClaim } from "./matchService";
 
 type MoveBody = {
   readonly boardId?: BoardId;
@@ -15,7 +16,9 @@ export function createMatchRouter(matchService: MatchService) {
   const router = Router();
 
   router.post("/", (_request, response) => {
-    response.status(201).json(matchService.createMatch());
+    const result = matchService.createMatch();
+    setSeatClaimCookie(response, result.claim);
+    response.status(201).json({ seat: result.seat, match: result.match });
   });
 
   router.post("/:id/join", (request, response) => {
@@ -28,6 +31,19 @@ export function createMatchRouter(matchService: MatchService) {
 
     if ("error" in result) {
       response.status(409).json(result);
+      return;
+    }
+
+    setSeatClaimCookie(response, result.claim);
+    response.json({ seat: result.seat, match: result.match });
+  });
+
+  router.get("/:id/session", (request, response) => {
+    const id = request.params["id"] ?? "";
+    const result = matchService.restoreSession(id, getSeatClaimCookie(request.headers.cookie, id));
+
+    if (!result) {
+      response.status(404).json({ error: "match-not-found" });
       return;
     }
 
@@ -72,4 +88,28 @@ export function createMatchRouter(matchService: MatchService) {
   });
 
   return router;
+}
+
+export function getSeatCookieName(matchId: string) {
+  return `fg_seat_${matchId}`;
+}
+
+function setSeatClaimCookie(response: Response, claim: SeatClaim) {
+  response.cookie(getSeatCookieName(claim.matchId), `${claim.seat}.${claim.secret}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: false,
+    path: "/"
+  });
+}
+
+function getSeatClaimCookie(cookieHeader: string | undefined, matchId: string): string | null {
+  if (!cookieHeader) return null;
+  const cookieName = `${getSeatCookieName(matchId)}=`;
+  const cookie = cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(cookieName));
+
+  return cookie ? decodeURIComponent(cookie.slice(cookieName.length)) : null;
 }

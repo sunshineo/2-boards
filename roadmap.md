@@ -179,18 +179,20 @@ Checkpoint 2 implementation commit: `36fc701`.
 
 ### 3. Real-Time Room Flow
 
-- [ ] Add real-time state updates for both players.
-  Evidence: Not started.
-- [ ] Add invite link or join code.
-  Evidence: Not started.
-- [ ] Add refresh/reconnect handling.
-  Evidence: Not started.
-- [ ] Add spectator/read-only state.
-  Evidence: Not started.
-- [ ] Add Playwright coverage for refresh, reconnect, and spectator behavior.
-  Evidence: Not started.
+- [x] Add real-time state updates for both players.
+  Evidence: Added Socket.IO room watching in `apps/server/src/realtime.ts`, match update listeners in `MatchService`, and `socket.io-client` subscriptions in the web app.
+- [x] Add invite link or join code.
+  Evidence: Existing join code remains visible; web match view now shows an invite URL using `?match=<id>`.
+- [x] Add refresh/reconnect handling.
+  Evidence: Create/join routes set HTTP-only seat-claim cookies; `GET /api/matches/:id/session` restores Player 1/Player 2 after reload.
+- [x] Add spectator/read-only state.
+  Evidence: Session restore without a valid seat cookie returns `seat: null`; web UI shows `Spectator` and disables board cells.
+- [x] Add Playwright coverage for refresh, reconnect, and spectator behavior.
+  Evidence: Updated `tests/e2e/tictactoe.spec.ts` to verify Player 1 reload, Player 2 reload, live updates without manual refresh, and read-only spectator updates. Full verification passed with `npm install && npm run typecheck && npm test && npm run build && npm run test:e2e`. Built-in browser verification loaded `http://192.168.4.149:5173/?match=7966176c-f64a-4554-85cf-cdcf5e449e45`, confirmed `Spectator`, both boards, visible invite URL, and disabled board A cell.
 
 Checkpoint: multiple clients converge on the same server state during and after refresh.
+
+Checkpoint 3 commit: pending.
 
 ### 4. Persistence And Recovery
 

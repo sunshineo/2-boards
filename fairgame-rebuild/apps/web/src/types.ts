@@ -32,6 +32,6 @@ export type MatchView = {
 };
 
 export type SeatSession = {
-  seat: SeatId;
+  seat: SeatId | null;
   match: MatchView;
 };

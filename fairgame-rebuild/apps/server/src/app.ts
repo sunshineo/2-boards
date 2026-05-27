@@ -13,6 +13,7 @@ export function createApp(options: { readonly matchService?: MatchService } = {}
     response.header("access-control-allow-origin", request.header("origin") ?? "*");
     response.header("access-control-allow-methods", "GET,POST,OPTIONS");
     response.header("access-control-allow-headers", "content-type");
+    response.header("access-control-allow-credentials", "true");
     if (request.method === "OPTIONS") {
       response.sendStatus(204);
       return;

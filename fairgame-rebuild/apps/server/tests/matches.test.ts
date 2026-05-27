@@ -14,6 +14,9 @@ describe("match API", () => {
   it("creates a TicTacToe match and assigns seat1", async () => {
     const response = await request(appWithDeterministicIds()).post("/api/matches").send({}).expect(201);
 
+    expect(response.headers["set-cookie"]).toEqual(
+      expect.arrayContaining([expect.stringContaining("fg_seat_match-1=seat1.")])
+    );
     expect(response.body).toMatchObject({
       seat: "seat1",
       match: {
@@ -34,7 +37,31 @@ describe("match API", () => {
 
     const response = await request(app).post("/api/matches/match-1/join").send({}).expect(200);
 
+    expect(response.headers["set-cookie"]).toEqual(
+      expect.arrayContaining([expect.stringContaining("fg_seat_match-1=seat2.")])
+    );
     expect(response.body.seat).toBe("seat2");
+    expect(response.body.match.id).toBe("match-1");
+  });
+
+  it("restores a player seat from the seat cookie", async () => {
+    const app = appWithDeterministicIds();
+    const agent = request.agent(app);
+    await agent.post("/api/matches").send({}).expect(201);
+
+    const response = await agent.get("/api/matches/match-1/session").expect(200);
+
+    expect(response.body.seat).toBe("seat1");
+    expect(response.body.match.id).toBe("match-1");
+  });
+
+  it("returns spectator mode without a valid seat cookie", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({}).expect(201);
+
+    const response = await request(app).get("/api/matches/match-1/session").expect(200);
+
+    expect(response.body.seat).toBeNull();
     expect(response.body.match.id).toBe("match-1");
   });
 
