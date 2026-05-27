@@ -192,7 +192,7 @@ Checkpoint 2 implementation commit: `36fc701`.
 
 Checkpoint: multiple clients converge on the same server state during and after refresh.
 
-Checkpoint 3 commit: pending.
+Checkpoint 3 implementation commit: `4c7f421`.
 
 ### 4. Persistence And Recovery
 
