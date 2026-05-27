@@ -224,6 +224,8 @@ Checkpoint 4 implementation commit: `7e9d7cd`.
 
 Checkpoint: a second game proves the match engine is genuinely reusable.
 
+Checkpoint 5 implementation commit: `abbd04c`.
+
 ### 6. Clock System
 
 - [ ] Add shared player clocks.

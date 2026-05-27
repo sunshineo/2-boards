@@ -146,7 +146,7 @@ npm run typecheck && npm test && npm run build && npm run test:e2e
 Start the dev server and use the Codex in-app browser against the local app to create a
 Connect Four match, confirm both boards render, and confirm a legal column is clickable.
 
-- [ ] **Step 4: Update roadmap and commit**
+- [x] **Step 4: Update roadmap and commit**
 
 Mark checkpoint 5 complete, record verification evidence, and commit:
 
