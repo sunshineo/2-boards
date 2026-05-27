@@ -107,6 +107,6 @@ Run `npm install` and `npm run typecheck && npm test && npm run build && npm run
 
 Use the Codex in-app browser to create a chess match and make `e2-e4`.
 
-- [ ] **Step 4: Update roadmap and commit**
+- [x] **Step 4: Update roadmap and commit**
 
 Mark checkpoint 7 complete and commit with `git commit -m "feat: add chess"`.

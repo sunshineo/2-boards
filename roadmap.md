@@ -254,6 +254,8 @@ Checkpoint 6 implementation commit: `df84fe5`.
 
 Checkpoint: chess works as another game plugged into the same fair-match system.
 
+Checkpoint 7 implementation commit: `1746f23`.
+
 ### 8. UX Hardening
 
 - [ ] Improve active-board and active-player affordances.
