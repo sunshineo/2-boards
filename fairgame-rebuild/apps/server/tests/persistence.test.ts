@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it } from "vitest";
-import type { TicTacToeState } from "@fairgame/domain";
 
+import type { SupportedGameState } from "../src/matches/gameRegistry";
 import { MatchService } from "../src/matches/matchService";
 import { PgliteMatchRepository } from "../src/persistence/pgliteMatchRepository";
 
@@ -21,7 +21,7 @@ describe("PGlite match persistence", () => {
     const dataDir = join(tempDir, "db");
 
     let secretIndex = 0;
-    const repository = await PgliteMatchRepository.open<TicTacToeState>(dataDir);
+    const repository = await PgliteMatchRepository.open<SupportedGameState>(dataDir);
     const service = new MatchService({
       createId: () => "match-1",
       createSecret: () => `secret-${++secretIndex}`,
@@ -29,7 +29,7 @@ describe("PGlite match persistence", () => {
     });
     await service.loadFromRepository();
 
-    await service.createMatch();
+    await service.createMatch("tictactoe");
     await service.joinMatch("match-1");
     const firstMove = await service.applyMove({
       id: "match-1",
@@ -41,7 +41,7 @@ describe("PGlite match persistence", () => {
     expect(await repository.countEvents("match-1")).toBe(3);
     await repository.close();
 
-    const restoredRepository = await PgliteMatchRepository.open<TicTacToeState>(dataDir);
+    const restoredRepository = await PgliteMatchRepository.open<SupportedGameState>(dataDir);
     const restoredService = new MatchService({ repository: restoredRepository });
     await restoredService.loadFromRepository();
 

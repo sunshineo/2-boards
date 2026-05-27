@@ -1,34 +1,34 @@
-import { getMatchOutcome, type FairMatch, type MatchOutcome, type TicTacToeState } from "@fairgame/domain";
-import type { BoardId, BoardOutcome, SeatId } from "@fairgame/shared";
+import { getMatchOutcome, type FairMatch, type MatchOutcome } from "@fairgame/domain";
+import type { SeatId } from "@fairgame/shared";
 
-export type TicTacToeBoardView = {
-  readonly id: BoardId;
-  readonly firstSeat: SeatId;
-  readonly cells: readonly (SeatId | null)[];
-  readonly seatsToAct: readonly SeatId[];
-  readonly outcome: BoardOutcome;
-};
+import {
+  getGameDefinition,
+  type MatchBoardView,
+  type SupportedGameState,
+  type SupportedGameType
+} from "./gameRegistry";
 
 export type MatchView = {
   readonly id: string;
-  readonly gameType: string;
+  readonly gameType: SupportedGameType;
+  readonly gameLabel: string;
   readonly seats: readonly SeatId[];
   readonly outcome: MatchOutcome;
-  readonly boards: readonly TicTacToeBoardView[];
+  readonly boards: readonly MatchBoardView[];
 };
 
-export function toMatchView(match: FairMatch<TicTacToeState>): MatchView {
+export function toMatchView(match: FairMatch<SupportedGameState>): MatchView {
+  const game = getGameDefinition(match.gameType);
+  if (!game) {
+    throw new Error(`Unsupported game type in match view: ${match.gameType}`);
+  }
+
   return {
     id: match.id,
-    gameType: match.gameType,
+    gameType: game.gameType,
+    gameLabel: game.label,
     seats: match.seats,
     outcome: getMatchOutcome(match),
-    boards: match.boards.map((board) => ({
-      id: board.id,
-      firstSeat: board.firstSeat,
-      cells: board.state.cells,
-      seatsToAct: board.state.nextSeat ? [board.state.nextSeat] : [],
-      outcome: board.outcome
-    }))
+    boards: match.boards.map((board) => game.toBoardView(board))
   };
 }

@@ -1,18 +1,17 @@
-import {
-  applyMoveToMatch,
-  createFairMatch,
-  ticTacToeRules,
-  type TicTacToeMove,
-  type TicTacToeState
-} from "@fairgame/domain";
 import type { BoardId, SeatId } from "@fairgame/shared";
 import { randomUUID } from "node:crypto";
 
+import {
+  getGameDefinition,
+  type SupportedFairMatch,
+  type SupportedGameState,
+  type SupportedGameType
+} from "./gameRegistry";
 import type { MatchEventInput, MatchRepository, SerializedStoredMatch } from "./matchRepository";
 import { toMatchView, type MatchView } from "./matchView";
 
 type StoredMatch = {
-  match: ReturnType<typeof createTicTacToeMatch>;
+  match: SupportedFairMatch;
   joinedSeats: Set<SeatId>;
   seatClaims: Map<SeatId, string>;
 };
@@ -38,22 +37,18 @@ type MoveResult =
   | { readonly ok: true; readonly match: MatchView }
   | { readonly ok: false; readonly status: 400 | 404; readonly reason: string; readonly match?: MatchView };
 
-function createTicTacToeMatch(id: string) {
-  return createFairMatch<TicTacToeState, TicTacToeMove>({ id, rules: ticTacToeRules });
-}
-
 export class MatchService {
   private readonly matches = new Map<string, StoredMatch>();
   private readonly createId: () => string;
   private readonly createSecret: () => string;
-  private readonly repository: MatchRepository<TicTacToeState> | null;
+  private readonly repository: MatchRepository<SupportedGameState> | null;
   private readonly listeners = new Set<(match: MatchView) => void>();
 
   constructor(
     options: {
       readonly createId?: () => string;
       readonly createSecret?: () => string;
-      readonly repository?: MatchRepository<TicTacToeState>;
+      readonly repository?: MatchRepository<SupportedGameState>;
     } = {}
   ) {
     this.createId = options.createId ?? randomUUID;
@@ -71,8 +66,13 @@ export class MatchService {
     }
   }
 
-  async createMatch(): Promise<CreateMatchResult> {
-    const match = createTicTacToeMatch(this.createId());
+  async createMatch(gameType: SupportedGameType): Promise<CreateMatchResult> {
+    const game = getGameDefinition(gameType);
+    if (!game) {
+      throw new Error(`Unsupported game type: ${gameType}`);
+    }
+
+    const match = game.createMatch(this.createId());
     const seatClaims = new Map<SeatId, string>();
     const claim = this.createSeatClaim(match.id, "seat1", seatClaims);
     const storedMatch: StoredMatch = {
@@ -84,7 +84,7 @@ export class MatchService {
     await this.persistChange(storedMatch, {
       matchId: match.id,
       eventType: "match.created",
-      payload: { seat: "seat1" }
+      payload: { gameType, seat: "seat1" }
     });
 
     return {
@@ -143,17 +143,27 @@ export class MatchService {
     readonly id: string;
     readonly boardId: BoardId;
     readonly seat: SeatId;
-    readonly move: TicTacToeMove;
+    readonly move: unknown;
   }): Promise<MoveResult> {
     const stored = this.matches.get(input.id);
     if (!stored) {
       return { ok: false, status: 404, reason: "match-not-found" };
     }
 
-    const result = applyMoveToMatch(stored.match, ticTacToeRules, {
+    const game = getGameDefinition(stored.match.gameType);
+    if (!game) {
+      return { ok: false, status: 400, reason: "unsupported-game", match: toMatchView(stored.match) };
+    }
+
+    const move = game.parseMove(input.move);
+    if (!move) {
+      return { ok: false, status: 400, reason: "invalid-move", match: toMatchView(stored.match) };
+    }
+
+    const result = game.applyMove(stored.match, {
       boardId: input.boardId,
       seat: input.seat,
-      move: input.move
+      move
     });
 
     if (!result.ok) {
@@ -173,7 +183,7 @@ export class MatchService {
       payload: {
         boardId: input.boardId,
         seat: input.seat,
-        move: input.move
+        move
       }
     });
     this.emitMatchUpdated(match);
@@ -217,7 +227,7 @@ export class MatchService {
   }
 }
 
-function serializeStoredMatch(stored: StoredMatch): SerializedStoredMatch<TicTacToeState> {
+function serializeStoredMatch(stored: StoredMatch): SerializedStoredMatch<SupportedGameState> {
   return {
     match: stored.match,
     joinedSeats: [...stored.joinedSeats],
@@ -225,7 +235,7 @@ function serializeStoredMatch(stored: StoredMatch): SerializedStoredMatch<TicTac
   };
 }
 
-function deserializeStoredMatch(snapshot: SerializedStoredMatch<TicTacToeState>): StoredMatch {
+function deserializeStoredMatch(snapshot: SerializedStoredMatch<SupportedGameState>): StoredMatch {
   return {
     match: snapshot.match,
     joinedSeats: new Set(snapshot.joinedSeats),

@@ -215,12 +215,12 @@ Checkpoint 4 implementation commit: `7e9d7cd`.
 
 ### 5. Connect Four
 
-- [ ] Implement Connect Four through the same game-rules interface.
-  Evidence: Not started.
-- [ ] Add Connect Four legal move, win, draw, and illegal move tests.
-  Evidence: Not started.
-- [ ] Extend the UI game selector and board renderer without changing match orchestration.
-  Evidence: Not started.
+- [x] Implement Connect Four through the same game-rules interface.
+  Evidence: Added `packages/domain/src/games/connectFour.ts` with a `GameRules` implementation and added a server game registry so `MatchService` delegates game creation, move parsing, move application, and board projection.
+- [x] Add Connect Four legal move, win, draw, and illegal move tests.
+  Evidence: Added `packages/domain/src/games/connectFour.test.ts` covering initial state, gravity, wrong-seat rejection, full columns, vertical/horizontal/diagonal wins, and draw detection.
+- [x] Extend the UI game selector and board renderer without changing match orchestration.
+  Evidence: Added a setup-time game selector, typed game/move API calls, discriminated board views, a Connect Four column renderer, server API tests, and Playwright coverage for finishing both Connect Four boards. Full verification passed with `npm install` and `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-27. Built-in browser verification loaded `http://192.168.4.149:5173/`, created a Connect Four match, confirmed board A/B visibility, Board A column 1 enabled for Player 1, Board B column 1 disabled for Player 1, and Board A disabled after Player 1 moved.
 
 Checkpoint: a second game proves the match engine is genuinely reusable.
 

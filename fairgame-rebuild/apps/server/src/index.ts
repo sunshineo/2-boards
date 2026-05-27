@@ -2,16 +2,16 @@ import { createServer } from "node:http";
 import { resolve } from "node:path";
 
 import { Server } from "socket.io";
-import type { TicTacToeState } from "@fairgame/domain";
 
 import { createApp } from "./app";
+import type { SupportedGameState } from "./matches/gameRegistry";
 import { MatchService } from "./matches/matchService";
 import { PgliteMatchRepository } from "./persistence/pgliteMatchRepository";
 import { registerRealtime } from "./realtime";
 
 const port = Number(process.env["PORT"] ?? 4000);
 const dataDir = process.env["FAIRGAME_DB_DIR"] ?? resolve(process.cwd(), "../../.data/pglite");
-const repository = await PgliteMatchRepository.open<TicTacToeState>(dataDir);
+const repository = await PgliteMatchRepository.open<SupportedGameState>(dataDir);
 const matchService = new MatchService({ repository });
 await matchService.loadFromRepository();
 const app = createApp({ matchService });

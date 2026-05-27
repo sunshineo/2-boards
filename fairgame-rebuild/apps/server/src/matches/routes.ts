@@ -2,21 +2,31 @@ import { Router } from "express";
 import type { Response } from "express";
 import type { BoardId, SeatId } from "@fairgame/shared";
 
+import { parseSupportedGameType } from "./gameRegistry";
 import type { MatchService, SeatClaim } from "./matchService";
+
+type CreateBody = {
+  readonly gameType?: unknown;
+};
 
 type MoveBody = {
   readonly boardId?: BoardId;
   readonly seat?: SeatId;
-  readonly move?: {
-    readonly cell?: number;
-  };
+  readonly move?: unknown;
 };
 
 export function createMatchRouter(matchService: MatchService) {
   const router = Router();
 
-  router.post("/", async (_request, response) => {
-    const result = await matchService.createMatch();
+  router.post("/", async (request, response) => {
+    const body = request.body as CreateBody;
+    const gameType = parseSupportedGameType(body.gameType);
+    if (!gameType) {
+      response.status(400).json({ error: "unsupported-game" });
+      return;
+    }
+
+    const result = await matchService.createMatch(gameType);
     setSeatClaimCookie(response, result.claim);
     response.status(201).json({ seat: result.seat, match: result.match });
   });
@@ -64,7 +74,7 @@ export function createMatchRouter(matchService: MatchService) {
   router.post("/:id/moves", async (request, response) => {
     const body = request.body as MoveBody;
 
-    if (!body.boardId || !body.seat || typeof body.move?.cell !== "number") {
+    if (!isBoardId(body.boardId) || !isSeatId(body.seat) || !isRecord(body.move)) {
       response.status(400).json({ error: "invalid-command" });
       return;
     }
@@ -73,7 +83,7 @@ export function createMatchRouter(matchService: MatchService) {
       id: request.params["id"] ?? "",
       boardId: body.boardId,
       seat: body.seat,
-      move: { cell: body.move.cell }
+      move: body.move
     });
 
     if (!result.ok) {
@@ -88,6 +98,18 @@ export function createMatchRouter(matchService: MatchService) {
   });
 
   return router;
+}
+
+function isBoardId(value: unknown): value is BoardId {
+  return value === "A" || value === "B";
+}
+
+function isSeatId(value: unknown): value is SeatId {
+  return value === "seat1" || value === "seat2";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 export function getSeatCookieName(matchId: string) {

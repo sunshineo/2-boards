@@ -1,4 +1,4 @@
-import type { BoardId, MatchView, SeatId, SeatSession } from "./types";
+import type { BoardId, GameType, MatchView, MovePayload, SeatId, SeatSession } from "./types";
 
 export function getApiBaseUrl() {
   if (import.meta.env["VITE_API_URL"]) return import.meta.env["VITE_API_URL"];
@@ -15,10 +15,10 @@ export class ApiError extends Error {
   }
 }
 
-export async function createMatch(): Promise<SeatSession> {
+export async function createMatch(gameType: GameType = "tictactoe"): Promise<SeatSession> {
   return request<SeatSession>("/api/matches", {
     method: "POST",
-    body: JSON.stringify({})
+    body: JSON.stringify({ gameType })
   });
 }
 
@@ -42,7 +42,7 @@ export async function makeMove(input: {
   matchId: string;
   boardId: BoardId;
   seat: SeatId;
-  cell: number;
+  move: MovePayload;
 }): Promise<MatchView> {
   const response = await request<{ match: MatchView }>(
     `/api/matches/${encodeURIComponent(input.matchId)}/moves`,
@@ -51,7 +51,7 @@ export async function makeMove(input: {
       body: JSON.stringify({
         boardId: input.boardId,
         seat: input.seat,
-        move: { cell: input.cell }
+        move: input.move
       })
     }
   );

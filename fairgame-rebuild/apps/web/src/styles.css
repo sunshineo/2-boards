@@ -83,6 +83,48 @@ input {
   line-height: 1.5;
 }
 
+.game-selector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  border: 1px solid #c5ccda;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.game-option {
+  display: grid;
+  position: relative;
+  min-height: 38px;
+  cursor: pointer;
+}
+
+.game-option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.game-option span {
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: #435066;
+  font-size: 0.92rem;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.game-option input:checked + span {
+  background: #245d63;
+  color: #ffffff;
+}
+
 label,
 .meta-label {
   color: #56627a;
@@ -170,7 +212,8 @@ button:disabled {
   gap: 8px;
 }
 
-.cell-button {
+.cell-button,
+.connect-four-column {
   aspect-ratio: 1;
   border: 1px solid #bdc7d4;
   border-radius: 8px;
@@ -180,9 +223,48 @@ button:disabled {
   font-weight: 900;
 }
 
-.cell-button:not(:disabled):hover {
+.cell-button:not(:disabled):hover,
+.connect-four-column:not(:disabled):hover {
   border-color: #245d63;
   background: #eef7f5;
+}
+
+.connect-four-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.connect-four-column {
+  display: grid;
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  padding: 6px;
+  background: #eef3f8;
+  font-size: 0.82rem;
+}
+
+.connect-four-slot {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: transparent;
+  box-shadow: inset 0 0 0 1px #c5ccda;
+}
+
+.connect-four-slot.occupied {
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.connect-four-slot.seat1 {
+  background: #245d63;
+}
+
+.connect-four-slot.seat2 {
+  background: #b74f2a;
 }
 
 .error-banner {

@@ -2,6 +2,8 @@ export type SeatId = "seat1" | "seat2";
 
 export type BoardId = "A" | "B";
 
+export type GameType = "tictactoe" | "connect4";
+
 export type BoardOutcome =
   | { status: "in_progress" }
   | { status: "draw"; reason: string }
@@ -15,20 +17,37 @@ export type MatchOutcome =
   | { status: "completed"; score: MatchScore; winner: SeatId | null }
   | { status: "canceled"; reason: string };
 
-export type TicTacToeBoardView = {
+type BaseBoardView = {
   id: BoardId;
   firstSeat: SeatId;
-  cells: (SeatId | null)[];
   seatsToAct: SeatId[];
   outcome: BoardOutcome;
 };
 
+export type TicTacToeBoardView = BaseBoardView & {
+  kind: "tictactoe";
+  cells: (SeatId | null)[];
+};
+
+export type ConnectFourBoardView = BaseBoardView & {
+  kind: "connect4";
+  rows: number;
+  columns: number;
+  cells: (SeatId | null)[];
+  playableColumns: number[];
+};
+
+export type MatchBoardView = TicTacToeBoardView | ConnectFourBoardView;
+
+export type MovePayload = { cell: number } | { column: number };
+
 export type MatchView = {
   id: string;
-  gameType: "tictactoe";
+  gameType: GameType;
+  gameLabel: string;
   seats: SeatId[];
   outcome: MatchOutcome;
-  boards: TicTacToeBoardView[];
+  boards: MatchBoardView[];
 };
 
 export type SeatSession = {
