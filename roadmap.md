@@ -145,7 +145,7 @@ Checkpoint: the workspace has a top-level Git repo, archived attempts are local 
 only, the new product has a clean folder, and browser-based testing is available before
 UI-heavy work begins.
 
-Checkpoint 0 commit: `039f57f`.
+Checkpoint 0 implementation commit: `6c933e3`.
 
 ### 1. Domain Model And Match Engine
 
