@@ -79,7 +79,7 @@ npm install
 npm run typecheck && npm test && npm run build && npm run test:e2e
 ```
 
-- [ ] **Step 2: Update roadmap and commit**
+- [x] **Step 2: Update roadmap and commit**
 
 Mark checkpoint 4 complete, record verification evidence, and commit:
 

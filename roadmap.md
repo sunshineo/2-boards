@@ -211,6 +211,8 @@ Checkpoint 3 implementation commit: `4c7f421`.
 
 Checkpoint: matches survive process restarts without losing canonical state.
 
+Checkpoint 4 implementation commit: `7e9d7cd`.
+
 ### 5. Connect Four
 
 - [ ] Implement Connect Four through the same game-rules interface.
