@@ -239,6 +239,8 @@ Checkpoint 5 implementation commit: `abbd04c`.
 
 Checkpoint: timed matches work without breaking independent board turns.
 
+Checkpoint 6 implementation commit: `df84fe5`.
+
 ### 7. Chess
 
 - [ ] Implement chess as a rules adapter using `chess.js`.

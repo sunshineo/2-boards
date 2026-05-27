@@ -111,6 +111,6 @@ Run `npm install` and `npm run typecheck && npm test && npm run build && npm run
 
 Use the Codex in-app browser to create a match and confirm both player clocks render.
 
-- [ ] **Step 4: Update roadmap and commit**
+- [x] **Step 4: Update roadmap and commit**
 
 Mark checkpoint 6 complete and commit with `git commit -m "feat: add shared clocks"`.
