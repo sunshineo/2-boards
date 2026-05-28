@@ -38,6 +38,10 @@ git worktree add .worktrees/<task-slug> -b codex/<task-slug> main
 
 Then continue all implementation work inside that worktree.
 
+After a task worktree's changes have been successfully merged back to `main`, remove
+the task worktree and delete its task branch unless the user explicitly asks to keep
+them for follow-up work.
+
 The only exception is an explicit user instruction to work directly in the main
 checkout before edits begin. A later request to commit or merge to main does not
 retroactively authorize implementing in the main checkout.
