@@ -284,7 +284,7 @@ Checkpoint 8 implementation commit: `cbd1cd7`.
 
 Checkpoint: the product can be operated beyond local development.
 
-Checkpoint 9 implementation commit: pending.
+Checkpoint 9 implementation commit: `54193e2`.
 
 ## Lessons From Prior Attempts
 

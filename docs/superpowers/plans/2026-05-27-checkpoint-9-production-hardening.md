@@ -200,3 +200,5 @@ Evidence: Started `node apps/server/dist/index.js` with `NODE_ENV=production`, `
 
 Mark checkpoint 9 complete, record verification evidence, and commit with
 `git commit -m "feat: harden production operations"`.
+
+Evidence: Checkpoint 9 implementation commit `54193e2`.
