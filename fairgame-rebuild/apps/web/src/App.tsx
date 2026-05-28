@@ -60,43 +60,43 @@ const gameOptions: readonly {
   {
     gameType: "gomoku",
     imageAlt: "Gomoku preview",
-    imageSrc: "/game-thumbnails/gomoku.svg",
+    imageSrc: "/game-thumbnails/gomoku.png",
     label: "Gomoku"
   },
   {
     gameType: "hex",
     imageAlt: "Hex preview",
-    imageSrc: "/game-thumbnails/hex.svg",
+    imageSrc: "/game-thumbnails/hex.png",
     label: "Hex"
   },
   {
     gameType: "reversi",
     imageAlt: "Reversi preview",
-    imageSrc: "/game-thumbnails/reversi.svg",
+    imageSrc: "/game-thumbnails/reversi.png",
     label: "Reversi"
   },
   {
     gameType: "breakthrough",
     imageAlt: "Breakthrough preview",
-    imageSrc: "/game-thumbnails/breakthrough.svg",
+    imageSrc: "/game-thumbnails/breakthrough.png",
     label: "Breakthrough"
   },
   {
     gameType: "mancala",
     imageAlt: "Mancala preview",
-    imageSrc: "/game-thumbnails/mancala.svg",
+    imageSrc: "/game-thumbnails/mancala.png",
     label: "Mancala"
   },
   {
     gameType: "dots-boxes",
     imageAlt: "Dots and Boxes preview",
-    imageSrc: "/game-thumbnails/dots-boxes.svg",
+    imageSrc: "/game-thumbnails/dots-boxes.png",
     label: "Dots and Boxes"
   },
   {
     gameType: "order-chaos",
     imageAlt: "Order and Chaos preview",
-    imageSrc: "/game-thumbnails/order-chaos.svg",
+    imageSrc: "/game-thumbnails/order-chaos.png",
     label: "Order and Chaos"
   }
 ];

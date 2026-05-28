@@ -49,28 +49,28 @@ describe("App", () => {
     );
     expect(screen.getByRole("img", { name: "Gomoku preview" })).toHaveAttribute(
       "src",
-      "/game-thumbnails/gomoku.svg"
+      "/game-thumbnails/gomoku.png"
     );
-    expect(screen.getByRole("img", { name: "Hex preview" })).toHaveAttribute("src", "/game-thumbnails/hex.svg");
+    expect(screen.getByRole("img", { name: "Hex preview" })).toHaveAttribute("src", "/game-thumbnails/hex.png");
     expect(screen.getByRole("img", { name: "Reversi preview" })).toHaveAttribute(
       "src",
-      "/game-thumbnails/reversi.svg"
+      "/game-thumbnails/reversi.png"
     );
     expect(screen.getByRole("img", { name: "Breakthrough preview" })).toHaveAttribute(
       "src",
-      "/game-thumbnails/breakthrough.svg"
+      "/game-thumbnails/breakthrough.png"
     );
     expect(screen.getByRole("img", { name: "Mancala preview" })).toHaveAttribute(
       "src",
-      "/game-thumbnails/mancala.svg"
+      "/game-thumbnails/mancala.png"
     );
     expect(screen.getByRole("img", { name: "Dots and Boxes preview" })).toHaveAttribute(
       "src",
-      "/game-thumbnails/dots-boxes.svg"
+      "/game-thumbnails/dots-boxes.png"
     );
     expect(screen.getByRole("img", { name: "Order and Chaos preview" })).toHaveAttribute(
       "src",
-      "/game-thumbnails/order-chaos.svg"
+      "/game-thumbnails/order-chaos.png"
     );
     expect(screen.queryByRole("button", { name: "Create TicTacToe match" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Open games")).not.toBeInTheDocument();
