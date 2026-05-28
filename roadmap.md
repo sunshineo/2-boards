@@ -1,6 +1,6 @@
 # Fair Two-Board Game Roadmap
 
-Last updated: 2026-05-27
+Last updated: 2026-05-28
 
 ## Product Goal
 
@@ -238,6 +238,21 @@ Checkpoint 5 implementation commit: `abbd04c`.
   Evidence: Added `packages/domain/src/clocks.test.ts` and server tests with injected time for no-running, one-running, two-running, post-move increment, and timeout behavior. Full verification passed with `npm install` and `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-27. Built-in browser verification loaded `http://192.168.4.149:5173/`, created a TicTacToe match, confirmed both player clocks showed `5:00` paused before Player 2 joined, and confirmed Board A was playable for Player 1.
 
 Checkpoint: timed matches work without breaking independent board turns.
+
+### 10. Seven More Board Games
+
+- [x] Add seven additional game plug-ins without changing generic match orchestration.
+  Evidence: Started on 2026-05-28 in gate worktree `.worktrees/add-seven-games-gate` on branch `codex/add-seven-games-gate`. Design saved to `docs/superpowers/specs/2026-05-28-seven-board-games-design.md`; implementation plan saved to `docs/superpowers/plans/2026-05-28-seven-board-games.md`. Baseline verification before implementation passed with `npm run typecheck` and `npm test`.
+- [x] Implement domain rules and tests for Gomoku, Hex, Reversi, Breakthrough, Mancala, Dots and Boxes, and Order and Chaos.
+  Evidence: Gomoku commit `430c744`, Hex commit `c115149`, Reversi commit `fa5e01b`, Breakthrough commit `60018a5`, Mancala commit `96afae5`, Dots and Boxes commit `0078bf2`, and Order and Chaos commit `a34d19b` merged into gate; focused domain tests passed in their worker worktrees.
+- [x] Integrate all seven games into server registry, web game picker, board renderers, API tests, web tests, and e2e flows.
+  Evidence: Updated `packages/domain/src/index.ts`, `apps/server/src/matches/gameRegistry.ts`, `apps/server/src/matches/routes.ts`, `apps/server/tests/matches.test.ts`, `apps/web/src/types.ts`, `apps/web/src/App.tsx`, `apps/web/src/App.test.tsx`, `apps/web/src/styles.css`, and `tests/e2e/tictactoe.spec.ts`; added high-fidelity GPT-generated PNG thumbnails under `apps/web/public/game-thumbnails/`.
+- [x] Verify and record final gate branch commit.
+  Evidence: Final verification passed with `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-28. Unit totals after review fixes: shared 2, domain 96, server 44, web 18. Playwright passed 6 Chromium tests, including opening moves for all seven added games. Built-in browser verification was attempted after starting the local dev server, but no in-app browser backend was available (`agent.browsers.list()` returned `[]`), so Playwright browser automation is the UI verification evidence. Gate feature commit: `299a5d5`; review-fix code commit: `8884b9f`.
+- [x] Address code review feedback before handoff.
+  Evidence: Commit `8884b9f` corrected Breakthrough first-seat orientation on mirrored boards, aligned server playable Breakthrough move projection, rendered Dots and Boxes as a dot/edge/box grid with owned boxes, added invalid move-shape API coverage for the seven added games, and updated e2e assertions for the grid UI. Verification passed with `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-28.
+- [x] Replace low-fidelity added-game thumbnails with high-fidelity generated images.
+  Evidence: Commit `3c06916` replaced the seven new-game SVG thumbnails with GPT-generated 1672x941 PNGs for Gomoku, Hex, Reversi, Breakthrough, Mancala, Dots and Boxes, and Order and Chaos, and updated app/test image paths. Verification passed with `npm test -w @fairgame/web -- App && npm run typecheck && npm run build` on 2026-05-28.
 
 Checkpoint 6 implementation commit: `df84fe5`.
 

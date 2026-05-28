@@ -105,6 +105,37 @@ describe("match API", () => {
     expect(response.body.match.boards[0].squares).toHaveLength(64);
   });
 
+  it("creates each added board game with two fair boards", async () => {
+    const cases = [
+      { gameType: "gomoku", kind: "gomoku", fields: { rows: 15, columns: 15 } },
+      { gameType: "hex", kind: "hex", fields: { size: 11 } },
+      { gameType: "reversi", kind: "reversi", fields: { rows: 8, columns: 8 } },
+      { gameType: "breakthrough", kind: "breakthrough", fields: { rows: 8, columns: 8 } },
+      { gameType: "mancala", kind: "mancala", fields: { pitsPerSide: 6 } },
+      { gameType: "dots-boxes", kind: "dots-boxes", fields: { boxRows: 3, boxColumns: 3 } },
+      { gameType: "order-chaos", kind: "order-chaos", fields: { rows: 6, columns: 6 } }
+    ];
+
+    for (const testCase of cases) {
+      const app = appWithDeterministicIds();
+      const response = await request(app).post("/api/matches").send({ gameType: testCase.gameType }).expect(201);
+
+      expect(response.body).toMatchObject({
+        seat: "seat1",
+        match: {
+          id: "match-1",
+          gameType: testCase.gameType,
+          joinedSeats: 1,
+          maxSeats: 2,
+          boards: [
+            { id: "A", kind: testCase.kind, firstSeat: "seat1", ...testCase.fields, seatsToAct: [] },
+            { id: "B", kind: testCase.kind, firstSeat: "seat2", ...testCase.fields, seatsToAct: [] }
+          ]
+        }
+      });
+    }
+  });
+
   it("creates a match with a requested total time and no increment", async () => {
     const response = await request(appWithDeterministicIds())
       .post("/api/matches")
@@ -402,6 +433,52 @@ describe("match API", () => {
     expect(board.seatsToAct).toEqual(["seat2"]);
   });
 
+  it("applies representative opening moves for the added board games", async () => {
+    const cases = [
+      { gameType: "gomoku", move: { cell: 0 }, expected: { path: ["cells", 0], value: "seat1" } },
+      { gameType: "hex", move: { cell: 0 }, expected: { path: ["cells", 0], value: "seat1" } },
+      { gameType: "reversi", move: { cell: 19 }, expected: { path: ["cells", 19], value: "seat1" } },
+      { gameType: "breakthrough", move: { from: 8, to: 16 }, expected: { path: ["cells", 16], value: "seat1" } },
+      { gameType: "mancala", move: { pit: 2 }, expected: { path: ["pits", 2], value: 0 } },
+      { gameType: "dots-boxes", move: { edge: "h-0-0" }, expected: { path: ["drawnEdges", 0], value: "h-0-0" } },
+      { gameType: "order-chaos", move: { cell: 0, mark: "X" }, expected: { path: ["cells", 0], value: "X" } }
+    ];
+
+    for (const testCase of cases) {
+      const app = appWithDeterministicIds();
+      await request(app).post("/api/matches").send({ gameType: testCase.gameType }).expect(201);
+      await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+      const response = await request(app)
+        .post("/api/matches/match-1/moves")
+        .send({ boardId: "A", seat: "seat1", move: testCase.move })
+        .expect(200);
+
+      const board = response.body.match.boards[0];
+      expect(getNestedValue(board, testCase.expected.path)).toBe(testCase.expected.value);
+      expect(board.seatsToAct).toEqual(testCase.gameType === "mancala" ? ["seat1"] : ["seat2"]);
+    }
+  });
+
+  it("projects Breakthrough moves using each board's first-seat orientation", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({ gameType: "breakthrough" }).expect(201);
+
+    const response = await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    const boardA = response.body.match.boards[0];
+    const boardB = response.body.match.boards[1];
+    expect(boardA.firstSeat).toBe("seat1");
+    expect(boardA.playableMoves).toEqual(
+      expect.arrayContaining([{ from: 8, to: 16 }, { from: 9, to: 17 }])
+    );
+    expect(boardB.firstSeat).toBe("seat2");
+    expect(boardB.playableMoves).toEqual(
+      expect.arrayContaining([{ from: 8, to: 16 }, { from: 9, to: 17 }])
+    );
+    expect(boardB.playableMoves).not.toEqual(expect.arrayContaining([{ from: 48, to: 40 }]));
+  });
+
   it("rejects move shapes that do not match a Chess game", async () => {
     const app = appWithDeterministicIds();
     await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
@@ -426,6 +503,31 @@ describe("match API", () => {
       .expect(400);
 
     expect(response.body.error).toBe("invalid-move");
+  });
+
+  it("rejects move shapes that do not match the added games", async () => {
+    const cases = [
+      { gameType: "gomoku", move: { column: 0 } },
+      { gameType: "hex", move: { row: 0, column: 0 } },
+      { gameType: "reversi", move: { from: 0, to: 1 } },
+      { gameType: "breakthrough", move: { cell: 0 } },
+      { gameType: "mancala", move: { cell: 0 } },
+      { gameType: "dots-boxes", move: { cell: 0 } },
+      { gameType: "order-chaos", move: { cell: 0, mark: "Z" } }
+    ];
+
+    for (const testCase of cases) {
+      const app = appWithDeterministicIds();
+      await request(app).post("/api/matches").send({ gameType: testCase.gameType }).expect(201);
+      await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+      const response = await request(app)
+        .post("/api/matches/match-1/moves")
+        .send({ boardId: "A", seat: "seat1", move: testCase.move })
+        .expect(400);
+
+      expect(response.body.error).toBe("invalid-move");
+    }
   });
 
   it("rejects invalid moves", async () => {
@@ -550,4 +652,11 @@ async function finishDrawnTicTacToe(service: MatchService, matchId: string) {
     const result = await service.applyMove({ id: matchId, ...command });
     expect(result.ok).toBe(true);
   }
+}
+
+function getNestedValue(value: unknown, path: readonly (string | number)[]): unknown {
+  return path.reduce((current, key) => {
+    if (typeof current !== "object" || current === null) return undefined;
+    return (current as Record<string | number, unknown>)[key];
+  }, value);
 }

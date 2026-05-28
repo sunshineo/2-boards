@@ -153,8 +153,9 @@ function parseClockConfig(
 
 function getClockMinuteRange(gameType: SupportedGameType) {
   if (gameType === "tictactoe") return { min: 1, max: 10 };
-  if (gameType === "connect4") return { min: 2, max: 20 };
-  return { min: 3, max: 60 };
+  if (gameType === "connect4" || gameType === "reversi" || gameType === "mancala") return { min: 2, max: 20 };
+  if (gameType === "chess") return { min: 3, max: 60 };
+  return { min: 3, max: 30 };
 }
 
 export function getSeatCookieName(matchId: string) {

@@ -12,15 +12,22 @@ import {
   restoreSession
 } from "./api";
 import type {
+  BreakthroughBoardView,
   BoardId,
   ChessBoardView,
   ConnectFourBoardView,
+  DotsBoxesBoardView,
   GameType,
+  GomokuBoardView,
+  HexBoardView,
+  MancalaBoardView,
   MatchBoardView,
   MatchClockView,
   MatchView,
   MovePayload,
+  OrderChaosBoardView,
   OpenMatchView,
+  ReversiBoardView,
   SeatId,
   SeatSession,
   TicTacToeBoardView
@@ -49,6 +56,48 @@ const gameOptions: readonly {
     imageAlt: "Chess preview",
     imageSrc: "/game-thumbnails/chess.png",
     label: "Chess"
+  },
+  {
+    gameType: "gomoku",
+    imageAlt: "Gomoku preview",
+    imageSrc: "/game-thumbnails/gomoku.png",
+    label: "Gomoku"
+  },
+  {
+    gameType: "hex",
+    imageAlt: "Hex preview",
+    imageSrc: "/game-thumbnails/hex.png",
+    label: "Hex"
+  },
+  {
+    gameType: "reversi",
+    imageAlt: "Reversi preview",
+    imageSrc: "/game-thumbnails/reversi.png",
+    label: "Reversi"
+  },
+  {
+    gameType: "breakthrough",
+    imageAlt: "Breakthrough preview",
+    imageSrc: "/game-thumbnails/breakthrough.png",
+    label: "Breakthrough"
+  },
+  {
+    gameType: "mancala",
+    imageAlt: "Mancala preview",
+    imageSrc: "/game-thumbnails/mancala.png",
+    label: "Mancala"
+  },
+  {
+    gameType: "dots-boxes",
+    imageAlt: "Dots and Boxes preview",
+    imageSrc: "/game-thumbnails/dots-boxes.png",
+    label: "Dots and Boxes"
+  },
+  {
+    gameType: "order-chaos",
+    imageAlt: "Order and Chaos preview",
+    imageSrc: "/game-thumbnails/order-chaos.png",
+    label: "Order and Chaos"
   }
 ];
 
@@ -61,7 +110,14 @@ const quickTimeOptions: readonly { readonly minutes: number; readonly label: str
 const gameTimeRanges: Record<GameType, { readonly min: number; readonly max: number }> = {
   tictactoe: { min: 1, max: 10 },
   connect4: { min: 2, max: 20 },
-  chess: { min: 3, max: 60 }
+  chess: { min: 3, max: 60 },
+  gomoku: { min: 3, max: 30 },
+  hex: { min: 3, max: 30 },
+  reversi: { min: 2, max: 20 },
+  breakthrough: { min: 3, max: 30 },
+  mancala: { min: 2, max: 20 },
+  "dots-boxes": { min: 3, max: 30 },
+  "order-chaos": { min: 3, max: 30 }
 };
 
 const recentMatchesKey = "fairgame.recentMatches";
@@ -618,6 +674,84 @@ function BoardRenderer(props: {
     );
   }
 
+  if (props.board.kind === "gomoku") {
+    return (
+      <PlacementGridBoard
+        board={props.board}
+        currentSeat={props.currentSeat}
+        isBusy={props.isBusy}
+        label="Gomoku"
+        onMove={(cell) => props.onMove({ cell })}
+      />
+    );
+  }
+
+  if (props.board.kind === "hex") {
+    return (
+      <HexBoard
+        board={props.board}
+        currentSeat={props.currentSeat}
+        isBusy={props.isBusy}
+        onMove={(cell) => props.onMove({ cell })}
+      />
+    );
+  }
+
+  if (props.board.kind === "reversi") {
+    return (
+      <ReversiBoard
+        board={props.board}
+        currentSeat={props.currentSeat}
+        isBusy={props.isBusy}
+        onMove={(cell) => props.onMove({ cell })}
+      />
+    );
+  }
+
+  if (props.board.kind === "breakthrough") {
+    return (
+      <BreakthroughBoard
+        board={props.board}
+        currentSeat={props.currentSeat}
+        isBusy={props.isBusy}
+        onMove={(move) => props.onMove(move)}
+      />
+    );
+  }
+
+  if (props.board.kind === "mancala") {
+    return (
+      <MancalaBoard
+        board={props.board}
+        currentSeat={props.currentSeat}
+        isBusy={props.isBusy}
+        onMove={(pit) => props.onMove({ pit })}
+      />
+    );
+  }
+
+  if (props.board.kind === "dots-boxes") {
+    return (
+      <DotsBoxesBoard
+        board={props.board}
+        currentSeat={props.currentSeat}
+        isBusy={props.isBusy}
+        onMove={(edge) => props.onMove({ edge })}
+      />
+    );
+  }
+
+  if (props.board.kind === "order-chaos") {
+    return (
+      <OrderChaosBoard
+        board={props.board}
+        currentSeat={props.currentSeat}
+        isBusy={props.isBusy}
+        onMove={(move) => props.onMove(move)}
+      />
+    );
+  }
+
   return (
     <TicTacToeBoard
       board={props.board}
@@ -802,6 +936,419 @@ function ConnectFourBoard(props: {
   );
 }
 
+function PlacementGridBoard(props: {
+  board: GomokuBoardView;
+  currentSeat: SeatId | null;
+  isBusy: boolean;
+  label: string;
+  onMove: (cell: number) => void;
+}) {
+  const canAct = canCurrentSeatAct(props.board, props.currentSeat);
+
+  return (
+    <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
+      <BoardHeading board={props.board} currentSeat={props.currentSeat} canAct={canAct} />
+      <div
+        className="placement-grid gomoku-grid"
+        style={{ gridTemplateColumns: `repeat(${props.board.columns}, minmax(0, 1fr))` }}
+      >
+        {props.board.cells.map((cell, index) => (
+          <button
+            aria-label={`Board ${props.board.id} ${props.label} cell ${index + 1}`}
+            className={`stone-cell${cell ? ` occupied ${cell}` : ""}`}
+            disabled={props.isBusy || !canAct || !props.board.playableCells.includes(index)}
+            key={index}
+            onClick={() => props.onMove(index)}
+            type="button"
+          >
+            {cell ? formatMark(cell) : ""}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HexBoard(props: {
+  board: HexBoardView;
+  currentSeat: SeatId | null;
+  isBusy: boolean;
+  onMove: (cell: number) => void;
+}) {
+  const canAct = canCurrentSeatAct(props.board, props.currentSeat);
+
+  return (
+    <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
+      <BoardHeading board={props.board} currentSeat={props.currentSeat} canAct={canAct} />
+      <div className="hex-grid" style={{ gridTemplateColumns: `repeat(${props.board.size}, minmax(0, 1fr))` }}>
+        {props.board.cells.map((cell, index) => (
+          <button
+            aria-label={`Board ${props.board.id} Hex cell ${index + 1}`}
+            className={`hex-cell${cell ? ` occupied ${cell}` : ""}`}
+            disabled={props.isBusy || !canAct || !props.board.playableCells.includes(index)}
+            key={index}
+            onClick={() => props.onMove(index)}
+            style={{ marginLeft: `${Math.floor(index / props.board.size) * 8}px` }}
+            type="button"
+          >
+            {cell ? formatMark(cell) : ""}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ReversiBoard(props: {
+  board: ReversiBoardView;
+  currentSeat: SeatId | null;
+  isBusy: boolean;
+  onMove: (cell: number) => void;
+}) {
+  const canAct = canCurrentSeatAct(props.board, props.currentSeat);
+
+  return (
+    <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
+      <BoardHeading board={props.board} currentSeat={props.currentSeat} canAct={canAct} />
+      <div
+        className="placement-grid reversi-grid"
+        style={{ gridTemplateColumns: `repeat(${props.board.columns}, minmax(0, 1fr))` }}
+      >
+        {props.board.cells.map((cell, index) => (
+          <button
+            aria-label={`Board ${props.board.id} Reversi cell ${index + 1}`}
+            className={`stone-cell reversi-cell${cell ? ` occupied ${cell}` : ""}`}
+            disabled={props.isBusy || !canAct || !props.board.playableCells.includes(index)}
+            key={index}
+            onClick={() => props.onMove(index)}
+            type="button"
+          >
+            {cell ? formatMark(cell) : props.board.playableCells.includes(index) ? "." : ""}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BreakthroughBoard(props: {
+  board: BreakthroughBoardView;
+  currentSeat: SeatId | null;
+  isBusy: boolean;
+  onMove: (move: { from: number; to: number }) => void;
+}) {
+  const [selectedCell, setSelectedCell] = useState<number | null>(null);
+  const canAct = canCurrentSeatAct(props.board, props.currentSeat);
+  const targetCells = selectedCell === null ? [] : props.board.playableMoves.filter((move) => move.from === selectedCell).map((move) => move.to);
+
+  useEffect(() => {
+    if (!canAct) setSelectedCell(null);
+  }, [canAct, props.board.cells]);
+
+  function handleCellClick(index: number) {
+    if (!canAct || !props.currentSeat) return;
+
+    if (selectedCell !== null && targetCells.includes(index)) {
+      props.onMove({ from: selectedCell, to: index });
+      setSelectedCell(null);
+      return;
+    }
+
+    if (props.board.cells[index] === props.currentSeat) {
+      setSelectedCell(index === selectedCell ? null : index);
+    }
+  }
+
+  return (
+    <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
+      <BoardHeading board={props.board} currentSeat={props.currentSeat} canAct={canAct} />
+      <div
+        className="placement-grid breakthrough-grid"
+        style={{ gridTemplateColumns: `repeat(${props.board.columns}, minmax(0, 1fr))` }}
+      >
+        {props.board.cells.map((cell, index) => {
+          const isSelectable = canAct && cell === props.currentSeat;
+          const isTarget = targetCells.includes(index);
+          return (
+            <button
+              aria-label={`Board ${props.board.id} Breakthrough cell ${index + 1}${cell ? ` ${cell}` : " empty"}`}
+              className={`square-cell${cell ? ` occupied ${cell}` : ""}${selectedCell === index ? " selected" : ""}${isTarget ? " target" : ""}`}
+              disabled={props.isBusy || !canAct || (!isSelectable && !isTarget)}
+              key={index}
+              onClick={() => handleCellClick(index)}
+              type="button"
+            >
+              {cell ? formatPawn(cell) : ""}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function MancalaBoard(props: {
+  board: MancalaBoardView;
+  currentSeat: SeatId | null;
+  isBusy: boolean;
+  onMove: (pit: number) => void;
+}) {
+  const canAct = canCurrentSeatAct(props.board, props.currentSeat);
+  const topPits = props.board.pits.slice(props.board.pitsPerSide).map((stones, index) => ({
+    seat: "seat2" as const,
+    localPit: index,
+    stones
+  }));
+  const bottomPits = props.board.pits.slice(0, props.board.pitsPerSide).map((stones, index) => ({
+    seat: "seat1" as const,
+    localPit: index,
+    stones
+  }));
+
+  return (
+    <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
+      <BoardHeading board={props.board} currentSeat={props.currentSeat} canAct={canAct} />
+      <div className="mancala-board">
+        <div className="mancala-store" aria-label={`Board ${props.board.id} seat2 store`}>
+          {props.board.stores.seat2}
+        </div>
+        <div className="mancala-pits">
+          {[...topPits].reverse().map((pit) => (
+            <MancalaPitButton
+              board={props.board}
+              canAct={canAct}
+              currentSeat={props.currentSeat}
+              isBusy={props.isBusy}
+              key={`${pit.seat}-${pit.localPit}`}
+              onMove={props.onMove}
+              pit={pit}
+            />
+          ))}
+          {bottomPits.map((pit) => (
+            <MancalaPitButton
+              board={props.board}
+              canAct={canAct}
+              currentSeat={props.currentSeat}
+              isBusy={props.isBusy}
+              key={`${pit.seat}-${pit.localPit}`}
+              onMove={props.onMove}
+              pit={pit}
+            />
+          ))}
+        </div>
+        <div className="mancala-store" aria-label={`Board ${props.board.id} seat1 store`}>
+          {props.board.stores.seat1}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MancalaPitButton(props: {
+  board: MancalaBoardView;
+  pit: { readonly seat: SeatId; readonly localPit: number; readonly stones: number };
+  currentSeat: SeatId | null;
+  canAct: boolean;
+  isBusy: boolean;
+  onMove: (pit: number) => void;
+}) {
+  const canPlayPit =
+    props.canAct &&
+    props.currentSeat === props.pit.seat &&
+    props.board.playablePits.includes(props.pit.localPit);
+
+  return (
+    <button
+      aria-label={`Board ${props.board.id} ${props.pit.seat} pit ${props.pit.localPit + 1}`}
+      className="mancala-pit"
+      disabled={props.isBusy || !canPlayPit}
+      onClick={() => props.onMove(props.pit.localPit)}
+      type="button"
+    >
+      {props.pit.stones}
+    </button>
+  );
+}
+
+function DotsBoxesBoard(props: {
+  board: DotsBoxesBoardView;
+  currentSeat: SeatId | null;
+  isBusy: boolean;
+  onMove: (edge: string) => void;
+}) {
+  const canAct = canCurrentSeatAct(props.board, props.currentSeat);
+  const visualRows = props.board.boxRows * 2 + 1;
+  const visualColumns = props.board.boxColumns * 2 + 1;
+
+  return (
+    <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
+      <BoardHeading board={props.board} currentSeat={props.currentSeat} canAct={canAct} />
+      <div className="dots-score">
+        <span>{props.board.scores.seat1}</span>
+        <span>{props.board.scores.seat2}</span>
+      </div>
+      <div
+        aria-label={`Board ${props.board.id} Dots and Boxes grid`}
+        className="dots-board"
+        role="group"
+        style={{ gridTemplateColumns: `repeat(${visualColumns}, minmax(0, 1fr))` }}
+      >
+        {Array.from({ length: visualRows }, (_, visualRow) =>
+          Array.from({ length: visualColumns }, (_, visualColumn) =>
+            renderDotsBoxesCell({
+              board: props.board,
+              canAct,
+              isBusy: props.isBusy,
+              onMove: props.onMove,
+              visualColumn,
+              visualRow
+            })
+          )
+        )}
+      </div>
+    </section>
+  );
+}
+
+function renderDotsBoxesCell(props: {
+  board: DotsBoxesBoardView;
+  canAct: boolean;
+  isBusy: boolean;
+  onMove: (edge: string) => void;
+  visualColumn: number;
+  visualRow: number;
+}) {
+  if (props.visualRow % 2 === 0 && props.visualColumn % 2 === 0) {
+    return (
+      <span
+        aria-hidden="true"
+        className="dot-node"
+        key={`dot-${props.visualRow}-${props.visualColumn}`}
+      />
+    );
+  }
+
+  if (props.visualRow % 2 === 0) {
+    const edge = `h-${props.visualRow / 2}-${Math.floor(props.visualColumn / 2)}`;
+    return (
+      <DotsBoxesEdgeButton
+        board={props.board}
+        canAct={props.canAct}
+        edge={edge}
+        isBusy={props.isBusy}
+        key={edge}
+        orientation="horizontal"
+        onMove={props.onMove}
+      />
+    );
+  }
+
+  if (props.visualColumn % 2 === 0) {
+    const edge = `v-${Math.floor(props.visualRow / 2)}-${props.visualColumn / 2}`;
+    return (
+      <DotsBoxesEdgeButton
+        board={props.board}
+        canAct={props.canAct}
+        edge={edge}
+        isBusy={props.isBusy}
+        key={edge}
+        orientation="vertical"
+        onMove={props.onMove}
+      />
+    );
+  }
+
+  const boxIndex = Math.floor(props.visualRow / 2) * props.board.boxColumns + Math.floor(props.visualColumn / 2);
+  const owner = props.board.boxes[boxIndex] ?? null;
+  return (
+    <span
+      aria-label={`Board ${props.board.id} box ${boxIndex + 1}${owner ? ` ${owner}` : " empty"}`}
+      className={`dots-box${owner ? ` owned ${owner}` : ""}`}
+      key={`box-${boxIndex}`}
+    >
+      {owner ? formatMark(owner) : ""}
+    </span>
+  );
+}
+
+function DotsBoxesEdgeButton(props: {
+  board: DotsBoxesBoardView;
+  canAct: boolean;
+  edge: string;
+  isBusy: boolean;
+  onMove: (edge: string) => void;
+  orientation: "horizontal" | "vertical";
+}) {
+  const isDrawn = props.board.drawnEdges.includes(props.edge);
+
+  return (
+    <button
+      aria-label={`Board ${props.board.id} edge ${props.edge}`}
+      aria-pressed={isDrawn}
+      className={`edge-button ${props.orientation}${isDrawn ? " drawn" : ""}`}
+      disabled={props.isBusy || !props.canAct || !props.board.playableEdges.includes(props.edge)}
+      onClick={() => props.onMove(props.edge)}
+      type="button"
+    />
+  );
+}
+
+function OrderChaosBoard(props: {
+  board: OrderChaosBoardView;
+  currentSeat: SeatId | null;
+  isBusy: boolean;
+  onMove: (move: { cell: number; mark: "X" | "O" }) => void;
+}) {
+  const [selectedMark, setSelectedMark] = useState<"X" | "O">("X");
+  const canAct = canCurrentSeatAct(props.board, props.currentSeat);
+
+  return (
+    <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
+      <BoardHeading board={props.board} currentSeat={props.currentSeat} canAct={canAct} />
+      <div className="mark-toggle" aria-label={`Board ${props.board.id} mark choice`}>
+        {(["X", "O"] as const).map((mark) => (
+          <button
+            aria-pressed={selectedMark === mark}
+            className="mark-button"
+            disabled={!canAct}
+            key={mark}
+            onClick={() => setSelectedMark(mark)}
+            type="button"
+          >
+            {mark}
+          </button>
+        ))}
+      </div>
+      <div
+        className="placement-grid order-chaos-grid"
+        style={{ gridTemplateColumns: `repeat(${props.board.columns}, minmax(0, 1fr))` }}
+      >
+        {props.board.cells.map((cell, index) => (
+          <button
+            aria-label={`Board ${props.board.id} Order and Chaos cell ${index + 1}`}
+            className={`square-cell mark-cell${cell ? " occupied" : ""}`}
+            disabled={props.isBusy || !canAct || !props.board.playableCells.includes(index)}
+            key={index}
+            onClick={() => props.onMove({ cell: index, mark: selectedMark })}
+            type="button"
+          >
+            {cell ?? ""}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BoardHeading(props: { board: MatchBoardView; currentSeat: SeatId | null; canAct: boolean }) {
+  return (
+    <div className="board-heading">
+      <h2>Board {props.board.id}</h2>
+      <p>{props.canAct ? "Your move" : formatBoardStatus(props.board, props.currentSeat)}</p>
+    </div>
+  );
+}
+
 function getGameLabel(gameType: GameType) {
   return gameOptions.find((option) => option.gameType === gameType)?.label ?? "Game";
 }
@@ -832,6 +1379,14 @@ function formatListedMatchLabel(baseLabel: string, index: number) {
 
 function formatMark(seat: SeatId) {
   return seat === "seat1" ? "X" : "O";
+}
+
+function formatPawn(seat: SeatId) {
+  return seat === "seat1" ? "▲" : "▼";
+}
+
+function canCurrentSeatAct(board: MatchBoardView, currentSeat: SeatId | null) {
+  return currentSeat !== null && board.outcome.status === "in_progress" && board.seatsToAct.includes(currentSeat);
 }
 
 const startingChessFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -975,7 +1530,7 @@ function getRouteUrl(route: AppRoute) {
 }
 
 function isGameType(candidate: string | null | undefined): candidate is GameType {
-  return candidate === "tictactoe" || candidate === "connect4" || candidate === "chess";
+  return gameOptions.some((option) => option.gameType === candidate);
 }
 
 function loadRecentMatches(): RecentMatch[] {
@@ -1026,8 +1581,9 @@ function getRecentMatchGameType(candidate: {
   readonly gameType?: unknown;
   readonly gameLabel: string;
 }): GameType | null {
-  if (candidate.gameType === "tictactoe" || candidate.gameType === "connect4" || candidate.gameType === "chess") {
-    return candidate.gameType;
+  const gameType = typeof candidate.gameType === "string" ? candidate.gameType : null;
+  if (isGameType(gameType)) {
+    return gameType;
   }
 
   return gameOptions.find((option) => option.label === candidate.gameLabel)?.gameType ?? null;
