@@ -19,6 +19,17 @@ export type MatchView = {
   readonly boards: readonly MatchBoardView[];
 };
 
+export type OpenMatchView = {
+  readonly id: string;
+  readonly gameType: SupportedGameType;
+  readonly gameLabel: string;
+  readonly clockInitialMs: number | null;
+  readonly clockIncrementMs: number | null;
+  readonly joinedSeats: number;
+  readonly maxSeats: number;
+  readonly updatedAtMs: number;
+};
+
 export function toMatchView(
   match: FairMatch<SupportedGameState>,
   clock: MatchClockView | null = null,

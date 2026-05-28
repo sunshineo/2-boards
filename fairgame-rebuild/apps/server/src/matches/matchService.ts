@@ -20,7 +20,7 @@ import {
   type SupportedGameType
 } from "./gameRegistry.js";
 import type { MatchEventInput, MatchRepository, SerializedStoredMatch } from "./matchRepository.js";
-import { toMatchView, type MatchView } from "./matchView.js";
+import { toMatchView, type MatchView, type OpenMatchView } from "./matchView.js";
 
 type StoredMatch = {
   match: SupportedFairMatch;
@@ -54,7 +54,7 @@ type MoveResult =
 
 const defaultClockConfig: ClockConfig = {
   initialMs: 5 * 60 * 1_000,
-  incrementMs: 2_000
+  incrementMs: 0
 };
 
 export class MatchService {
@@ -92,7 +92,11 @@ export class MatchService {
     }
   }
 
-  async createMatch(gameType: SupportedGameType, playerName?: string): Promise<CreateMatchResult> {
+  async createMatch(
+    gameType: SupportedGameType,
+    playerName?: string,
+    clockConfig?: ClockConfig
+  ): Promise<CreateMatchResult> {
     const game = getGameDefinition(gameType);
     if (!game) {
       throw new Error(`Unsupported game type: ${gameType}`);
@@ -100,6 +104,7 @@ export class MatchService {
 
     const nowMs = this.nowMs();
     const match = game.createMatch(this.createId());
+    const matchClockConfig = clockConfig ?? this.clockConfig;
     const seatClaims = new Map<SeatId, string>();
     const claim = this.createSeatClaim(match.id, "seat1", seatClaims);
     const storedMatch: StoredMatch = {
@@ -111,13 +116,13 @@ export class MatchService {
         ["seat2", "Player 2"]
       ]),
       lastActivityAtMs: nowMs,
-      clock: this.clockConfig ? createMatchClock(this.clockConfig, nowMs) : null
+      clock: matchClockConfig ? createMatchClock(matchClockConfig, nowMs) : null
     };
     this.matches.set(match.id, storedMatch);
     await this.persistChange(storedMatch, {
       matchId: match.id,
       eventType: "match.created",
-      payload: { gameType, seat: "seat1" }
+      payload: { gameType, seat: "seat1", clockConfig: matchClockConfig }
     });
 
     return {
@@ -162,6 +167,30 @@ export class MatchService {
       match,
       claim
     };
+  }
+
+  listOpenMatches(): OpenMatchView[] {
+    return [...this.matches.values()]
+      .filter((stored) => getMatchOutcome(stored.match).status === "in_progress" && !stored.joinedSeats.has("seat2"))
+      .sort((left, right) => right.lastActivityAtMs - left.lastActivityAtMs)
+      .slice(0, 12)
+      .map((stored) => {
+        const game = getGameDefinition(stored.match.gameType);
+        if (!game) {
+          throw new Error(`Unsupported game type in open match list: ${stored.match.gameType}`);
+        }
+
+        return {
+          id: stored.match.id,
+          gameType: game.gameType,
+          gameLabel: game.label,
+          clockInitialMs: stored.clock?.config.initialMs ?? null,
+          clockIncrementMs: stored.clock?.config.incrementMs ?? null,
+          joinedSeats: stored.joinedSeats.size,
+          maxSeats: stored.match.seats.length,
+          updatedAtMs: stored.lastActivityAtMs
+        };
+      });
   }
 
   async pruneStaleMatches(nowMs: number, maxAgeMs: number): Promise<string[]> {

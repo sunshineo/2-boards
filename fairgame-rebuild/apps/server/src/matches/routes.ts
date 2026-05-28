@@ -1,12 +1,14 @@
 import { Router } from "express";
 import type { Response } from "express";
 import type { BoardId, SeatId } from "@fairgame/shared";
+import type { ClockConfig } from "@fairgame/domain";
 
-import { parseSupportedGameType } from "./gameRegistry.js";
+import { parseSupportedGameType, type SupportedGameType } from "./gameRegistry.js";
 import type { MatchService, SeatClaim } from "./matchService.js";
 
 type CreateBody = {
   readonly gameType?: unknown;
+  readonly clockInitialMs?: unknown;
   readonly playerName?: unknown;
 };
 
@@ -26,6 +28,10 @@ export function createMatchRouter(
 ) {
   const router = Router();
 
+  router.get("/", (_request, response) => {
+    response.json({ matches: matchService.listOpenMatches() });
+  });
+
   router.post("/", async (request, response) => {
     const body = request.body as CreateBody;
     const gameType = parseSupportedGameType(body.gameType);
@@ -34,7 +40,17 @@ export function createMatchRouter(
       return;
     }
 
-    const result = await matchService.createMatch(gameType, typeof body.playerName === "string" ? body.playerName : undefined);
+    const clockConfig = parseClockConfig(gameType, body.clockInitialMs);
+    if (clockConfig === "invalid") {
+      response.status(400).json({ error: "invalid-clock" });
+      return;
+    }
+
+    const result = await matchService.createMatch(
+      gameType,
+      typeof body.playerName === "string" ? body.playerName : undefined,
+      clockConfig
+    );
     setSeatClaimCookie(response, result.claim, options);
     response.status(201).json({ seat: result.seat, match: result.match });
   });
@@ -122,6 +138,23 @@ function isSeatId(value: unknown): value is SeatId {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function parseClockConfig(
+  gameType: SupportedGameType,
+  clockInitialMs: unknown
+): ClockConfig | undefined | "invalid" {
+  if (clockInitialMs === undefined) return undefined;
+  if (typeof clockInitialMs !== "number" || !Number.isInteger(clockInitialMs)) return "invalid";
+  const range = getClockMinuteRange(gameType);
+  if (clockInitialMs < range.min * 60_000 || clockInitialMs > range.max * 60_000) return "invalid";
+  return { initialMs: clockInitialMs, incrementMs: 0 };
+}
+
+function getClockMinuteRange(gameType: SupportedGameType) {
+  if (gameType === "tictactoe") return { min: 1, max: 10 };
+  if (gameType === "connect4") return { min: 2, max: 20 };
+  return { min: 3, max: 60 };
 }
 
 export function getSeatCookieName(matchId: string) {

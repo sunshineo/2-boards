@@ -99,6 +99,41 @@ describe("match API", () => {
     expect(response.body.match.boards[0].squares).toHaveLength(64);
   });
 
+  it("creates a match with a requested total time and no increment", async () => {
+    const response = await request(appWithDeterministicIds())
+      .post("/api/matches")
+      .send({ gameType: "chess", clockInitialMs: 10 * 60 * 1_000 })
+      .expect(201);
+
+    expect(response.body.match.clock.config).toEqual({
+      initialMs: 10 * 60 * 1_000,
+      incrementMs: 0
+    });
+    expect(response.body.match.clock.seats.seat1).toEqual({ remainingMs: 10 * 60 * 1_000, isRunning: false });
+    expect(response.body.match.clock.seats.seat2).toEqual({ remainingMs: 10 * 60 * 1_000, isRunning: false });
+  });
+
+  it("rejects invalid requested total times", async () => {
+    const response = await request(appWithDeterministicIds())
+      .post("/api/matches")
+      .send({ gameType: "chess", clockInitialMs: 30_000 })
+      .expect(400);
+
+    expect(response.body).toEqual({ error: "invalid-clock" });
+  });
+
+  it("rejects total times outside the selected game's range", async () => {
+    await request(appWithDeterministicIds())
+      .post("/api/matches")
+      .send({ gameType: "tictactoe", clockInitialMs: 15 * 60 * 1_000 })
+      .expect(400);
+
+    await request(appWithDeterministicIds())
+      .post("/api/matches")
+      .send({ gameType: "connect4", clockInitialMs: 60_000 })
+      .expect(400);
+  });
+
   it("rejects unsupported game types", async () => {
     const response = await request(appWithDeterministicIds())
       .post("/api/matches")
@@ -119,6 +154,40 @@ describe("match API", () => {
     );
     expect(response.body.seat).toBe("seat2");
     expect(response.body.match.id).toBe("match-1");
+  });
+
+  it("lists only matches that are waiting for a second player", async () => {
+    let idIndex = 0;
+    let now = 1_000;
+    const app = createApp({
+      matchService: new MatchService({
+        createId: () => `match-${++idIndex}`,
+        nowMs: () => now
+      })
+    });
+
+    await request(app).post("/api/matches").send({ gameType: "tictactoe" }).expect(201);
+    now = 2_000;
+    await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+    now = 3_000;
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    const response = await request(app).get("/api/matches").expect(200);
+
+    expect(response.body).toEqual({
+      matches: [
+        {
+          id: "match-2",
+          gameType: "chess",
+          gameLabel: "Chess",
+          clockInitialMs: 300_000,
+          clockIncrementMs: 0,
+          joinedSeats: 1,
+          maxSeats: 2,
+          updatedAtMs: 2_000
+        }
+      ]
+    });
   });
 
   it("stores display names for both seats", async () => {

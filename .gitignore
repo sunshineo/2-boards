@@ -8,6 +8,7 @@ test-results/
 *.tsbuildinfo
 .cache/
 .data/
+.worktrees/
 .env
 .env.*
 !.env.example

@@ -1,6 +1,6 @@
 # /Volumes/T9/code/2-boards Index
 
-Last updated: 2026-05-27
+Last updated: 2026-05-28
 
 This index describes the immediate subfolders under `/Volumes/T9/code/2-boards`. It is intentionally one level deep; deeper indexes can be added inside individual project folders later.
 
@@ -15,6 +15,14 @@ This index describes the immediate subfolders under `/Volumes/T9/code/2-boards`.
 - The top-level `/Volumes/T9/code/2-boards` folder is the active rebuild repository.
 - Old attempts have moved to `archive/attempts/` and should remain ignored by the top-level Git repo.
 - `archive/attempts/fairgame3/fairgame` is a nested Git repo under another archived Git repo. Treat it as historical reference material only.
+
+## Concurrent Session Worktrees
+
+- When multiple Codex/agent conversations may make changes at the same time, use a separate Git worktree per conversation so edits from one session do not affect another.
+- Before creating a worktree, check whether the session is already isolated with `git rev-parse --git-dir`, `git rev-parse --git-common-dir`, and `git worktree list --porcelain`.
+- Prefer any platform-native worktree/isolation tool when available. If none is available, create manual worktrees under `.worktrees/` from the repo root with a task branch such as `codex/<short-task-name>`.
+- Keep `.worktrees/` ignored by the top-level repo. Do not work directly in the main checkout for concurrent implementation work unless the user explicitly asks for that.
+- Before editing, inspect `git status --short` and preserve any changes from other sessions; never reset or revert another session's work without explicit user approval.
 
 ## Fair Two-Board Roadmap Tracking
 

@@ -1,7 +1,15 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
 
-import { ApiError, createMatch, getApiBaseUrl, joinMatch, makeMove, restoreSession } from "./api";
+import {
+  ApiError,
+  createMatch,
+  getApiBaseUrl,
+  joinMatch,
+  listOpenMatches,
+  makeMove,
+  restoreSession
+} from "./api";
 import type {
   BoardId,
   ChessBoardView,
@@ -13,43 +21,108 @@ import type {
   MatchClockView,
   MatchView,
   MovePayload,
+  OpenMatchView,
   SeatId,
   SeatSession,
   TicTacToeBoardView
 } from "./types";
 
-const gameOptions: readonly { readonly gameType: GameType; readonly label: string }[] = [
-  { gameType: "tictactoe", label: "TicTacToe" },
-  { gameType: "connect4", label: "Connect Four" },
-  { gameType: "chess", label: "Chess" }
+const gameOptions: readonly {
+  readonly gameType: GameType;
+  readonly imageAlt: string;
+  readonly imageSrc: string;
+  readonly label: string;
+}[] = [
+  {
+    gameType: "tictactoe",
+    imageAlt: "TicTacToe preview",
+    imageSrc: "/game-thumbnails/tictactoe.png",
+    label: "TicTacToe"
+  },
+  {
+    gameType: "connect4",
+    imageAlt: "Connect Four preview",
+    imageSrc: "/game-thumbnails/connect-four.png",
+    label: "Connect Four"
+  },
+  {
+    gameType: "chess",
+    imageAlt: "Chess preview",
+    imageSrc: "/game-thumbnails/chess.png",
+    label: "Chess"
+  }
 ];
+
+const quickTimeOptions: readonly { readonly minutes: number; readonly label: string; readonly pace: string }[] = [
+  { minutes: 3, label: "3 min", pace: "Fast" },
+  { minutes: 5, label: "5 min", pace: "Normal" },
+  { minutes: 10, label: "10 min", pace: "Long" }
+];
+
+const gameTimeRanges: Record<GameType, { readonly min: number; readonly max: number }> = {
+  tictactoe: { min: 1, max: 10 },
+  connect4: { min: 2, max: 20 },
+  chess: { min: 3, max: 60 }
+};
 
 const recentMatchesKey = "fairgame.recentMatches";
 
 type RecentMatch = {
   readonly id: string;
+  readonly gameType: GameType;
   readonly gameLabel: string;
   readonly result: string;
 };
 
+type AppRoute =
+  | { readonly view: "picker" }
+  | { readonly view: "lobby"; readonly gameType: GameType }
+  | { readonly view: "match"; readonly matchId: string };
+
 export function App() {
   const [session, setSession] = useState<SeatSession | null>(null);
-  const [selectedGame, setSelectedGame] = useState<GameType>("tictactoe");
-  const [playerName, setPlayerName] = useState("Player 1");
-  const [joinName, setJoinName] = useState("Player 2");
-  const [joinCode, setJoinCode] = useState("");
+  const [route, setRoute] = useState<AppRoute>(() => readRouteFromLocation());
+  const [openMatches, setOpenMatches] = useState<OpenMatchView[]>([]);
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>(() => loadRecentMatches());
+  const [customMinutes, setCustomMinutes] = useState(5);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const lobbyGame = route.view === "lobby" ? route.gameType : null;
+  const activeSession = route.view === "match" && session?.match.id === route.matchId ? session : null;
 
   useEffect(() => {
-    const matchId = new URLSearchParams(window.location.search).get("match");
-    if (!matchId) return;
+    const handlePopState = () => {
+      setRoute(readRouteFromLocation());
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    const canonicalUrl = getRouteUrl(route);
+    if (window.location.pathname !== canonicalUrl.pathname || window.location.search !== canonicalUrl.search) {
+      window.history.replaceState(null, "", canonicalUrl);
+    }
+  }, [route]);
+
+  useEffect(() => {
+    if (route.view !== "match") {
+      setSession(null);
+      setCopiedInvite(false);
+      return;
+    }
+
+    if (session?.match.id === route.matchId) return;
 
     let isCurrent = true;
     setIsBusy(true);
-    restoreSession(matchId)
+    setError(null);
+    restoreSession(route.matchId)
       .then((restoredSession) => {
         if (isCurrent) setSession(restoredSession);
       })
@@ -63,7 +136,27 @@ export function App() {
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [route, session?.match.id]);
+
+  useEffect(() => {
+    if (session) return;
+
+    let isCurrent = true;
+    const refresh = async () => {
+      const matches = await loadOpenMatchList();
+      if (isCurrent) setOpenMatches(matches);
+    };
+
+    void refresh();
+    const interval = window.setInterval(() => {
+      void refresh();
+    }, 4_000);
+
+    return () => {
+      isCurrent = false;
+      window.clearInterval(interval);
+    };
+  }, [session]);
 
   useEffect(() => {
     if (!session?.match.id) return;
@@ -95,6 +188,16 @@ export function App() {
     setCopiedInvite(false);
   }, [session?.match.id]);
 
+  useEffect(() => {
+    if (!lobbyGame) return;
+    setCustomMinutes((current) => clampMinutes(current, gameTimeRanges[lobbyGame]));
+  }, [lobbyGame]);
+
+  function navigateTo(nextRoute: AppRoute) {
+    window.history.pushState(null, "", getRouteUrl(nextRoute));
+    setRoute(nextRoute);
+  }
+
   async function run(action: () => Promise<void>) {
     setIsBusy(true);
     setError(null);
@@ -114,23 +217,24 @@ export function App() {
     }
   }
 
-  async function handleCreate() {
+  async function refreshOpenMatchList() {
+    setOpenMatches(await loadOpenMatchList());
+  }
+
+  async function handleCreate(minutes = customMinutes) {
+    if (!lobbyGame) return;
     await run(async () => {
-      const nextSession = await createMatch(selectedGame, playerName);
+      const nextSession = await createMatch(lobbyGame, { clockInitialMs: minutesToMs(minutes, lobbyGame) });
       setSession(nextSession);
-      setMatchUrl(nextSession.match.id);
+      navigateTo({ view: "match", matchId: nextSession.match.id });
     });
   }
 
-  async function handleJoin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const matchId = joinCode.trim();
-    if (!matchId) return;
-
+  async function handleJoinOpenMatch(matchId: string) {
     await run(async () => {
-      const nextSession = await joinMatch(matchId, joinName);
+      const nextSession = await joinMatch(matchId);
       setSession(nextSession);
-      setMatchUrl(nextSession.match.id);
+      navigateTo({ view: "match", matchId: nextSession.match.id });
     });
   }
 
@@ -138,7 +242,7 @@ export function App() {
     await run(async () => {
       const nextSession = await restoreSession(matchId);
       setSession(nextSession);
-      setMatchUrl(nextSession.match.id);
+      navigateTo({ view: "match", matchId: nextSession.match.id });
     });
   }
 
@@ -179,14 +283,22 @@ export function App() {
   async function handleRematch() {
     if (!session) return;
     await run(async () => {
-      const nextSession = await createMatch(session.match.gameType, session.match.players.seat1.name);
+      const nextSession = await createMatch(
+        session.match.gameType,
+        session.match.clock ? { clockInitialMs: session.match.clock.config.initialMs } : {}
+      );
       setSession(nextSession);
-      setMatchUrl(nextSession.match.id);
+      navigateTo({ view: "match", matchId: nextSession.match.id });
       setCopiedInvite(false);
     });
   }
 
-  const selectedGameLabel = getGameLabel(selectedGame);
+  const selectedGameLabel = lobbyGame ? getGameLabel(lobbyGame) : "Game";
+  const selectedGameTimeRange = lobbyGame ? gameTimeRanges[lobbyGame] : gameTimeRanges.tictactoe;
+  const lobbyOpenMatches = lobbyGame ? openMatches.filter((match) => match.gameType === lobbyGame) : [];
+  const lobbyRecentMatches = lobbyGame ? recentMatches.filter((match) => match.gameType === lobbyGame) : [];
+  const activeGameType = activeSession?.match.gameType ?? lobbyGame;
+  const showMatchLoading = route.view === "match" && !activeSession;
 
   return (
     <main className="app-shell">
@@ -195,85 +307,205 @@ export function App() {
           <p className="eyebrow">FairGame</p>
           <h1>Two-board fair games</h1>
         </div>
-        {session ? (
-          <button className="secondary-button" onClick={handleRefresh} disabled={isBusy}>
-            Refresh
-          </button>
-        ) : null}
+        <div className="top-actions">
+          <nav className="top-nav" aria-label="Primary navigation">
+            <button
+              className="secondary-button compact-button"
+              disabled={route.view === "picker"}
+              onClick={() => navigateTo({ view: "picker" })}
+              type="button"
+            >
+              Games
+            </button>
+            {activeGameType ? (
+              <button
+                className="secondary-button compact-button"
+                disabled={route.view === "lobby" && lobbyGame === activeGameType}
+                onClick={() => navigateTo({ view: "lobby", gameType: activeGameType })}
+                type="button"
+              >
+                {getGameLabel(activeGameType)} lobby
+              </button>
+            ) : null}
+            {activeSession ? (
+              <button className="secondary-button compact-button" disabled type="button">
+                Match
+              </button>
+            ) : null}
+          </nav>
+          {activeSession ? (
+            <button className="secondary-button compact-button" onClick={handleRefresh} disabled={isBusy}>
+              Refresh
+            </button>
+          ) : null}
+        </div>
       </header>
 
-      {session ? (
+      {activeSession ? (
         <MatchRoom
-          match={session.match}
-          seat={session.seat}
+          match={activeSession.match}
+          seat={activeSession.seat}
           onMove={handleMove}
           onCopyInvite={handleCopyInvite}
           onRematch={handleRematch}
           copiedInvite={copiedInvite}
           isBusy={isBusy}
         />
-      ) : (
-        <section className="setup-grid" aria-label="Match setup">
-          <div className="panel">
-            <h2>Create</h2>
-            <fieldset className="game-selector" aria-label="Game">
-              {gameOptions.map((option) => (
-                <label className="game-option" key={option.gameType}>
-                  <input
-                    checked={selectedGame === option.gameType}
-                    name="game-type"
-                    onChange={() => setSelectedGame(option.gameType)}
-                    type="radio"
-                  />
-                  <span>{option.label}</span>
-                </label>
-              ))}
-            </fieldset>
-            <label htmlFor="player-name">Your name</label>
-            <input
-              id="player-name"
-              value={playerName}
-              onChange={(event) => setPlayerName(event.target.value)}
-            />
-            <p>Start a new fair two-board {selectedGameLabel} match as Player 1.</p>
-            <button className="primary-button" onClick={handleCreate} disabled={isBusy}>
+      ) : showMatchLoading ? (
+        <section className="panel" aria-label="Loading match">
+          <h2>Loading match</h2>
+          <p>{isBusy ? "Restoring match..." : "Unable to load this match."}</p>
+        </section>
+      ) : lobbyGame ? (
+        <section className="lobby-grid" aria-label={`${selectedGameLabel} lobby`}>
+          <section className="panel create-panel">
+            <div className="panel-title-row lobby-title-row">
+              <h2>{selectedGameLabel} lobby</h2>
+              <button
+                className="secondary-button compact-button"
+                onClick={() => navigateTo({ view: "picker" })}
+                type="button"
+              >
+                Back
+              </button>
+            </div>
+            <section className="quick-pairing" aria-label="Quick pairing">
+              <h3>Quick pairing</h3>
+              <div className="quick-time-grid">
+                {quickTimeOptions.map((option) => (
+                  <button
+                    aria-label={`Create ${option.minutes} minute ${selectedGameLabel} match`}
+                    className="time-preset-button"
+                    disabled={isBusy}
+                    key={option.minutes}
+                    onClick={() => void handleCreate(option.minutes)}
+                    type="button"
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.pace}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+            <section className="custom-create" aria-label="Create custom game">
+              <h3>Create game</h3>
+              <div className="minutes-row">
+                <label htmlFor="custom-minutes">Minutes</label>
+                <span className="range-hint">{selectedGameTimeRange.min}-{selectedGameTimeRange.max} min</span>
+              </div>
+              <div className="minutes-stepper">
+                <button
+                  aria-label="Decrease minutes"
+                  className="stepper-button"
+                  disabled={customMinutes <= selectedGameTimeRange.min}
+                  onClick={() => setCustomMinutes(clampMinutes(customMinutes - 1, selectedGameTimeRange))}
+                  type="button"
+                >
+                  -
+                </button>
+                <input
+                  className="minutes-input"
+                  id="custom-minutes"
+                  max={selectedGameTimeRange.max}
+                  min={selectedGameTimeRange.min}
+                  onChange={(event) =>
+                    setCustomMinutes(parseMinutesInput(event.target.value, selectedGameTimeRange))
+                  }
+                  type="number"
+                  value={customMinutes}
+                />
+                <span className="minutes-unit">min</span>
+                <button
+                  aria-label="Increase minutes"
+                  className="stepper-button"
+                  disabled={customMinutes >= selectedGameTimeRange.max}
+                  onClick={() => setCustomMinutes(clampMinutes(customMinutes + 1, selectedGameTimeRange))}
+                  type="button"
+                >
+                  +
+                </button>
+              </div>
+            </section>
+            <button className="primary-button" onClick={() => void handleCreate()} disabled={isBusy}>
               Create {selectedGameLabel} match
             </button>
-          </div>
-          <form className="panel" onSubmit={handleJoin}>
-            <h2>Join</h2>
-            <label htmlFor="join-code">Match code</label>
-            <input
-              id="join-code"
-              value={joinCode}
-              onChange={(event) => setJoinCode(event.target.value)}
-              placeholder="match id"
-            />
-            <label htmlFor="join-name">Join as</label>
-            <input id="join-name" value={joinName} onChange={(event) => setJoinName(event.target.value)} />
-            <button className="primary-button" disabled={isBusy || !joinCode.trim()}>
-              Join match
-            </button>
-          </form>
-          {recentMatches.length > 0 ? (
+          </section>
+          <section className="panel open-games-panel" aria-label="Open games">
+            <div className="panel-title-row">
+              <h2>Open games</h2>
+              <button
+                className="secondary-button compact-button"
+                onClick={() => void refreshOpenMatchList()}
+                disabled={isBusy}
+                type="button"
+              >
+                Refresh
+              </button>
+            </div>
+            {lobbyOpenMatches.length === 0 ? (
+              <p className="empty-state">No open games.</p>
+            ) : (
+              <div className="open-games-list">
+                {lobbyOpenMatches.map((match, index) => (
+                  <button
+                    aria-label={`Join ${formatListedMatchLabel(`${match.gameLabel} game`, index)}`}
+                    className="open-match"
+                    data-match-id={match.id}
+                    disabled={isBusy}
+                    key={match.id}
+                    onClick={() => void handleJoinOpenMatch(match.id)}
+                    type="button"
+                  >
+                    <span className="open-match-game">{match.gameLabel}</span>
+                    <strong>{formatListedMatchLabel("Open game", index)}</strong>
+                    <span>{formatTimeControl(match)}</span>
+                    <span>
+                      {match.joinedSeats}/{match.maxSeats} seated
+                    </span>
+                    <span className="open-match-action">Join</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+          {lobbyRecentMatches.length > 0 ? (
             <section className="panel recent-panel" aria-label="Recent matches">
               <h2>Recent matches</h2>
-              {recentMatches.map((match) => (
+              {lobbyRecentMatches.map((match, index) => (
                 <button
-                  aria-label={`Open ${match.id}`}
+                  aria-label={`Open recent ${formatListedMatchLabel(`${match.gameLabel} game`, index)}`}
                   className="recent-match"
+                  data-match-id={match.id}
                   key={match.id}
                   onClick={() => void handleOpenRecent(match.id)}
                   type="button"
                 >
                   <span>{match.gameLabel}</span>
-                  <strong>{match.id}</strong>
+                  <strong>{formatListedMatchLabel("Recent game", index)}</strong>
                   <span>{match.result}</span>
-                  <span className="sr-only">Open {match.id}</span>
+                  <span className="sr-only">
+                    Open recent {formatListedMatchLabel(`${match.gameLabel} game`, index)}
+                  </span>
                 </button>
               ))}
             </section>
           ) : null}
+        </section>
+      ) : (
+        <section className="game-picker" aria-label="Choose game">
+          {gameOptions.map((option) => (
+            <button
+              aria-label={`${option.label} lobby`}
+              className="game-choice"
+              key={option.gameType}
+              onClick={() => navigateTo({ view: "lobby", gameType: option.gameType })}
+              type="button"
+            >
+              <img alt={option.imageAlt} className="game-choice-image" src={option.imageSrc} />
+              <span>{option.label}</span>
+              <strong>Enter lobby</strong>
+            </button>
+          ))}
         </section>
       )}
 
@@ -295,16 +527,20 @@ function MatchRoom(props: {
     <section className="match-room" aria-label={`${props.match.gameLabel} match`}>
       <div className="match-summary">
         <div>
-          <span className="meta-label">Match code</span>
-          <strong data-testid="match-code">{props.match.id}</strong>
+          <span className="meta-label">Game</span>
+          <strong data-testid="match-code" data-match-id={props.match.id}>
+            {props.match.gameLabel}
+          </strong>
         </div>
         <div>
           <span className="meta-label">Your seat</span>
           <strong>{props.seat ? formatPlayer(props.match, props.seat) : "Spectator"}</strong>
         </div>
         <div>
-          <span className="meta-label">Invite URL</span>
-          <strong data-testid="invite-url">{getInviteUrl(props.match.id)}</strong>
+          <span className="meta-label">Invite</span>
+          <strong data-testid="invite-url" data-invite-url={getInviteUrl(props.match.id)}>
+            Use Copy invite
+          </strong>
         </div>
         <div>
           <span className="meta-label">Score</span>
@@ -345,12 +581,31 @@ function MatchRoom(props: {
 }
 
 function ClockStrip(props: { clock: MatchClockView | null }) {
-  if (!props.clock) return null;
+  const snapshotReceivedAtMs = useMemo(() => Date.now(), [props.clock]);
+  const [clientNowMs, setClientNowMs] = useState(() => Date.now());
+  const hasRunningClock = props.clock?.status === "active" && props.clock.runningSeats.length > 0;
+
+  useEffect(() => {
+    setClientNowMs(Date.now());
+    if (!hasRunningClock) return;
+
+    const tick = window.setInterval(() => {
+      setClientNowMs(Date.now());
+    }, 250);
+
+    return () => {
+      window.clearInterval(tick);
+    };
+  }, [hasRunningClock, props.clock]);
+
+  const clock = props.clock;
+  if (!clock) return null;
 
   return (
     <section className="clock-strip" aria-label="Player clocks">
       {(["seat1", "seat2"] as const).map((seat) => {
-        const seatClock = props.clock?.seats[seat];
+        const seatClock = clock.seats[seat];
+        const remainingMs = getProjectedClockRemainingMs(clock, seat, snapshotReceivedAtMs, clientNowMs);
         return (
           <div
             aria-label={`${formatSeat(seat)} clock`}
@@ -358,7 +613,7 @@ function ClockStrip(props: { clock: MatchClockView | null }) {
             key={seat}
           >
             <span className="meta-label">{formatSeat(seat)}</span>
-            <strong>{formatClockMs(seatClock?.remainingMs ?? 0)}</strong>
+            <strong>{formatClockMs(remainingMs)}</strong>
             <span>{seatClock?.isRunning ? "Running" : "Paused"}</span>
           </div>
         );
@@ -561,6 +816,30 @@ function getGameLabel(gameType: GameType) {
   return gameOptions.find((option) => option.gameType === gameType)?.label ?? "Game";
 }
 
+function parseMinutesInput(value: string, range: { readonly min: number; readonly max: number }) {
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed)) return range.min;
+  return clampMinutes(parsed, range);
+}
+
+function clampMinutes(minutes: number, range: { readonly min: number; readonly max: number }) {
+  return Math.min(range.max, Math.max(range.min, minutes));
+}
+
+function minutesToMs(minutes: number, gameType: GameType) {
+  return clampMinutes(minutes, gameTimeRanges[gameType]) * 60_000;
+}
+
+function formatTimeControl(match: OpenMatchView) {
+  if (!match.clockInitialMs) return "Untimed";
+  const minutes = Math.round(match.clockInitialMs / 60_000);
+  return `${minutes} min`;
+}
+
+function formatListedMatchLabel(baseLabel: string, index: number) {
+  return `${baseLabel} ${index + 1}`;
+}
+
 function formatSeat(seat: SeatId) {
   return seat === "seat1" ? "Player 1" : "Player 2";
 }
@@ -622,6 +901,19 @@ function formatClockMs(ms: number) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
+function getProjectedClockRemainingMs(
+  clock: MatchClockView,
+  seat: SeatId,
+  snapshotReceivedAtMs: number,
+  clientNowMs: number
+) {
+  const seatClock = clock.seats[seat];
+  if (clock.status !== "active" || !seatClock.isRunning) return seatClock.remainingMs;
+
+  const elapsedMs = Math.max(0, clientNowMs - snapshotReceivedAtMs);
+  return Math.max(0, seatClock.remainingMs - elapsedMs);
+}
+
 function formatBoardStatus(board: MatchBoardView) {
   if (board.outcome.status === "win") return `${formatSeat(board.outcome.winner)} won`;
   if (board.outcome.status === "draw") return "Draw";
@@ -646,22 +938,73 @@ function formatError(error: string) {
   return error.replaceAll("-", " ");
 }
 
-function setMatchUrl(matchId: string) {
+function readRouteFromLocation(location: Location = window.location): AppRoute {
+  const [section, id] = location.pathname.split("/").filter(Boolean);
+  if (section === "matches" && id) return { view: "match", matchId: decodeURIComponent(id) };
+  if (section === "games" && isGameType(id)) return { view: "lobby", gameType: id };
+
+  const searchParams = new URLSearchParams(location.search);
+  const matchId = searchParams.get("match");
+  if (matchId) return { view: "match", matchId };
+
+  const gameType = searchParams.get("game");
+  if (isGameType(gameType)) return { view: "lobby", gameType };
+
+  return { view: "picker" };
+}
+
+function getRouteUrl(route: AppRoute) {
   const url = new URL(window.location.href);
-  url.searchParams.set("match", matchId);
-  window.history.replaceState(null, "", url);
+  url.search = "";
+  url.hash = "";
+
+  if (route.view === "picker") {
+    url.pathname = "/";
+  }
+
+  if (route.view === "lobby") {
+    url.pathname = `/games/${route.gameType}`;
+  }
+
+  if (route.view === "match") {
+    url.pathname = `/matches/${encodeURIComponent(route.matchId)}`;
+  }
+
+  return url;
+}
+
+function isGameType(candidate: string | null | undefined): candidate is GameType {
+  return candidate === "tictactoe" || candidate === "connect4" || candidate === "chess";
 }
 
 function getInviteUrl(matchId: string) {
   const url = new URL(window.location.href);
-  url.searchParams.set("match", matchId);
+  url.pathname = `/matches/${encodeURIComponent(matchId)}`;
+  url.search = "";
+  url.hash = "";
   return url.toString();
 }
 
 function loadRecentMatches(): RecentMatch[] {
   try {
-    const parsed = JSON.parse(localStorage.getItem(recentMatchesKey) ?? "[]") as RecentMatch[];
-    return Array.isArray(parsed) ? parsed.slice(0, 5) : [];
+    const parsed = JSON.parse(localStorage.getItem(recentMatchesKey) ?? "[]") as unknown;
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .flatMap((candidate): RecentMatch[] => {
+        if (!isRecentMatchRecord(candidate)) return [];
+        const gameType = getRecentMatchGameType(candidate);
+        if (!gameType) return [];
+        return [
+          {
+            id: candidate.id,
+            gameType,
+            gameLabel: candidate.gameLabel,
+            result: candidate.result
+          }
+        ];
+      })
+      .slice(0, 5);
   } catch {
     return [];
   }
@@ -669,10 +1012,40 @@ function loadRecentMatches(): RecentMatch[] {
 
 function saveRecentMatch(match: MatchView) {
   const next = [
-    { id: match.id, gameLabel: match.gameLabel, result: formatMatchOutcome(match) },
+    { id: match.id, gameType: match.gameType, gameLabel: match.gameLabel, result: formatMatchOutcome(match) },
     ...loadRecentMatches().filter((candidate) => candidate.id !== match.id)
   ].slice(0, 5);
   localStorage.setItem(recentMatchesKey, JSON.stringify(next));
+}
+
+function isRecentMatchRecord(candidate: unknown): candidate is {
+  readonly id: string;
+  readonly gameType?: unknown;
+  readonly gameLabel: string;
+  readonly result: string;
+} {
+  if (!candidate || typeof candidate !== "object") return false;
+  const record = candidate as Record<string, unknown>;
+  return typeof record.id === "string" && typeof record.gameLabel === "string" && typeof record.result === "string";
+}
+
+function getRecentMatchGameType(candidate: {
+  readonly gameType?: unknown;
+  readonly gameLabel: string;
+}): GameType | null {
+  if (candidate.gameType === "tictactoe" || candidate.gameType === "connect4" || candidate.gameType === "chess") {
+    return candidate.gameType;
+  }
+
+  return gameOptions.find((option) => option.label === candidate.gameLabel)?.gameType ?? null;
+}
+
+async function loadOpenMatchList(): Promise<OpenMatchView[]> {
+  try {
+    return await listOpenMatches();
+  } catch {
+    return [];
+  }
 }
 
 async function copyTextToClipboard(text: string): Promise<boolean> {

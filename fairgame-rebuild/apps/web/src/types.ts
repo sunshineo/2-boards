@@ -99,6 +99,17 @@ export type MatchView = {
   boards: MatchBoardView[];
 };
 
+export type OpenMatchView = {
+  id: string;
+  gameType: GameType;
+  gameLabel: string;
+  clockInitialMs: number | null;
+  clockIncrementMs: number | null;
+  joinedSeats: number;
+  maxSeats: number;
+  updatedAtMs: number;
+};
+
 export type SeatSession = {
   seat: SeatId | null;
   match: MatchView;

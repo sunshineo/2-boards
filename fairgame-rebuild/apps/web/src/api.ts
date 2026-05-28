@@ -1,4 +1,4 @@
-import type { BoardId, GameType, MatchView, MovePayload, SeatId, SeatSession } from "./types";
+import type { BoardId, GameType, MatchView, MovePayload, OpenMatchView, SeatId, SeatSession } from "./types";
 
 export function getApiBaseUrl(env: ImportMetaEnv = import.meta.env, location: Location = window.location) {
   if (env["VITE_API_URL"]) return env["VITE_API_URL"];
@@ -16,10 +16,17 @@ export class ApiError extends Error {
   }
 }
 
-export async function createMatch(gameType: GameType = "tictactoe", playerName?: string): Promise<SeatSession> {
+export type CreateMatchOptions = {
+  readonly clockInitialMs?: number;
+};
+
+export async function createMatch(
+  gameType: GameType = "tictactoe",
+  options: CreateMatchOptions = {}
+): Promise<SeatSession> {
   return request<SeatSession>("/api/matches", {
     method: "POST",
-    body: JSON.stringify({ gameType, playerName })
+    body: JSON.stringify({ gameType, clockInitialMs: options.clockInitialMs })
   });
 }
 
@@ -28,6 +35,11 @@ export async function joinMatch(matchId: string, playerName?: string): Promise<S
     method: "POST",
     body: JSON.stringify({ playerName })
   });
+}
+
+export async function listOpenMatches(): Promise<OpenMatchView[]> {
+  const response = await request<{ matches: OpenMatchView[] }>("/api/matches");
+  return response.matches;
 }
 
 export async function getMatch(matchId: string): Promise<MatchView> {
