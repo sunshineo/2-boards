@@ -158,6 +158,24 @@ test("two players can finish both Connect Four boards", async ({ browser }) => {
   await playerTwoContext.close();
 });
 
+test("Connect Four columns contain all six slots", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Connect Four lobby" }).click();
+  await page.getByRole("button", { name: "Create Connect Four match" }).click();
+  await expect(page.getByTestId("match-code")).toHaveAttribute("data-match-id", /.+/);
+
+  const column = page.getByRole("button", { name: "Board A column 1" });
+  await expect(column.locator(".connect-four-slot")).toHaveCount(6);
+
+  const columnBox = await column.boundingBox();
+  const lastSlotBox = await column.locator(".connect-four-slot").nth(5).boundingBox();
+
+  if (!columnBox || !lastSlotBox) {
+    throw new Error("Unable to measure Connect Four layout");
+  }
+  expect(lastSlotBox.y + lastSlotBox.height).toBeLessThanOrEqual(columnBox.y + columnBox.height + 1);
+});
+
 test("player can make an opening Chess move", async ({ browser }) => {
   const playerOneContext = await browser.newContext();
   const playerTwoContext = await browser.newContext();
