@@ -9,6 +9,7 @@ import { createApp } from "../src/app";
 import { loadServerConfig } from "../src/config";
 
 const tempDirs: string[] = [];
+const testDatabaseUrl = "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require";
 
 afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
@@ -16,7 +17,7 @@ afterEach(async () => {
 
 describe("health endpoint", () => {
   it("returns project and bootstrap board assignment data", async () => {
-    const response = await request(createApp()).get("/health").expect(200);
+    const response = await request(createApp({ config: loadTestConfig(), logger: false })).get("/health").expect(200);
 
     expect(response.body).toEqual({
       ok: true,
@@ -31,6 +32,7 @@ describe("health endpoint", () => {
   it("sets security headers and allows configured origins", async () => {
     const config = loadServerConfig(
       {
+        DATABASE_URL: testDatabaseUrl,
         FAIRGAME_ALLOWED_ORIGINS: "https://play.example.com"
       },
       "/repo"
@@ -49,6 +51,7 @@ describe("health endpoint", () => {
   it("does not allow unconfigured cross-origin callers", async () => {
     const config = loadServerConfig(
       {
+        DATABASE_URL: testDatabaseUrl,
         FAIRGAME_ALLOWED_ORIGINS: "https://play.example.com"
       },
       "/repo"
@@ -63,7 +66,7 @@ describe("health endpoint", () => {
   });
 
   it("uses secure seat cookies in production", async () => {
-    const config = loadServerConfig({ NODE_ENV: "production" }, "/repo");
+    const config = loadServerConfig({ NODE_ENV: "production", DATABASE_URL: testDatabaseUrl }, "/repo");
 
     const response = await request(createApp({ config, logger: false }))
       .post("/api/matches")
@@ -76,6 +79,7 @@ describe("health endpoint", () => {
   it("rate limits API requests", async () => {
     const config = loadServerConfig(
       {
+        DATABASE_URL: testDatabaseUrl,
         FAIRGAME_RATE_LIMIT_WINDOW_MS: "60000",
         FAIRGAME_RATE_LIMIT_MAX: "2"
       },
@@ -93,6 +97,7 @@ describe("health endpoint", () => {
   it("reports readiness when dependencies are healthy", async () => {
     const response = await request(
       createApp({
+        config: loadTestConfig(),
         logger: false,
         readinessCheck: async () => {
           return;
@@ -108,9 +113,10 @@ describe("health endpoint", () => {
   it("reports readiness failure without leaking dependency internals", async () => {
     const response = await request(
       createApp({
+        config: loadTestConfig(),
         logger: false,
         readinessCheck: async () => {
-          throw new Error("pglite file lock details");
+          throw new Error("database connection details");
         }
       })
     )
@@ -121,7 +127,9 @@ describe("health endpoint", () => {
   });
 
   it("returns a stable JSON error for unknown API routes", async () => {
-    const response = await request(createApp({ logger: false })).get("/api/does-not-exist").expect(404);
+    const response = await request(createApp({ config: loadTestConfig(), logger: false }))
+      .get("/api/does-not-exist")
+      .expect(404);
 
     expect(response.body).toEqual({ error: "not-found" });
   });
@@ -132,7 +140,7 @@ describe("health endpoint", () => {
     await writeFile(join(webDistDir, "index.html"), "<!doctype html><title>FairGame Built</title>");
     await writeFile(join(webDistDir, "asset.txt"), "asset body");
 
-    const config = loadServerConfig({ FAIRGAME_WEB_DIST_DIR: webDistDir }, "/repo");
+    const config = loadServerConfig({ DATABASE_URL: testDatabaseUrl, FAIRGAME_WEB_DIST_DIR: webDistDir }, "/repo");
     const app = createApp({ config, logger: false });
 
     const root = await request(app).get("/").expect(200);
@@ -148,3 +156,7 @@ describe("health endpoint", () => {
     expect(apiRoute.body).toEqual({ error: "not-found" });
   });
 });
+
+function loadTestConfig() {
+  return loadServerConfig({ DATABASE_URL: testDatabaseUrl }, "/repo");
+}

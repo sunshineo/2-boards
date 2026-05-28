@@ -8,7 +8,7 @@ describe("server config", () => {
       {
         NODE_ENV: "production",
         PORT: "8080",
-        FAIRGAME_DB_DIR: "/var/lib/fairgame/pglite",
+        DATABASE_URL: "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require",
         FAIRGAME_ALLOWED_ORIGINS: "https://play.example.com, https://fair.example.com",
         FAIRGAME_RATE_LIMIT_WINDOW_MS: "120000",
         FAIRGAME_RATE_LIMIT_MAX: "25",
@@ -22,7 +22,7 @@ describe("server config", () => {
     expect(config).toMatchObject({
       nodeEnv: "production",
       port: 8080,
-      dataDir: "/var/lib/fairgame/pglite",
+      databaseUrl: "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require",
       allowedOrigins: ["https://play.example.com", "https://fair.example.com"],
       secureCookies: true,
       rateLimit: { windowMs: 120_000, max: 25 },
@@ -32,13 +32,20 @@ describe("server config", () => {
     });
   });
 
-  it("uses safe development defaults", () => {
-    const config = loadServerConfig({}, "/repo/apps/server");
+  it("requires a database URL", () => {
+    expect(() => loadServerConfig({}, "/repo/apps/server")).toThrow("DATABASE_URL is required.");
+  });
+
+  it("uses safe development defaults with the configured database", () => {
+    const config = loadServerConfig(
+      { DATABASE_URL: "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require" },
+      "/repo/apps/server"
+    );
 
     expect(config).toMatchObject({
       nodeEnv: "development",
       port: 4000,
-      dataDir: "/repo/.data/pglite",
+      databaseUrl: "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require",
       allowedOrigins: [],
       secureCookies: false,
       rateLimit: { windowMs: 60_000, max: 120 },

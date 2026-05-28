@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 export type ServerConfig = {
   readonly nodeEnv: "development" | "test" | "production";
   readonly port: number;
-  readonly dataDir: string;
+  readonly databaseUrl: string;
   readonly allowedOrigins: readonly string[];
   readonly secureCookies: boolean;
   readonly trustProxy: boolean;
@@ -26,7 +26,7 @@ export function loadServerConfig(env: Env = process.env, cwd = process.cwd()): S
   return {
     nodeEnv,
     port: parsePositiveInteger(env["PORT"], 4000),
-    dataDir: env["FAIRGAME_DB_DIR"] ?? resolve(cwd, "../../.data/pglite"),
+    databaseUrl: parseRequiredString(env["DATABASE_URL"], "DATABASE_URL"),
     allowedOrigins: parseCsv(env["FAIRGAME_ALLOWED_ORIGINS"]),
     secureCookies: parseBoolean(env["FAIRGAME_SECURE_COOKIES"], nodeEnv === "production"),
     trustProxy: parseBoolean(env["FAIRGAME_TRUST_PROXY"], false),
@@ -45,6 +45,11 @@ export function loadServerConfig(env: Env = process.env, cwd = process.cwd()): S
 function parseNodeEnv(value: string | undefined): ServerConfig["nodeEnv"] {
   if (value === "production" || value === "test") return value;
   return "development";
+}
+
+function parseRequiredString(value: string | undefined, name: string): string {
+  if (!value?.trim()) throw new Error(`${name} is required.`);
+  return value;
 }
 
 function parseCsv(value: string | undefined): string[] {

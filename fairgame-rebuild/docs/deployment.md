@@ -1,6 +1,7 @@
 # Deployment
 
 FairGame can run as one Node process serving the React build, REST API, and Socket.IO.
+The server always uses a Postgres database through `DATABASE_URL`.
 
 ## Build
 
@@ -14,7 +15,7 @@ npm run build
 ```bash
 NODE_ENV=production \
 PORT=4000 \
-FAIRGAME_DB_DIR=.data/pglite \
+DATABASE_URL='postgresql://fairgame:password@ep-example.us-east-1.aws.neon.tech/fairgame?sslmode=require' \
 FAIRGAME_WEB_DIST_DIR=apps/web/dist \
 npm run dev:server
 ```
@@ -24,7 +25,7 @@ For a compiled server, run:
 ```bash
 NODE_ENV=production \
 PORT=4000 \
-FAIRGAME_DB_DIR=.data/pglite \
+DATABASE_URL='postgresql://fairgame:password@ep-example.us-east-1.aws.neon.tech/fairgame?sslmode=require' \
 FAIRGAME_WEB_DIST_DIR=apps/web/dist \
 node apps/server/dist/index.js
 ```
@@ -33,13 +34,15 @@ node apps/server/dist/index.js
 
 ```bash
 docker build -t fairgame .
-docker run --rm -p 4000:4000 -v fairgame-data:/data fairgame
+docker run --rm -p 4000:4000 \
+  -e DATABASE_URL='postgresql://fairgame:password@ep-example.us-east-1.aws.neon.tech/fairgame?sslmode=require' \
+  fairgame
 ```
 
 ## Environment
 
 - `PORT`: HTTP port.
-- `FAIRGAME_DB_DIR`: local PGlite data directory.
+- `DATABASE_URL`: required Postgres connection string. Use the Neon connection string with `sslmode=require`.
 - `FAIRGAME_WEB_DIST_DIR`: built web directory. Set to `apps/web/dist` locally or `/app/apps/web/dist` in the Docker image.
 - `FAIRGAME_ALLOWED_ORIGINS`: comma-separated browser origins allowed to call the API. Leave empty for local development.
 - `FAIRGAME_SECURE_COOKIES`: defaults to `true` in production and `false` otherwise.
@@ -55,8 +58,8 @@ docker run --rm -p 4000:4000 -v fairgame-data:/data fairgame
 - `GET /health`: process health and static product metadata.
 - `GET /ready`: dependency readiness, including persistence.
 
-## Neon Path
+## Neon
 
-PGlite remains the local database. When the project moves online, add a Neon/Postgres
-repository that implements the existing `MatchRepository` interface. The migration table and
-SQL are intentionally Postgres-shaped so the schema-management path can be reused.
+Create a Neon Postgres database in the same region as the app when possible. For a Northflank
+service in US East, use Neon `aws-us-east-1` when available. Store the Neon connection string in
+the deployment environment as `DATABASE_URL`.

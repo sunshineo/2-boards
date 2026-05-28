@@ -31,10 +31,9 @@ Run the built app as a single production server:
 
 ```bash
 npm run build
-NODE_ENV=production FAIRGAME_WEB_DIST_DIR=apps/web/dist npm run dev:server
+NODE_ENV=production DATABASE_URL='postgresql://...' FAIRGAME_WEB_DIST_DIR=apps/web/dist npm run dev:server
 ```
 
-See `docs/deployment.md` for Docker, health checks, environment variables, and the future
-Neon/Postgres persistence path.
+See `docs/deployment.md` for Docker, health checks, environment variables, and Neon/Postgres persistence.
 
 The active rebuild follows `/Volumes/T9/code/2-boards/roadmap.md`.

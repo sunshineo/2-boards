@@ -5,11 +5,11 @@ import { createApp } from "./app.js";
 import { loadServerConfig } from "./config.js";
 import type { SupportedGameState } from "./matches/gameRegistry.js";
 import { MatchService } from "./matches/matchService.js";
-import { PgliteMatchRepository } from "./persistence/pgliteMatchRepository.js";
+import { PostgresMatchRepository } from "./persistence/postgresMatchRepository.js";
 import { registerRealtime } from "./realtime.js";
 
 const config = loadServerConfig();
-const repository = await PgliteMatchRepository.open<SupportedGameState>(config.dataDir);
+const repository = await PostgresMatchRepository.open<SupportedGameState>(config.databaseUrl);
 const matchService = new MatchService({ repository });
 await matchService.loadFromRepository();
 const app = createApp({

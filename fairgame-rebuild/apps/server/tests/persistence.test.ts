@@ -1,41 +1,30 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-
+import { newDb } from "pg-mem";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { SupportedGameState } from "../src/matches/gameRegistry";
 import { MatchService } from "../src/matches/matchService";
-import { PgliteMatchRepository } from "../src/persistence/pgliteMatchRepository";
+import { PostgresMatchRepository } from "../src/persistence/postgresMatchRepository";
 
-const tempDirs: string[] = [];
+type ClosableRepository = PostgresMatchRepository<SupportedGameState>;
+
+const repositories: ClosableRepository[] = [];
 
 afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
+  await Promise.all(repositories.splice(0).map((repository) => repository.close()));
 });
 
-describe("PGlite match persistence", () => {
+describe("Postgres match persistence", () => {
   it("records the initial schema migration once", async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "fairgame-pglite-"));
-    tempDirs.push(tempDir);
-    const dataDir = join(tempDir, "db");
-
-    const repository = await PgliteMatchRepository.open<SupportedGameState>(dataDir);
+    const repository = await createRepository();
     expect(await repository.listAppliedMigrations()).toEqual(["001_initial_persistence"]);
-    await repository.close();
 
-    const reopenedRepository = await PgliteMatchRepository.open<SupportedGameState>(dataDir);
-    expect(await reopenedRepository.listAppliedMigrations()).toEqual(["001_initial_persistence"]);
-    await reopenedRepository.close();
+    await repository.initialize();
+    expect(await repository.listAppliedMigrations()).toEqual(["001_initial_persistence"]);
   });
 
   it("restores an active match from snapshots and continues from the restored state", async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "fairgame-pglite-"));
-    tempDirs.push(tempDir);
-    const dataDir = join(tempDir, "db");
-
     let secretIndex = 0;
-    const repository = await PgliteMatchRepository.open<SupportedGameState>(dataDir);
+    const repository = await createRepository();
     const service = new MatchService({
       createId: () => "match-1",
       createSecret: () => `secret-${++secretIndex}`,
@@ -53,10 +42,8 @@ describe("PGlite match persistence", () => {
     });
     expect(firstMove.ok).toBe(true);
     expect(await repository.countEvents("match-1")).toBe(3);
-    await repository.close();
 
-    const restoredRepository = await PgliteMatchRepository.open<SupportedGameState>(dataDir);
-    const restoredService = new MatchService({ repository: restoredRepository });
+    const restoredService = new MatchService({ repository });
     await restoredService.loadFromRepository();
 
     const restoredMatch = await restoredService.getMatch("match-1");
@@ -73,17 +60,12 @@ describe("PGlite match persistence", () => {
 
     expect(continued.ok).toBe(true);
     expect((await restoredService.getMatch("match-1"))?.boards[0]?.cells[3]).toBe("seat2");
-    expect(await restoredRepository.countEvents("match-1")).toBe(4);
-    await restoredRepository.close();
+    expect(await repository.countEvents("match-1")).toBe(4);
   });
 
   it("prunes stale snapshots while preserving event history", async () => {
-    const tempDir = await mkdtemp(join(tmpdir(), "fairgame-pglite-"));
-    tempDirs.push(tempDir);
-    const dataDir = join(tempDir, "db");
-
     let now = 0;
-    const repository = await PgliteMatchRepository.open<SupportedGameState>(dataDir);
+    const repository = await createRepository();
     const service = new MatchService({
       createId: () => "match-1",
       createSecret: () => "secret",
@@ -117,6 +99,15 @@ describe("PGlite match persistence", () => {
 
     expect(await repository.loadSnapshots()).toHaveLength(0);
     expect(await repository.countEvents("match-1")).toBe(eventCountBeforePrune + 1);
-    await repository.close();
   });
 });
+
+async function createRepository() {
+  const database = newDb({ noAstCoverageCheck: true });
+  const adapter = database.adapters.createPg();
+  const pool = new adapter.Pool();
+  const repository = PostgresMatchRepository.fromPool<SupportedGameState>(pool);
+  repositories.push(repository);
+  await repository.initialize();
+  return repository;
+}

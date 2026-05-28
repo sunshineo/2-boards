@@ -1,20 +1,25 @@
-import { mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
-
-import { PGlite } from "@electric-sql/pglite";
+import { Pool, type QueryResult, type QueryResultRow } from "pg";
 
 import type { MatchEventInput, MatchRepository, SerializedStoredMatch } from "../matches/matchRepository.js";
 
-type SnapshotRow<TState> = {
+type Queryable = {
+  query<T extends QueryResultRow = QueryResultRow>(
+    text: string,
+    values?: readonly unknown[]
+  ): Promise<QueryResult<T>>;
+  end?: () => Promise<void>;
+};
+
+type SnapshotRow<TState> = QueryResultRow & {
   match_id: string;
   payload: SerializedStoredMatch<TState> | string;
 };
 
-type EventCountRow = {
+type EventCountRow = QueryResultRow & {
   count: string;
 };
 
-type MigrationRow = {
+type MigrationRow = QueryResultRow & {
   version: string;
 };
 
@@ -42,19 +47,25 @@ const migrations: readonly { readonly version: string; readonly sql: string }[] 
   }
 ];
 
-export class PgliteMatchRepository<TState = unknown> implements MatchRepository<TState> {
-  private constructor(private readonly db: PGlite) {}
+export class PostgresMatchRepository<TState = unknown> implements MatchRepository<TState> {
+  private constructor(private readonly db: Queryable) {}
 
-  static async open<TState = unknown>(dataDir: string): Promise<PgliteMatchRepository<TState>> {
-    await mkdir(dirname(dataDir), { recursive: true });
-    const db = await PGlite.create(dataDir);
-    const repository = new PgliteMatchRepository<TState>(db);
+  static async open<TState = unknown>(connectionString: string): Promise<PostgresMatchRepository<TState>> {
+    const repository = PostgresMatchRepository.fromPool<TState>(
+      new Pool({
+        connectionString
+      })
+    );
     await repository.initialize();
     return repository;
   }
 
+  static fromPool<TState = unknown>(pool: Queryable): PostgresMatchRepository<TState> {
+    return new PostgresMatchRepository<TState>(pool);
+  }
+
   async initialize(): Promise<void> {
-    await this.db.exec(`
+    await this.db.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         version TEXT PRIMARY KEY,
         applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -64,7 +75,7 @@ export class PgliteMatchRepository<TState = unknown> implements MatchRepository<
     const applied = new Set(await this.listAppliedMigrations());
     for (const migration of migrations) {
       if (applied.has(migration.version)) continue;
-      await this.db.exec(migration.sql);
+      await this.db.query(migration.sql);
       await this.db.query(
         `
         INSERT INTO schema_migrations(version)
@@ -127,7 +138,7 @@ export class PgliteMatchRepository<TState = unknown> implements MatchRepository<
   }
 
   async close(): Promise<void> {
-    await this.db.close();
+    await this.db.end?.();
   }
 }
 

@@ -19,7 +19,6 @@ FROM node:22-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=4000
-ENV FAIRGAME_DB_DIR=/data/pglite
 ENV FAIRGAME_WEB_DIST_DIR=/app/apps/web/dist
 
 COPY --from=build /app/package.json /app/package-lock.json ./

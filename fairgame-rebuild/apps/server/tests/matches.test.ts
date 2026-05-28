@@ -2,10 +2,16 @@ import request from "supertest";
 import { describe, expect, it } from "vitest";
 
 import { createApp } from "../src/app";
+import { loadServerConfig } from "../src/config";
 import { MatchService } from "../src/matches/matchService";
 
 function appWithDeterministicIds(options: Partial<ConstructorParameters<typeof MatchService>[0]> = {}) {
   return createApp({
+    config: loadServerConfig(
+      { DATABASE_URL: "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require" },
+      "/repo"
+    ),
+    logger: false,
     matchService: new MatchService({ createId: () => "match-1", ...options })
   });
 }
@@ -203,6 +209,11 @@ describe("match API", () => {
     let idIndex = 0;
     let now = 1_000;
     const app = createApp({
+      config: loadServerConfig(
+        { DATABASE_URL: "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require" },
+        "/repo"
+      ),
+      logger: false,
       matchService: new MatchService({
         createId: () => `match-${++idIndex}`,
         nowMs: () => now
