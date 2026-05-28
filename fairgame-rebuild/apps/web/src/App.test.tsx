@@ -183,7 +183,7 @@ describe("App", () => {
               kind: "chess",
               id: "A",
               firstSeat: "seat1",
-              fen: "start",
+              fen: initialChessFen,
               whiteSeat: "seat1",
               blackSeat: "seat2",
               squares: createChessSquares(),
@@ -195,7 +195,7 @@ describe("App", () => {
               kind: "chess",
               id: "B",
               firstSeat: "seat2",
-              fen: "start",
+              fen: initialChessFen,
               whiteSeat: "seat2",
               blackSeat: "seat1",
               squares: createChessSquares(),
@@ -404,7 +404,7 @@ describe("App", () => {
               kind: "chess",
               id: "A",
               firstSeat: "seat1",
-              fen: "start",
+              fen: initialChessFen,
               whiteSeat: "seat1",
               blackSeat: "seat2",
               squares: createChessSquares(),
@@ -416,7 +416,7 @@ describe("App", () => {
               kind: "chess",
               id: "B",
               firstSeat: "seat2",
-              fen: "start",
+              fen: initialChessFen,
               whiteSeat: "seat2",
               blackSeat: "seat1",
               squares: createChessSquares(),
@@ -436,8 +436,23 @@ describe("App", () => {
 
     await screen.findByTestId("match-code");
     expect(screen.getByTestId("match-code")).toHaveAttribute("data-match-id", "match-3");
-    expect(screen.getByRole("button", { name: "Board A square e2 white pawn" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Board B square e2 white pawn" })).toBeDisabled();
+    const boardA = screen.getByTestId("board-A-chessboard");
+    const boardB = screen.getByTestId("board-B-chessboard");
+    expect(getChessboardSquare(boardA, "e2")).toBeInTheDocument();
+    expect(boardA).toHaveAttribute("data-interactive", "true");
+    expect(boardB).toHaveAttribute("data-interactive", "false");
+    fireEvent.click(getChessboardSquare(boardA, "e2"));
+    fireEvent.click(getChessboardSquare(boardA, "e4"));
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/matches/match-3/moves"),
+      expect.objectContaining({
+        body: JSON.stringify({
+          boardId: "A",
+          seat: "seat1",
+          move: { from: "e2", to: "e4", promotion: "q" }
+        })
+      })
+    );
     expect(screen.getAllByText("No moves")).toHaveLength(2);
   });
 
@@ -651,6 +666,16 @@ function createPlayersMock() {
     seat1: { label: "Player 1", name: "Player 1" },
     seat2: { label: "Player 2", name: "Player 2" }
   };
+}
+
+const initialChessFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+function getChessboardSquare(board: HTMLElement, square: string) {
+  const squareElement = board.querySelector(`[data-square="${square}"]`);
+  if (!(squareElement instanceof HTMLElement)) {
+    throw new Error(`Missing chessboard square ${square}`);
+  }
+  return squareElement;
 }
 
 function createClockMock(initialMs = 300_000, incrementMs = 0) {

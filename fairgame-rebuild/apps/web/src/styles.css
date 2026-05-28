@@ -463,36 +463,34 @@ button:disabled {
   align-items: start;
 }
 
-.chess-grid {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+.react-chessboard-shell {
+  width: min(100%, 520px);
+  aspect-ratio: 1;
   border: 1px solid #8c947f;
   border-radius: 8px;
   overflow: hidden;
 }
 
-.chess-square {
+.react-chessboard-shell > div {
+  width: 100%;
+  height: 100%;
+}
+
+.react-chessboard-square-button {
   display: grid;
   place-items: center;
-  aspect-ratio: 1;
+  width: 100%;
+  height: 100%;
   border: 0;
   border-radius: 0;
-  color: #151b24;
-  font-size: clamp(1.05rem, 3.8vw, 2rem);
-  font-weight: 900;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
 }
 
-.chess-square.light {
-  background: #f1e4c8;
-}
-
-.chess-square.dark {
-  background: #6f8f72;
-}
-
-.chess-square.selected {
-  outline: 3px solid #b74f2a;
-  outline-offset: -3px;
+.react-chessboard-square-button:disabled {
+  cursor: default;
+  opacity: 1;
 }
 
 .move-history {

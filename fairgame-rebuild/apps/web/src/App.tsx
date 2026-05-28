@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Chessboard, type ChessboardOptions, type PieceDataType } from "react-chessboard";
 import { io } from "socket.io-client";
 
 import {
@@ -13,8 +14,6 @@ import {
 import type {
   BoardId,
   ChessBoardView,
-  ChessPiece,
-  ChessSquareView,
   ConnectFourBoardView,
   GameType,
   MatchBoardView,
@@ -672,24 +671,67 @@ function ChessBoard(props: {
     props.board.outcome.status === "in_progress" &&
     props.board.seatsToAct.includes(props.currentSeat);
 
-  function handleSquareClick(square: ChessSquareView) {
+  useEffect(() => {
+    if (!canAct) setSelectedSquare(null);
+  }, [canAct, props.board.fen]);
+
+  function handleSquareClick(square: string, piece: PieceDataType | null) {
     if (!canAct) return;
 
     if (selectedSquare) {
-      if (selectedSquare === square.square) {
+      if (selectedSquare === square) {
         setSelectedSquare(null);
         return;
       }
 
-      props.onMove({ from: selectedSquare, to: square.square, promotion: "q" });
+      props.onMove({ from: selectedSquare, to: square, promotion: "q" });
       setSelectedSquare(null);
       return;
     }
 
-    if (square.piece && getPieceSeat(props.board, square.piece) === props.currentSeat) {
-      setSelectedSquare(square.square);
+    if (piece && getPieceSeatFromPieceType(props.board, piece.pieceType) === props.currentSeat) {
+      setSelectedSquare(square);
     }
   }
+
+  const chessboardOptions: ChessboardOptions = {
+    id: `board-${props.board.id}-chessboard`,
+    position: getChessboardPosition(props.board.fen),
+    boardOrientation: getChessboardOrientation(props.board, props.currentSeat),
+    allowDragging: canAct && !props.isBusy,
+    showNotation: true,
+    squareStyles: selectedSquare
+      ? {
+          [selectedSquare]: {
+            boxShadow: "inset 0 0 0 3px #b74f2a"
+          }
+        }
+      : {},
+    canDragPiece({ piece }) {
+      return canAct && !props.isBusy && getPieceSeatFromPieceType(props.board, piece.pieceType) === props.currentSeat;
+    },
+    onPieceDrop({ sourceSquare, targetSquare }) {
+      if (!canAct || props.isBusy || !targetSquare || sourceSquare === targetSquare) return false;
+      props.onMove({ from: sourceSquare, to: targetSquare, promotion: "q" });
+      setSelectedSquare(null);
+      return true;
+    },
+    onSquareClick({ piece, square }) {
+      handleSquareClick(square, piece);
+    },
+    squareRenderer({ piece, square, children }) {
+      return (
+        <button
+          aria-label={formatChessSquareLabel(props.board.id, square, piece)}
+          className="react-chessboard-square-button"
+          disabled={props.isBusy || !canAct}
+          type="button"
+        >
+          {children}
+        </button>
+      );
+    }
+  };
 
   return (
     <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
@@ -698,20 +740,13 @@ function ChessBoard(props: {
         <p>{canAct ? "Your move" : formatBoardStatus(props.board)}</p>
       </div>
       <div className="chess-layout">
-        <div className="chess-grid">
-          {props.board.squares.map((square, index) => (
-            <button
-              aria-label={formatChessSquareLabel(props.board.id, square)}
-              className={`chess-square ${getChessSquareTone(index)}${
-                selectedSquare === square.square ? " selected" : ""
-              }`}
-              disabled={props.isBusy || !canAct}
-              key={square.square}
-              onClick={() => handleSquareClick(square)}
-            >
-              {square.piece ? getChessPieceSymbol(square.piece) : ""}
-            </button>
-          ))}
+        <div
+          className="react-chessboard-shell"
+          data-board-id={props.board.id}
+          data-interactive={canAct && !props.isBusy ? "true" : "false"}
+          data-testid={`board-${props.board.id}-chessboard`}
+        >
+          <Chessboard options={chessboardOptions} />
         </div>
         <div className="move-history" aria-label={`Board ${props.board.id} move history`} role="region">
           <h3>Moves</h3>
@@ -853,23 +888,29 @@ function formatMark(seat: SeatId) {
   return seat === "seat1" ? "X" : "O";
 }
 
-function formatChessSquareLabel(boardId: BoardId, square: ChessSquareView) {
-  if (!square.piece) return `Board ${boardId} square ${square.square} empty`;
-  return `Board ${boardId} square ${square.square} ${formatChessColor(square.piece.color)} ${formatChessPieceType(
-    square.piece.type
-  )}`;
+const startingChessFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+function getChessboardPosition(fen: string) {
+  return fen === "start" ? startingChessFen : fen;
 }
 
-function getPieceSeat(board: ChessBoardView, piece: ChessPiece) {
-  return piece.color === "w" ? board.whiteSeat : board.blackSeat;
+function getChessboardOrientation(board: ChessBoardView, seat: SeatId | null) {
+  return seat && board.blackSeat === seat ? "black" : "white";
 }
 
-function formatChessColor(color: ChessPiece["color"]) {
-  return color === "w" ? "white" : "black";
+function formatChessSquareLabel(boardId: BoardId, square: string, piece: PieceDataType | null) {
+  if (!piece) return `Board ${boardId} square ${square} empty`;
+  return `Board ${boardId} square ${square} ${formatChessPieceType(piece.pieceType)}`;
 }
 
-function formatChessPieceType(type: ChessPiece["type"]) {
-  const names: Record<ChessPiece["type"], string> = {
+function getPieceSeatFromPieceType(board: ChessBoardView, pieceType: string) {
+  return pieceType.startsWith("w") ? board.whiteSeat : board.blackSeat;
+}
+
+function formatChessPieceType(pieceType: string) {
+  const color = pieceType.startsWith("w") ? "white" : "black";
+  const piece = pieceType.slice(1).toLowerCase();
+  const names: Record<string, string> = {
     p: "pawn",
     n: "knight",
     b: "bishop",
@@ -877,21 +918,7 @@ function formatChessPieceType(type: ChessPiece["type"]) {
     q: "queen",
     k: "king"
   };
-  return names[type];
-}
-
-function getChessPieceSymbol(piece: ChessPiece) {
-  const symbols: Record<ChessPiece["color"], Record<ChessPiece["type"], string>> = {
-    w: { k: "♔", q: "♕", r: "♖", b: "♗", n: "♘", p: "♙" },
-    b: { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" }
-  };
-  return symbols[piece.color][piece.type];
-}
-
-function getChessSquareTone(index: number) {
-  const row = Math.floor(index / 8);
-  const column = index % 8;
-  return (row + column) % 2 === 0 ? "light" : "dark";
+  return `${color} ${names[piece] ?? "piece"}`;
 }
 
 function formatClockMs(ms: number) {
