@@ -217,8 +217,12 @@ export function App() {
     const socket = io(getApiBaseUrl(), {
       withCredentials: true
     });
+    const watchMatch = () => {
+      socket.emit("watch-match", { matchId: session.match.id });
+    };
 
-    socket.emit("watch-match", { matchId: session.match.id });
+    socket.on("connect", watchMatch);
+    if (socket.connected) watchMatch();
     socket.on("match:update", (match: MatchView) => {
       setSession((current) => {
         if (!current || current.match.id !== match.id) return current;

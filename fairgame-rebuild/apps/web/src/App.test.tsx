@@ -1,10 +1,54 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const socketIoMock = vi.hoisted(() => {
+  type Handler = (...args: unknown[]) => void;
+  type MockSocket = {
+    connected: boolean;
+    emit: ReturnType<typeof vi.fn>;
+    on: ReturnType<typeof vi.fn>;
+    close: ReturnType<typeof vi.fn>;
+    trigger: (event: string, ...args: unknown[]) => void;
+  };
+
+  const sockets: MockSocket[] = [];
+  const io = vi.fn(() => {
+    const handlers = new Map<string, Handler[]>();
+    const socket: MockSocket = {
+      connected: false,
+      emit: vi.fn(),
+      on: vi.fn((event: string, handler: Handler) => {
+        handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+        return socket;
+      }),
+      close: vi.fn(() => {
+        socket.connected = false;
+      }),
+      trigger: (event: string, ...args: unknown[]) => {
+        socket.connected = event === "connect" ? true : event === "disconnect" ? false : socket.connected;
+        for (const handler of handlers.get(event) ?? []) {
+          handler(...args);
+        }
+      }
+    };
+
+    sockets.push(socket);
+    return socket;
+  });
+
+  return { io, sockets };
+});
+
+vi.mock("socket.io-client", () => ({
+  io: socketIoMock.io
+}));
+
 import { App } from "./App";
 
 afterEach(() => {
   cleanup();
+  socketIoMock.io.mockClear();
+  socketIoMock.sockets.length = 0;
   vi.useRealTimers();
   vi.unstubAllGlobals();
   localStorage.clear();
@@ -320,6 +364,34 @@ describe("App", () => {
     expect(screen.queryByText("Your move")).not.toBeInTheDocument();
     expect(screen.getAllByText("Waiting")).toHaveLength(2);
     expect(container.querySelector(".match-actions")).not.toBeInTheDocument();
+  });
+
+  it("rejoins match realtime updates after socket reconnects", async () => {
+    vi.stubGlobal(
+      "fetch",
+      createFetchMock({
+        matches: [],
+        seatSession: createTicTacToeSeatSession("match-reconnect")
+      })
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "TicTacToe lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create TicTacToe match" }));
+
+    await screen.findByTestId("match-code");
+    await waitFor(() => expect(socketIoMock.sockets).toHaveLength(1));
+
+    const socket = socketIoMock.sockets[0];
+    if (!socket) throw new Error("Expected realtime socket to be created.");
+
+    act(() => socket.trigger("connect"));
+    act(() => socket.trigger("disconnect", "transport close"));
+    act(() => socket.trigger("connect"));
+
+    expect(socket.emit).toHaveBeenNthCalledWith(1, "watch-match", { matchId: "match-reconnect" });
+    expect(socket.emit).toHaveBeenNthCalledWith(2, "watch-match", { matchId: "match-reconnect" });
+    expect(socket.emit).toHaveBeenCalledTimes(2);
   });
 
   it("ticks running clocks between server updates", async () => {
