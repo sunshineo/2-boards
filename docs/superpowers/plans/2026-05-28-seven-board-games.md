@@ -159,7 +159,7 @@
 
 **Status:** Completed
 
-**Evidence:** Gate commit `3fca2f0`. Merged all seven domain branches into `codex/add-seven-games-gate`; integrated exports, server registry, route time ranges, web types/renderers/styles, SVG thumbnails, API tests, web tests, and Playwright tests. Final verification passed with `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-28. Built-in browser verification was attempted, but no in-app browser backend was available (`agent.browsers.list()` returned `[]`), so Playwright browser automation is the recorded UI verification.
+**Evidence:** Gate feature commit `299a5d5`. Merged all seven domain branches into `codex/add-seven-games-gate`; integrated exports, server registry, route time ranges, web types/renderers/styles, SVG thumbnails, API tests, web tests, and Playwright tests. Final verification passed with `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-28. Built-in browser verification was attempted, but no in-app browser backend was available (`agent.browsers.list()` returned `[]`), so Playwright browser automation is the recorded UI verification.
 
 **Files:**
 - Modify: `fairgame-rebuild/packages/domain/src/index.ts`
@@ -198,4 +198,4 @@
 - Baseline verification before implementation: `npm run typecheck` passed; `npm test` passed with shared 2 tests, domain 44 tests, server 40 tests, and web 16 tests.
 - Final verification: `npm run typecheck && npm test && npm run build && npm run test:e2e` passed. Unit totals after integration: shared 2, domain 95, server 42, web 17. Playwright: 6 Chromium tests passed.
 - Built-in browser attempt: local dev server started, but Browser plugin reported no available in-app browser backend (`agent.browsers.list()` returned `[]`). Dev server was stopped; Playwright e2e is the browser-flow verification evidence.
-- Gate integration commit: `3fca2f0`.
+- Gate feature commit: `299a5d5`.

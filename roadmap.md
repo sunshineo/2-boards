@@ -248,7 +248,7 @@ Checkpoint: timed matches work without breaking independent board turns.
 - [x] Integrate all seven games into server registry, web game picker, board renderers, API tests, web tests, and e2e flows.
   Evidence: Updated `packages/domain/src/index.ts`, `apps/server/src/matches/gameRegistry.ts`, `apps/server/src/matches/routes.ts`, `apps/server/tests/matches.test.ts`, `apps/web/src/types.ts`, `apps/web/src/App.tsx`, `apps/web/src/App.test.tsx`, `apps/web/src/styles.css`, and `tests/e2e/tictactoe.spec.ts`; added SVG thumbnails under `apps/web/public/game-thumbnails/`.
 - [x] Verify and record final gate branch commit.
-  Evidence: Final verification passed with `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-28. Unit totals: shared 2, domain 95, server 42, web 17. Playwright passed 6 Chromium tests, including opening moves for all seven added games. Built-in browser verification was attempted after starting the local dev server, but no in-app browser backend was available (`agent.browsers.list()` returned `[]`), so Playwright browser automation is the UI verification evidence. Gate commit: `3fca2f0`.
+  Evidence: Final verification passed with `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-28. Unit totals: shared 2, domain 95, server 42, web 17. Playwright passed 6 Chromium tests, including opening moves for all seven added games. Built-in browser verification was attempted after starting the local dev server, but no in-app browser backend was available (`agent.browsers.list()` returned `[]`), so Playwright browser automation is the UI verification evidence. Gate feature commit: `299a5d5`.
 
 Checkpoint 6 implementation commit: `df84fe5`.
 
