@@ -456,13 +456,6 @@ button:disabled {
   background: #b74f2a;
 }
 
-.chess-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(110px, 0.36fr);
-  gap: 14px;
-  align-items: start;
-}
-
 .chess-grid {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
@@ -493,26 +486,6 @@ button:disabled {
 .chess-square.selected {
   outline: 3px solid #b74f2a;
   outline-offset: -3px;
-}
-
-.move-history {
-  display: grid;
-  gap: 8px;
-  align-content: start;
-}
-
-.move-history h3,
-.move-history p,
-.move-history ol {
-  margin: 0;
-}
-
-.move-history h3 {
-  font-size: 0.95rem;
-}
-
-.move-history ol {
-  padding-left: 20px;
 }
 
 .error-banner {
@@ -598,7 +571,6 @@ button:disabled {
   .lobby-grid,
   .setup-grid,
   .boards-grid,
-  .chess-layout,
   .clock-strip,
   .match-summary {
     grid-template-columns: 1fr;

@@ -93,6 +93,8 @@ export type MatchView = {
   gameType: GameType;
   gameLabel: string;
   seats: SeatId[];
+  joinedSeats: number;
+  maxSeats: number;
   players: Record<SeatId, { label: string; name: string }>;
   outcome: MatchOutcome;
   clock: MatchClockView | null;

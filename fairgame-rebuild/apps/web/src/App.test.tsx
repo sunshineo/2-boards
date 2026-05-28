@@ -175,6 +175,8 @@ describe("App", () => {
           gameType: "chess",
           gameLabel: "Chess",
           seats: ["seat1", "seat2"],
+          joinedSeats: 1,
+          maxSeats: 2,
           players: createPlayersMock(),
           outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
           clock: createClockMock(10 * 60_000),
@@ -188,7 +190,7 @@ describe("App", () => {
               blackSeat: "seat2",
               squares: createChessSquares(),
               moveHistory: [],
-              seatsToAct: ["seat1"],
+              seatsToAct: [],
               outcome: { status: "in_progress" }
             },
             {
@@ -200,7 +202,7 @@ describe("App", () => {
               blackSeat: "seat1",
               squares: createChessSquares(),
               moveHistory: [],
-              seatsToAct: ["seat2"],
+              seatsToAct: [],
               outcome: { status: "in_progress" }
             }
           ]
@@ -220,7 +222,7 @@ describe("App", () => {
         body: JSON.stringify({ gameType: "chess", clockInitialMs: 600_000 })
       })
     );
-    expect(screen.getByLabelText("Player 1 clock")).toHaveTextContent("10:00");
+    expect(screen.getByLabelText("You clock")).toHaveTextContent("10:00");
   });
 
   it("renders the two boards after creating a match", async () => {
@@ -233,6 +235,8 @@ describe("App", () => {
           gameType: "tictactoe",
           gameLabel: "TicTacToe",
           seats: ["seat1", "seat2"],
+          joinedSeats: 1,
+          maxSeats: 2,
           players: createPlayersMock(),
           outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
           clock: createClockMock(),
@@ -242,7 +246,7 @@ describe("App", () => {
               id: "A",
               firstSeat: "seat1",
               cells: Array(9).fill(null),
-              seatsToAct: ["seat1"],
+              seatsToAct: [],
               outcome: { status: "in_progress" }
             },
             {
@@ -250,7 +254,7 @@ describe("App", () => {
               id: "B",
               firstSeat: "seat2",
               cells: Array(9).fill(null),
-              seatsToAct: ["seat2"],
+              seatsToAct: [],
               outcome: { status: "in_progress" }
             }
           ]
@@ -259,7 +263,7 @@ describe("App", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<App />);
+    const { container } = render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "TicTacToe lobby" }));
     fireEvent.click(screen.getByRole("button", { name: "Create TicTacToe match" }));
 
@@ -269,12 +273,21 @@ describe("App", () => {
     expect(screen.getByTestId("match-code")).not.toHaveTextContent("match-1");
     expect(screen.getByRole("region", { name: "Board A" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Board B" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Board A cell 1" })).toBeEnabled();
-    expect(screen.getByLabelText("Player 1 clock")).toHaveTextContent("5:00");
-    expect(screen.getByLabelText("Player 2 clock")).toHaveTextContent("5:00");
-    expect(screen.getByRole("button", { name: "Copy invite" })).toBeInTheDocument();
-    expect(screen.getByText("Your move")).toBeInTheDocument();
-
+    expect(screen.getByRole("button", { name: "Board A cell 1" })).toBeDisabled();
+    expect(screen.queryByText("Role")).not.toBeInTheDocument();
+    expect(screen.queryByText("Invite")).not.toBeInTheDocument();
+    expect(screen.queryByText("Use Copy invite")).not.toBeInTheDocument();
+    expect(screen.queryByText("Your seat")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("You clock")).toHaveTextContent("5:00");
+    expect(screen.getByLabelText("Opponent clock")).toHaveTextContent("5:00");
+    expect(screen.queryByRole("button", { name: "Copy invite" })).not.toBeInTheDocument();
+    expect(screen.getByText("Status")).toBeInTheDocument();
+    expect(screen.getAllByText("Waiting for opponent")).toHaveLength(1);
+    expect(screen.queryByText("Player 1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Player 2")).not.toBeInTheDocument();
+    expect(screen.queryByText("Your move")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Waiting")).toHaveLength(2);
+    expect(container.querySelector(".match-actions")).not.toBeInTheDocument();
   });
 
   it("ticks running clocks between server updates", async () => {
@@ -287,6 +300,8 @@ describe("App", () => {
           gameType: "tictactoe",
           gameLabel: "TicTacToe",
           seats: ["seat1", "seat2"],
+          joinedSeats: 2,
+          maxSeats: 2,
           players: createPlayersMock(),
           outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
           clock: createRunningClockMock(),
@@ -319,13 +334,13 @@ describe("App", () => {
 
     await screen.findByTestId("match-code");
     expect(screen.getByTestId("match-code")).toHaveAttribute("data-match-id", "match-clock");
-    expect(screen.getByLabelText("Player 1 clock")).toHaveTextContent("5:00");
-    expect(screen.getByLabelText("Player 2 clock")).toHaveTextContent("5:00");
+    expect(screen.getByLabelText("You clock")).toHaveTextContent("5:00");
+    expect(screen.getByLabelText("Opponent clock")).toHaveTextContent("5:00");
 
-    await waitFor(() => expect(screen.getByLabelText("Player 1 clock")).toHaveTextContent("4:59"), {
+    await waitFor(() => expect(screen.getByLabelText("You clock")).toHaveTextContent("4:59"), {
       timeout: 1_500
     });
-    expect(screen.getByLabelText("Player 2 clock")).toHaveTextContent("5:00");
+    expect(screen.getByLabelText("Opponent clock")).toHaveTextContent("5:00");
   });
 
   it("creates and renders a Connect Four match from the game selector", async () => {
@@ -338,6 +353,8 @@ describe("App", () => {
           gameType: "connect4",
           gameLabel: "Connect Four",
           seats: ["seat1", "seat2"],
+          joinedSeats: 1,
+          maxSeats: 2,
           players: createPlayersMock(),
           outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
           clock: createClockMock(),
@@ -350,7 +367,7 @@ describe("App", () => {
               columns: 7,
               cells: Array(42).fill(null),
               playableColumns: [0, 1, 2, 3, 4, 5, 6],
-              seatsToAct: ["seat1"],
+              seatsToAct: [],
               outcome: { status: "in_progress" }
             },
             {
@@ -361,7 +378,7 @@ describe("App", () => {
               columns: 7,
               cells: Array(42).fill(null),
               playableColumns: [0, 1, 2, 3, 4, 5, 6],
-              seatsToAct: ["seat2"],
+              seatsToAct: [],
               outcome: { status: "in_progress" }
             }
           ]
@@ -382,7 +399,7 @@ describe("App", () => {
         body: JSON.stringify({ gameType: "connect4", clockInitialMs: 300_000 })
       })
     );
-    expect(screen.getByRole("button", { name: "Board A column 1" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Board A column 1" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Board B column 1" })).toBeDisabled();
   });
 
@@ -396,6 +413,8 @@ describe("App", () => {
           gameType: "chess",
           gameLabel: "Chess",
           seats: ["seat1", "seat2"],
+          joinedSeats: 1,
+          maxSeats: 2,
           players: createPlayersMock(),
           outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
           clock: createClockMock(),
@@ -409,7 +428,7 @@ describe("App", () => {
               blackSeat: "seat2",
               squares: createChessSquares(),
               moveHistory: [],
-              seatsToAct: ["seat1"],
+              seatsToAct: [],
               outcome: { status: "in_progress" }
             },
             {
@@ -421,7 +440,7 @@ describe("App", () => {
               blackSeat: "seat1",
               squares: createChessSquares(),
               moveHistory: [],
-              seatsToAct: ["seat2"],
+              seatsToAct: [],
               outcome: { status: "in_progress" }
             }
           ]
@@ -436,9 +455,11 @@ describe("App", () => {
 
     await screen.findByTestId("match-code");
     expect(screen.getByTestId("match-code")).toHaveAttribute("data-match-id", "match-3");
-    expect(screen.getByRole("button", { name: "Board A square e2 white pawn" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Board A square e2 white pawn" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Board B square e2 white pawn" })).toBeDisabled();
-    expect(screen.getAllByText("No moves")).toHaveLength(2);
+    expect(screen.queryByText("Moves")).not.toBeInTheDocument();
+    expect(screen.queryByText("No moves")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Board A move history" })).not.toBeInTheDocument();
   });
 
   it("joins a listed open match without typed name or code", async () => {
@@ -462,6 +483,8 @@ describe("App", () => {
           gameType: "tictactoe",
           gameLabel: "TicTacToe",
           seats: ["seat1", "seat2"],
+          joinedSeats: 2,
+          maxSeats: 2,
           players: createPlayersMock(),
           outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
           clock: createClockMock(),
@@ -503,6 +526,9 @@ describe("App", () => {
         body: JSON.stringify({})
       })
     );
+    expect(screen.queryByText("Role")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("You clock")).toHaveTextContent("5:00");
+    expect(screen.getByLabelText("Opponent clock")).toHaveTextContent("5:00");
   });
 
   it("renders recent match history from local storage", () => {
@@ -524,12 +550,7 @@ describe("App", () => {
     );
   });
 
-  it("copies the invite link and shows rematch for completed matches", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText }
-    });
+  it("shows rematch for completed matches without invite controls", async () => {
     const fetchMock = createFetchMock({
       matches: [],
       seatSession: {
@@ -539,6 +560,8 @@ describe("App", () => {
           gameType: "tictactoe",
           gameLabel: "TicTacToe",
           seats: ["seat1", "seat2"],
+          joinedSeats: 2,
+          maxSeats: 2,
           players: createPlayersMock(),
           outcome: { status: "completed", score: { seat1: 1, seat2: 1 }, winner: null },
           clock: createClockMock(),
@@ -570,10 +593,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create TicTacToe match" }));
 
     await screen.findByTestId("match-code");
-    fireEvent.click(screen.getByRole("button", { name: "Copy invite" }));
 
-    expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
-    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("/matches/match-done"));
+    expect(screen.queryByRole("button", { name: "Copy invite" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Copied" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Rematch" })).toBeInTheDocument();
   });
 });
@@ -614,6 +636,8 @@ function createTicTacToeSeatSession(id: string) {
       gameType: "tictactoe",
       gameLabel: "TicTacToe",
       seats: ["seat1", "seat2"],
+      joinedSeats: 1,
+      maxSeats: 2,
       players: createPlayersMock(),
       outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
       clock: createClockMock(),
@@ -623,7 +647,7 @@ function createTicTacToeSeatSession(id: string) {
           id: "A",
           firstSeat: "seat1",
           cells: Array(9).fill(null),
-          seatsToAct: ["seat1"],
+          seatsToAct: [],
           outcome: { status: "in_progress" }
         },
         {
@@ -631,7 +655,7 @@ function createTicTacToeSeatSession(id: string) {
           id: "B",
           firstSeat: "seat2",
           cells: Array(9).fill(null),
-          seatsToAct: ["seat2"],
+          seatsToAct: [],
           outcome: { status: "in_progress" }
         }
       ]

@@ -47,23 +47,33 @@ test("two players can finish both TicTacToe boards", async ({ browser }) => {
   await playerOne.getByRole("button", { name: "Create TicTacToe match" }).click();
   const matchCode = await playerOne.getByTestId("match-code").getAttribute("data-match-id");
   expect(matchCode).toBeTruthy();
-  await expect(playerOne.locator(".match-summary").getByText("Player 1", { exact: true })).toBeVisible();
+  await expect(playerOne.locator(".match-summary").getByText("Role")).toHaveCount(0);
+  await expect(playerOne.locator(".match-summary").getByText("Invite")).toHaveCount(0);
+  await expect(playerOne.locator(".match-summary").getByText("Use Copy invite")).toHaveCount(0);
+  await expect(playerOne.getByText("Waiting for opponent").first()).toBeVisible();
+  await expect(playerOne.getByRole("button", { name: "Copy invite" })).toHaveCount(0);
+  await expect(playerOne.locator(".status-banner")).toHaveCount(0);
+  await expect(playerOne.getByText("Player 1")).toHaveCount(0);
+  await expect(playerOne.getByText("Player 2")).toHaveCount(0);
+  await expect(playerOne.getByRole("button", { name: "Board A cell 1" })).toBeDisabled();
 
   await playerOne.reload();
-  await expect(playerOne.locator(".match-summary").getByText("Player 1", { exact: true })).toBeVisible();
+  await expect(playerOne.locator(".match-summary").getByText("Role")).toHaveCount(0);
   await expect(playerOne.getByRole("region", { name: "Board A" })).toBeVisible();
+  await expect(playerOne.getByRole("button", { name: "Board A cell 1" })).toBeDisabled();
 
   await playerTwo.goto("/");
   await playerTwo.getByRole("button", { name: "TicTacToe lobby" }).click();
   await playerTwo.locator(`[data-match-id="${matchCode ?? ""}"]`).click();
   await expect(playerTwo.getByTestId("match-code")).toHaveAttribute("data-match-id", matchCode ?? "");
-  await expect(playerTwo.locator(".match-summary").getByText("Player 2", { exact: true })).toBeVisible();
+  await expect(playerTwo.locator(".match-summary").getByText("Role")).toHaveCount(0);
 
   await playerTwo.reload();
-  await expect(playerTwo.locator(".match-summary").getByText("Player 2", { exact: true })).toBeVisible();
+  await expect(playerTwo.locator(".match-summary").getByText("Role")).toHaveCount(0);
 
   await spectator.goto(`/matches/${matchCode ?? ""}`);
-  await expect(spectator.getByText("Spectator")).toBeVisible();
+  await expect(spectator.locator(".match-summary").getByText("Role")).toHaveCount(0);
+  await expect(spectator.getByRole("region", { name: "Board A" })).toBeVisible();
   await expect(spectator.getByRole("button", { name: "Board A cell 1" })).toBeDisabled();
 
   await playMove(playerOne, "A", 1);
@@ -76,7 +86,7 @@ test("two players can finish both TicTacToe boards", async ({ browser }) => {
   await playMove(playerTwo, "A", 5);
   await expect(playerOne.getByRole("button", { name: "Board A cell 3" })).toBeEnabled();
   await playMove(playerOne, "A", 3);
-  await expect(playerOne.getByRole("region", { name: "Board A" }).getByText("Player 1 won")).toBeVisible();
+  await expect(playerOne.getByRole("region", { name: "Board A" }).getByText("You won")).toBeVisible();
 
   await playMove(playerTwo, "B", 1);
   await expect(playerOne.getByRole("button", { name: "Board B cell 4" })).toBeEnabled();
@@ -111,7 +121,7 @@ test("two players can finish both Connect Four boards", async ({ browser }) => {
   await playerOne.getByRole("button", { name: "Create Connect Four match" }).click();
   const matchCode = await playerOne.getByTestId("match-code").getAttribute("data-match-id");
   expect(matchCode).toBeTruthy();
-  await expect(playerOne.getByRole("button", { name: "Board A column 1" })).toBeEnabled();
+  await expect(playerOne.getByRole("button", { name: "Board A column 1" })).toBeDisabled();
   await expect(playerOne.getByRole("button", { name: "Board B column 1" })).toBeDisabled();
 
   await playerTwo.goto("/");
@@ -128,7 +138,7 @@ test("two players can finish both Connect Four boards", async ({ browser }) => {
   await playColumn(playerOne, "A", 1);
   await playColumn(playerTwo, "A", 2);
   await playColumn(playerOne, "A", 1);
-  await expect(playerOne.getByRole("region", { name: "Board A" }).getByText("Player 1 won")).toBeVisible();
+  await expect(playerOne.getByRole("region", { name: "Board A" }).getByText("You won")).toBeVisible();
 
   await playColumn(playerTwo, "B", 1);
   await expect(playerOne.getByRole("button", { name: "Board B column 2" })).toBeEnabled();
@@ -159,6 +169,7 @@ test("player can make an opening Chess move", async ({ browser }) => {
   await playerOne.getByRole("button", { name: "Create Chess match" }).click();
   const matchCode = await playerOne.getByTestId("match-code").getAttribute("data-match-id");
   expect(matchCode).toBeTruthy();
+  await expect(playerOne.getByRole("button", { name: "Board A square e2 white pawn" })).toBeDisabled();
 
   await playerTwo.goto("/");
   await playerTwo.getByRole("button", { name: "Chess lobby" }).click();
@@ -169,7 +180,7 @@ test("player can make an opening Chess move", async ({ browser }) => {
   await playChessMove(playerOne, "A", "e2", "e4");
 
   await expect(playerOne.getByRole("button", { name: "Board A square e4 white pawn" })).toBeVisible();
-  await expect(playerOne.getByRole("region", { name: "Board A move history" }).getByText("e4")).toBeVisible();
+  await expect(playerOne.getByRole("region", { name: "Board A move history" })).toHaveCount(0);
 
   await playerOneContext.close();
   await playerTwoContext.close();

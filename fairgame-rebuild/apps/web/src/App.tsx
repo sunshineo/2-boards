@@ -85,7 +85,6 @@ export function App() {
   const [openMatches, setOpenMatches] = useState<OpenMatchView[]>([]);
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>(() => loadRecentMatches());
   const [customMinutes, setCustomMinutes] = useState(5);
-  const [copiedInvite, setCopiedInvite] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const lobbyGame = route.view === "lobby" ? route.gameType : null;
@@ -113,7 +112,6 @@ export function App() {
   useEffect(() => {
     if (route.view !== "match") {
       setSession(null);
-      setCopiedInvite(false);
       return;
     }
 
@@ -183,10 +181,6 @@ export function App() {
     saveRecentMatch(session.match);
     setRecentMatches(loadRecentMatches());
   }, [session]);
-
-  useEffect(() => {
-    setCopiedInvite(false);
-  }, [session?.match.id]);
 
   useEffect(() => {
     if (!lobbyGame) return;
@@ -269,17 +263,6 @@ export function App() {
     });
   }
 
-  async function handleCopyInvite() {
-    if (!session) return;
-    const inviteUrl = getInviteUrl(session.match.id);
-    const copied = await copyTextToClipboard(inviteUrl);
-    if (copied) {
-      setCopiedInvite(true);
-      return;
-    }
-    setError("Unable to copy invite link.");
-  }
-
   async function handleRematch() {
     if (!session) return;
     await run(async () => {
@@ -289,7 +272,6 @@ export function App() {
       );
       setSession(nextSession);
       navigateTo({ view: "match", matchId: nextSession.match.id });
-      setCopiedInvite(false);
     });
   }
 
@@ -346,9 +328,7 @@ export function App() {
           match={activeSession.match}
           seat={activeSession.seat}
           onMove={handleMove}
-          onCopyInvite={handleCopyInvite}
           onRematch={handleRematch}
-          copiedInvite={copiedInvite}
           isBusy={isBusy}
         />
       ) : showMatchLoading ? (
@@ -518,11 +498,12 @@ function MatchRoom(props: {
   match: MatchView;
   seat: SeatId | null;
   onMove: (boardId: BoardId, move: MovePayload) => void;
-  onCopyInvite: () => void;
   onRematch: () => void;
-  copiedInvite: boolean;
   isBusy: boolean;
 }) {
+  const status = formatMatchStatus(props.match, props.seat);
+  const canRematch = props.match.outcome.status !== "in_progress";
+
   return (
     <section className="match-room" aria-label={`${props.match.gameLabel} match`}>
       <div className="match-summary">
@@ -533,37 +514,24 @@ function MatchRoom(props: {
           </strong>
         </div>
         <div>
-          <span className="meta-label">Your seat</span>
-          <strong>{props.seat ? formatPlayer(props.match, props.seat) : "Spectator"}</strong>
-        </div>
-        <div>
-          <span className="meta-label">Invite</span>
-          <strong data-testid="invite-url" data-invite-url={getInviteUrl(props.match.id)}>
-            Use Copy invite
-          </strong>
-        </div>
-        <div>
           <span className="meta-label">Score</span>
           <strong>{formatScore(props.match)}</strong>
         </div>
         <div>
-          <span className="meta-label">Result</span>
-          <strong>{formatMatchOutcome(props.match)}</strong>
+          <span className="meta-label">Status</span>
+          <strong>{status}</strong>
         </div>
       </div>
 
-      <div className="match-actions">
-        <button className="secondary-button" onClick={props.onCopyInvite} type="button">
-          {props.copiedInvite ? "Copied" : "Copy invite"}
-        </button>
-        {props.match.outcome.status !== "in_progress" ? (
+      {canRematch ? (
+        <div className="match-actions">
           <button className="primary-button" onClick={props.onRematch} type="button">
             Rematch
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
-      <ClockStrip clock={props.match.clock} />
+      <ClockStrip clock={props.match.clock} currentSeat={props.seat} />
 
       <div className="boards-grid">
         {props.match.boards.map((board) => (
@@ -580,7 +548,7 @@ function MatchRoom(props: {
   );
 }
 
-function ClockStrip(props: { clock: MatchClockView | null }) {
+function ClockStrip(props: { clock: MatchClockView | null; currentSeat: SeatId | null }) {
   const snapshotReceivedAtMs = useMemo(() => Date.now(), [props.clock]);
   const [clientNowMs, setClientNowMs] = useState(() => Date.now());
   const hasRunningClock = props.clock?.status === "active" && props.clock.runningSeats.length > 0;
@@ -602,17 +570,18 @@ function ClockStrip(props: { clock: MatchClockView | null }) {
   if (!clock) return null;
 
   return (
-    <section className="clock-strip" aria-label="Player clocks">
-      {(["seat1", "seat2"] as const).map((seat) => {
+    <section className="clock-strip" aria-label="Clocks">
+      {getClockSeatOrder(props.currentSeat).map((seat) => {
         const seatClock = clock.seats[seat];
         const remainingMs = getProjectedClockRemainingMs(clock, seat, snapshotReceivedAtMs, clientNowMs);
+        const label = formatRelativeSeat(seat, props.currentSeat);
         return (
           <div
-            aria-label={`${formatSeat(seat)} clock`}
+            aria-label={`${label} clock`}
             className={`clock-card${seatClock?.isRunning ? " running" : ""}`}
             key={seat}
           >
-            <span className="meta-label">{formatSeat(seat)}</span>
+            <span className="meta-label">{label}</span>
             <strong>{formatClockMs(remainingMs)}</strong>
             <span>{seatClock?.isRunning ? "Running" : "Paused"}</span>
           </div>
@@ -695,36 +664,20 @@ function ChessBoard(props: {
     <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
       <div className="board-heading">
         <h2>Board {props.board.id}</h2>
-        <p>{canAct ? "Your move" : formatBoardStatus(props.board)}</p>
+        <p>{canAct ? "Your move" : formatBoardStatus(props.board, props.currentSeat)}</p>
       </div>
-      <div className="chess-layout">
-        <div className="chess-grid">
-          {props.board.squares.map((square, index) => (
-            <button
-              aria-label={formatChessSquareLabel(props.board.id, square)}
-              className={`chess-square ${getChessSquareTone(index)}${
-                selectedSquare === square.square ? " selected" : ""
-              }`}
-              disabled={props.isBusy || !canAct}
-              key={square.square}
-              onClick={() => handleSquareClick(square)}
-            >
-              {square.piece ? getChessPieceSymbol(square.piece) : ""}
-            </button>
-          ))}
-        </div>
-        <div className="move-history" aria-label={`Board ${props.board.id} move history`} role="region">
-          <h3>Moves</h3>
-          {props.board.moveHistory.length === 0 ? (
-            <p>No moves</p>
-          ) : (
-            <ol>
-              {props.board.moveHistory.map((move, index) => (
-                <li key={`${move.lan}-${index}`}>{move.san}</li>
-              ))}
-            </ol>
-          )}
-        </div>
+      <div className="chess-grid">
+        {props.board.squares.map((square, index) => (
+          <button
+            aria-label={formatChessSquareLabel(props.board.id, square)}
+            className={`chess-square ${getChessSquareTone(index)}${selectedSquare === square.square ? " selected" : ""}`}
+            disabled={props.isBusy || !canAct}
+            key={square.square}
+            onClick={() => handleSquareClick(square)}
+          >
+            {square.piece ? getChessPieceSymbol(square.piece) : ""}
+          </button>
+        ))}
       </div>
     </section>
   );
@@ -745,7 +698,7 @@ function TicTacToeBoard(props: {
     <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
       <div className="board-heading">
         <h2>Board {props.board.id}</h2>
-        <p>{canAct ? "Your move" : formatBoardStatus(props.board)}</p>
+        <p>{canAct ? "Your move" : formatBoardStatus(props.board, props.currentSeat)}</p>
       </div>
       <div className="tic-tac-toe-grid">
         {props.board.cells.map((cell, index) => (
@@ -781,7 +734,7 @@ function ConnectFourBoard(props: {
     <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
       <div className="board-heading">
         <h2>Board {props.board.id}</h2>
-        <p>{canAct ? "Your move" : formatBoardStatus(props.board)}</p>
+        <p>{canAct ? "Your move" : formatBoardStatus(props.board, props.currentSeat)}</p>
       </div>
       <div className="connect-four-grid">
         {columns.map((column) => (
@@ -838,15 +791,6 @@ function formatTimeControl(match: OpenMatchView) {
 
 function formatListedMatchLabel(baseLabel: string, index: number) {
   return `${baseLabel} ${index + 1}`;
-}
-
-function formatSeat(seat: SeatId) {
-  return seat === "seat1" ? "Player 1" : "Player 2";
-}
-
-function formatPlayer(match: MatchView, seat: SeatId) {
-  const player = match.players[seat];
-  return player.name === player.label ? player.label : `${player.name} (${player.label})`;
 }
 
 function formatMark(seat: SeatId) {
@@ -914,12 +858,30 @@ function getProjectedClockRemainingMs(
   return Math.max(0, seatClock.remainingMs - elapsedMs);
 }
 
-function formatBoardStatus(board: MatchBoardView) {
-  if (board.outcome.status === "win") return `${formatSeat(board.outcome.winner)} won`;
+function getClockSeatOrder(currentSeat: SeatId | null): SeatId[] {
+  if (!currentSeat) return ["seat1", "seat2"];
+  return [currentSeat, getOtherSeat(currentSeat)];
+}
+
+function getOtherSeat(seat: SeatId): SeatId {
+  return seat === "seat1" ? "seat2" : "seat1";
+}
+
+function formatRelativeSeat(seat: SeatId, currentSeat: SeatId | null) {
+  if (!currentSeat) return seat === "seat1" ? "Clock A" : "Clock B";
+  return seat === currentSeat ? "You" : "Opponent";
+}
+
+function formatBoardStatus(board: MatchBoardView, currentSeat: SeatId | null) {
+  if (board.outcome.status === "win") {
+    if (!currentSeat) return "Won";
+    return board.outcome.winner === currentSeat ? "You won" : "Opponent won";
+  }
   if (board.outcome.status === "draw") return "Draw";
   if (board.outcome.status === "canceled") return "Canceled";
   if (board.seatsToAct.length === 0) return "Waiting";
-  return `${formatSeat(board.seatsToAct[0] ?? "seat1")} to move`;
+  if (!currentSeat) return "Move pending";
+  return board.seatsToAct.includes(currentSeat) ? "Your move" : "Opponent to move";
 }
 
 function formatScore(match: MatchView) {
@@ -927,11 +889,21 @@ function formatScore(match: MatchView) {
   return `${match.outcome.score.seat1} - ${match.outcome.score.seat2}`;
 }
 
-function formatMatchOutcome(match: MatchView) {
+function formatMatchOutcome(match: MatchView, currentSeat: SeatId | null = null) {
   if (match.outcome.status === "canceled") return "Canceled";
   if (match.outcome.status === "in_progress") return "In progress";
   if (match.outcome.winner === null) return "Draw match";
-  return `${formatSeat(match.outcome.winner)} wins`;
+  if (!currentSeat) return "Win decided";
+  return match.outcome.winner === currentSeat ? "You win" : "Opponent wins";
+}
+
+function isMatchWaitingForPlayers(match: MatchView) {
+  return match.outcome.status === "in_progress" && match.joinedSeats < match.maxSeats;
+}
+
+function formatMatchStatus(match: MatchView, currentSeat: SeatId | null = null) {
+  if (!isMatchWaitingForPlayers(match)) return formatMatchOutcome(match, currentSeat);
+  return match.maxSeats === 2 && match.joinedSeats === 1 ? "Waiting for opponent" : "Waiting for players";
 }
 
 function formatError(error: string) {
@@ -975,14 +947,6 @@ function getRouteUrl(route: AppRoute) {
 
 function isGameType(candidate: string | null | undefined): candidate is GameType {
   return candidate === "tictactoe" || candidate === "connect4" || candidate === "chess";
-}
-
-function getInviteUrl(matchId: string) {
-  const url = new URL(window.location.href);
-  url.pathname = `/matches/${encodeURIComponent(matchId)}`;
-  url.search = "";
-  url.hash = "";
-  return url.toString();
 }
 
 function loadRecentMatches(): RecentMatch[] {
@@ -1045,29 +1009,5 @@ async function loadOpenMatchList(): Promise<OpenMatchView[]> {
     return await listOpenMatches();
   } catch {
     return [];
-  }
-}
-
-async function copyTextToClipboard(text: string): Promise<boolean> {
-  if (navigator.clipboard) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // Fall through to the selection fallback for non-secure dev URLs.
-    }
-  }
-
-  const textArea = document.createElement("textarea");
-  textArea.value = text;
-  textArea.setAttribute("readonly", "");
-  textArea.style.position = "fixed";
-  textArea.style.opacity = "0";
-  document.body.append(textArea);
-  textArea.select();
-  try {
-    return document.execCommand("copy");
-  } finally {
-    textArea.remove();
   }
 }
