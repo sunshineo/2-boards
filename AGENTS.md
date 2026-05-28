@@ -16,13 +16,41 @@ This index describes the immediate subfolders under `/Volumes/T9/code/2-boards`.
 - Old attempts have moved to `archive/attempts/` and should remain ignored by the top-level Git repo.
 - `archive/attempts/fairgame3/fairgame` is a nested Git repo under another archived Git repo. Treat it as historical reference material only.
 
-## Concurrent Session Worktrees
+## Mandatory Worktree Gate
 
-- When multiple Codex/agent conversations may make changes at the same time, use a separate Git worktree per conversation so edits from one session do not affect another.
-- Before creating a worktree, check whether the session is already isolated with `git rev-parse --git-dir`, `git rev-parse --git-common-dir`, and `git worktree list --porcelain`.
-- Prefer any platform-native worktree/isolation tool when available. If none is available, create manual worktrees under `.worktrees/` from the repo root with a task branch such as `codex/<short-task-name>`.
-- Keep `.worktrees/` ignored by the top-level repo. Do not work directly in the main checkout for concurrent implementation work unless the user explicitly asks for that.
-- Before editing, inspect `git status --short` and preserve any changes from other sessions; never reset or revert another session's work without explicit user approval.
+Before any implementation work, file edits, dependency installation, formatter run, code
+generation, staging, or commit, the agent MUST run and inspect:
+
+- `git status --short`
+- `git branch --show-current`
+- `git rev-parse --git-dir`
+- `git rev-parse --git-common-dir`
+- `git worktree list --porcelain`
+
+If the current checkout is the normal repo checkout (`git-dir` equals
+`git-common-dir`) and the branch is `main`, the agent MUST NOT edit files there.
+
+Instead, create a task worktree under `.worktrees/` from the repo root:
+
+```sh
+git worktree add .worktrees/<task-slug> -b codex/<task-slug> main
+```
+
+Then continue all implementation work inside that worktree.
+
+The only exception is an explicit user instruction to work directly in the main
+checkout before edits begin. A later request to commit or merge to main does not
+retroactively authorize implementing in the main checkout.
+
+Before the first edit, the agent must state either:
+
+- `Working in worktree: <path> on branch <branch>`
+- `User explicitly authorized main checkout work: <reason>`
+
+If this gate has not been completed, stop and complete it before editing.
+
+Keep `.worktrees/` ignored by the top-level repo. Preserve dirty changes from other
+sessions; never reset or revert another session's work without explicit user approval.
 
 ## Fair Two-Board Roadmap Tracking
 
