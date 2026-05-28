@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Reversi board preview">
+  <rect width="640" height="360" fill="#2f6b5f"/>
+  <g stroke="#d9efe8" stroke-width="3" opacity=".62">
+    <path d="M160 40v280M220 40v280M280 40v280M340 40v280M400 40v280M460 40v280"/>
+    <path d="M100 80h420M100 140h420M100 200h420M100 260h420"/>
+  </g>
+  <circle cx="280" cy="140" r="24" fill="#f8fafc"/>
+  <circle cx="340" cy="200" r="24" fill="#f8fafc"/>
+  <circle cx="340" cy="140" r="24" fill="#1f2a3d"/>
+  <circle cx="280" cy="200" r="24" fill="#1f2a3d"/>
+  <circle cx="400" cy="140" r="10" fill="#d9efe8"/>
+</svg>

@@ -241,14 +241,14 @@ Checkpoint: timed matches work without breaking independent board turns.
 
 ### 10. Seven More Board Games
 
-- [~] Add seven additional game plug-ins without changing generic match orchestration.
+- [x] Add seven additional game plug-ins without changing generic match orchestration.
   Evidence: Started on 2026-05-28 in gate worktree `.worktrees/add-seven-games-gate` on branch `codex/add-seven-games-gate`. Design saved to `docs/superpowers/specs/2026-05-28-seven-board-games-design.md`; implementation plan saved to `docs/superpowers/plans/2026-05-28-seven-board-games.md`. Baseline verification before implementation passed with `npm run typecheck` and `npm test`.
-- [ ] Implement domain rules and tests for Gomoku, Hex, Reversi, Breakthrough, Mancala, Dots and Boxes, and Order and Chaos.
-  Evidence: Pending worker branches.
-- [ ] Integrate all seven games into server registry, web game picker, board renderers, API tests, web tests, and e2e flows.
-  Evidence: Pending gate integration.
-- [ ] Verify and record final gate branch commit.
-  Evidence: Pending final `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`, and built-in browser verification.
+- [x] Implement domain rules and tests for Gomoku, Hex, Reversi, Breakthrough, Mancala, Dots and Boxes, and Order and Chaos.
+  Evidence: Gomoku commit `430c744`, Hex commit `c115149`, Reversi commit `fa5e01b`, Breakthrough commit `60018a5`, Mancala commit `96afae5`, Dots and Boxes commit `0078bf2`, and Order and Chaos commit `a34d19b` merged into gate; focused domain tests passed in their worker worktrees.
+- [x] Integrate all seven games into server registry, web game picker, board renderers, API tests, web tests, and e2e flows.
+  Evidence: Updated `packages/domain/src/index.ts`, `apps/server/src/matches/gameRegistry.ts`, `apps/server/src/matches/routes.ts`, `apps/server/tests/matches.test.ts`, `apps/web/src/types.ts`, `apps/web/src/App.tsx`, `apps/web/src/App.test.tsx`, `apps/web/src/styles.css`, and `tests/e2e/tictactoe.spec.ts`; added SVG thumbnails under `apps/web/public/game-thumbnails/`.
+- [x] Verify and record final gate branch commit.
+  Evidence: Final verification passed with `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-28. Unit totals: shared 2, domain 95, server 42, web 17. Playwright passed 6 Chromium tests, including opening moves for all seven added games. Built-in browser verification was attempted after starting the local dev server, but no in-app browser backend was available (`agent.browsers.list()` returned `[]`), so Playwright browser automation is the UI verification evidence. Gate commit: `3fca2f0`.
 
 Checkpoint 6 implementation commit: `df84fe5`.
 

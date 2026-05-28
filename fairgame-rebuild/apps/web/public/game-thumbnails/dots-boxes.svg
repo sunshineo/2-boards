@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Dots and Boxes preview">
+  <rect width="640" height="360" fill="#f8fafc"/>
+  <g stroke="#245d63" stroke-width="12" stroke-linecap="round">
+    <path d="M190 90h80M270 90v80M190 170h80M190 90v80"/>
+    <path d="M270 170h80M350 90v80M270 250h80M350 170v80"/>
+    <path d="M350 90h80M430 90v80M350 170h80"/>
+  </g>
+  <g fill="#1f2a3d">
+    <circle cx="190" cy="90" r="11"/><circle cx="270" cy="90" r="11"/><circle cx="350" cy="90" r="11"/><circle cx="430" cy="90" r="11"/>
+    <circle cx="190" cy="170" r="11"/><circle cx="270" cy="170" r="11"/><circle cx="350" cy="170" r="11"/><circle cx="430" cy="170" r="11"/>
+    <circle cx="190" cy="250" r="11"/><circle cx="270" cy="250" r="11"/><circle cx="350" cy="250" r="11"/><circle cx="430" cy="250" r="11"/>
+  </g>
+  <rect x="202" y="102" width="56" height="56" fill="#245d63" opacity=".18"/>
+</svg>

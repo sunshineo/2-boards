@@ -2,7 +2,17 @@ export type SeatId = "seat1" | "seat2";
 
 export type BoardId = "A" | "B";
 
-export type GameType = "tictactoe" | "connect4" | "chess";
+export type GameType =
+  | "tictactoe"
+  | "connect4"
+  | "chess"
+  | "gomoku"
+  | "hex"
+  | "reversi"
+  | "breakthrough"
+  | "mancala"
+  | "dots-boxes"
+  | "order-chaos";
 
 export type BoardOutcome =
   | { status: "in_progress" }
@@ -81,12 +91,86 @@ export type ChessBoardView = BaseBoardView & {
   moveHistory: ChessMoveRecord[];
 };
 
-export type MatchBoardView = TicTacToeBoardView | ConnectFourBoardView | ChessBoardView;
+export type GomokuBoardView = BaseBoardView & {
+  kind: "gomoku";
+  rows: number;
+  columns: number;
+  cells: (SeatId | null)[];
+  playableCells: number[];
+};
+
+export type HexBoardView = BaseBoardView & {
+  kind: "hex";
+  size: number;
+  cells: (SeatId | null)[];
+  playableCells: number[];
+};
+
+export type ReversiBoardView = BaseBoardView & {
+  kind: "reversi";
+  rows: number;
+  columns: number;
+  cells: (SeatId | null)[];
+  playableCells: number[];
+};
+
+export type BreakthroughBoardView = BaseBoardView & {
+  kind: "breakthrough";
+  rows: number;
+  columns: number;
+  cells: (SeatId | null)[];
+  playableMoves: { from: number; to: number }[];
+};
+
+export type MancalaBoardView = BaseBoardView & {
+  kind: "mancala";
+  pitsPerSide: number;
+  stonesPerPit: number;
+  pits: number[];
+  stores: Record<SeatId, number>;
+  playablePits: number[];
+};
+
+export type DotsBoxesBoardView = BaseBoardView & {
+  kind: "dots-boxes";
+  boxRows: number;
+  boxColumns: number;
+  drawnEdges: string[];
+  boxes: (SeatId | null)[];
+  scores: Record<SeatId, number>;
+  playableEdges: string[];
+};
+
+export type OrderChaosBoardView = BaseBoardView & {
+  kind: "order-chaos";
+  rows: number;
+  columns: number;
+  cells: ("X" | "O" | null)[];
+  orderSeat: SeatId;
+  chaosSeat: SeatId;
+  playableCells: number[];
+};
+
+export type MatchBoardView =
+  | TicTacToeBoardView
+  | ConnectFourBoardView
+  | ChessBoardView
+  | GomokuBoardView
+  | HexBoardView
+  | ReversiBoardView
+  | BreakthroughBoardView
+  | MancalaBoardView
+  | DotsBoxesBoardView
+  | OrderChaosBoardView;
 
 export type MovePayload =
   | { cell: number }
   | { column: number }
-  | { from: string; to: string; promotion?: "q" | "r" | "b" | "n" };
+  | { from: string; to: string; promotion?: "q" | "r" | "b" | "n" }
+  | { from: number; to: number }
+  | { pit: number }
+  | { edge: string }
+  | { cell: number; mark: "X" | "O" };
 
 export type MatchView = {
   id: string;

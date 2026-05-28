@@ -28,6 +28,13 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "TicTacToe lobby" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect Four lobby" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Chess lobby" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Gomoku lobby" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hex lobby" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reversi lobby" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Breakthrough lobby" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mancala lobby" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dots and Boxes lobby" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Order and Chaos lobby" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "TicTacToe preview" })).toHaveAttribute(
       "src",
       "/game-thumbnails/tictactoe.png"
@@ -39,6 +46,31 @@ describe("App", () => {
     expect(screen.getByRole("img", { name: "Chess preview" })).toHaveAttribute(
       "src",
       "/game-thumbnails/chess.png"
+    );
+    expect(screen.getByRole("img", { name: "Gomoku preview" })).toHaveAttribute(
+      "src",
+      "/game-thumbnails/gomoku.svg"
+    );
+    expect(screen.getByRole("img", { name: "Hex preview" })).toHaveAttribute("src", "/game-thumbnails/hex.svg");
+    expect(screen.getByRole("img", { name: "Reversi preview" })).toHaveAttribute(
+      "src",
+      "/game-thumbnails/reversi.svg"
+    );
+    expect(screen.getByRole("img", { name: "Breakthrough preview" })).toHaveAttribute(
+      "src",
+      "/game-thumbnails/breakthrough.svg"
+    );
+    expect(screen.getByRole("img", { name: "Mancala preview" })).toHaveAttribute(
+      "src",
+      "/game-thumbnails/mancala.svg"
+    );
+    expect(screen.getByRole("img", { name: "Dots and Boxes preview" })).toHaveAttribute(
+      "src",
+      "/game-thumbnails/dots-boxes.svg"
+    );
+    expect(screen.getByRole("img", { name: "Order and Chaos preview" })).toHaveAttribute(
+      "src",
+      "/game-thumbnails/order-chaos.svg"
     );
     expect(screen.queryByRole("button", { name: "Create TicTacToe match" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Open games")).not.toBeInTheDocument();
@@ -467,6 +499,39 @@ describe("App", () => {
     expect(screen.queryByRole("region", { name: "Board A move history" })).not.toBeInTheDocument();
   });
 
+  it("creates and renders the added game board controls", async () => {
+    const cases = [
+      { gameType: "gomoku", label: "Gomoku", controlName: "Board A Gomoku cell 1" },
+      { gameType: "hex", label: "Hex", controlName: "Board A Hex cell 1" },
+      { gameType: "reversi", label: "Reversi", controlName: "Board A Reversi cell 20" },
+      { gameType: "breakthrough", label: "Breakthrough", controlName: "Board A Breakthrough cell 9 seat1" },
+      { gameType: "mancala", label: "Mancala", controlName: "Board A seat1 pit 1" },
+      { gameType: "dots-boxes", label: "Dots and Boxes", controlName: "Board A edge h-0-0" },
+      { gameType: "order-chaos", label: "Order and Chaos", controlName: "Board A Order and Chaos cell 1" }
+    ] as const;
+
+    for (const testCase of cases) {
+      cleanup();
+      window.history.replaceState(null, "", "/");
+      vi.stubGlobal(
+        "fetch",
+        createFetchMock({
+          matches: [],
+          seatSession: createAddedGameSeatSession(testCase.gameType, testCase.label)
+        })
+      );
+
+      render(<App />);
+      fireEvent.click(screen.getByRole("button", { name: `${testCase.label} lobby` }));
+      fireEvent.click(screen.getByRole("button", { name: `Create ${testCase.label} match` }));
+
+      await screen.findByTestId("match-code");
+      expect(screen.getByTestId("match-code")).toHaveTextContent(testCase.label);
+      expect(screen.getByRole("button", { name: testCase.controlName })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: testCase.controlName })).toBeDisabled();
+    }
+  });
+
   it("joins a listed open match without typed name or code", async () => {
     const fetchMock = createFetchMock({
       matches: [
@@ -665,6 +730,127 @@ function createTicTacToeSeatSession(id: string) {
         }
       ]
     }
+  };
+}
+
+function createAddedGameSeatSession(gameType: string, gameLabel: string) {
+  return {
+    seat: "seat1",
+    match: {
+      id: `match-${gameType}`,
+      gameType,
+      gameLabel,
+      seats: ["seat1", "seat2"],
+      joinedSeats: 1,
+      maxSeats: 2,
+      players: createPlayersMock(),
+      outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
+      clock: createClockMock(),
+      boards: [
+        createAddedGameBoard(gameType, "A", "seat1"),
+        createAddedGameBoard(gameType, "B", "seat2")
+      ]
+    }
+  };
+}
+
+function createAddedGameBoard(gameType: string, id: "A" | "B", firstSeat: "seat1" | "seat2") {
+  const base = {
+    id,
+    firstSeat,
+    seatsToAct: [],
+    outcome: { status: "in_progress" }
+  };
+
+  if (gameType === "gomoku") {
+    return {
+      ...base,
+      kind: "gomoku",
+      rows: 15,
+      columns: 15,
+      cells: Array(225).fill(null),
+      playableCells: []
+    };
+  }
+
+  if (gameType === "hex") {
+    return {
+      ...base,
+      kind: "hex",
+      size: 11,
+      cells: Array(121).fill(null),
+      playableCells: []
+    };
+  }
+
+  if (gameType === "reversi") {
+    const cells = Array(64).fill(null);
+    cells[28] = "seat1";
+    cells[35] = "seat1";
+    cells[27] = "seat2";
+    cells[36] = "seat2";
+    return {
+      ...base,
+      kind: "reversi",
+      rows: 8,
+      columns: 8,
+      cells,
+      playableCells: []
+    };
+  }
+
+  if (gameType === "breakthrough") {
+    const cells = Array(64).fill(null);
+    for (let column = 0; column < 8; column += 1) {
+      cells[column] = "seat1";
+      cells[8 + column] = "seat1";
+      cells[48 + column] = "seat2";
+      cells[56 + column] = "seat2";
+    }
+    return {
+      ...base,
+      kind: "breakthrough",
+      rows: 8,
+      columns: 8,
+      cells,
+      playableMoves: []
+    };
+  }
+
+  if (gameType === "mancala") {
+    return {
+      ...base,
+      kind: "mancala",
+      pitsPerSide: 6,
+      stonesPerPit: 4,
+      pits: Array(12).fill(4),
+      stores: { seat1: 0, seat2: 0 },
+      playablePits: []
+    };
+  }
+
+  if (gameType === "dots-boxes") {
+    return {
+      ...base,
+      kind: "dots-boxes",
+      boxRows: 3,
+      boxColumns: 3,
+      drawnEdges: [],
+      boxes: Array(9).fill(null),
+      scores: { seat1: 0, seat2: 0 },
+      playableEdges: []
+    };
+  }
+
+  return {
+    ...base,
+    kind: "order-chaos",
+    rows: 6,
+    columns: 6,
+    cells: Array(36).fill(null),
+    orderSeat: "seat1",
+    chaosSeat: "seat2",
+    playableCells: []
   };
 }
 

@@ -204,6 +204,52 @@ test("player can make an opening Chess move", async ({ browser }) => {
   await playerTwoContext.close();
 });
 
+test("players can make opening moves in the added board games", async ({ browser }) => {
+  const cases = [
+    { label: "Gomoku", play: (page: Page) => clickExactButton(page, "Board A Gomoku cell 1"), verify: "X" },
+    { label: "Hex", play: (page: Page) => clickExactButton(page, "Board A Hex cell 1"), verify: "X" },
+    { label: "Reversi", play: (page: Page) => clickExactButton(page, "Board A Reversi cell 20"), verify: "X" },
+    {
+      label: "Breakthrough",
+      play: async (page: Page) => {
+        await clickExactButton(page, "Board A Breakthrough cell 9 seat1");
+        await clickExactButton(page, "Board A Breakthrough cell 17 empty");
+      },
+      verify: "▲"
+    },
+    { label: "Mancala", play: (page: Page) => clickExactButton(page, "Board A seat1 pit 3"), verify: "0" },
+    { label: "Dots and Boxes", play: (page: Page) => clickExactButton(page, "Board A edge h-0-0"), verify: "-" },
+    {
+      label: "Order and Chaos",
+      play: (page: Page) => clickExactButton(page, "Board A Order and Chaos cell 1"),
+      verify: "X"
+    }
+  ];
+
+  for (const testCase of cases) {
+    const playerOneContext = await browser.newContext();
+    const playerTwoContext = await browser.newContext();
+    const playerOne = await playerOneContext.newPage();
+    const playerTwo = await playerTwoContext.newPage();
+
+    await playerOne.goto("/");
+    await playerOne.getByRole("button", { name: `${testCase.label} lobby` }).click();
+    await playerOne.getByRole("button", { name: `Create ${testCase.label} match` }).click();
+    const matchCode = await playerOne.getByTestId("match-code").getAttribute("data-match-id");
+    expect(matchCode).toBeTruthy();
+
+    await playerTwo.goto("/");
+    await playerTwo.getByRole("button", { name: `${testCase.label} lobby` }).click();
+    await playerTwo.locator(`[data-match-id="${matchCode ?? ""}"]`).click();
+
+    await testCase.play(playerOne);
+    await expect(playerOne.getByRole("region", { name: "Board A" })).toContainText(testCase.verify);
+
+    await playerOneContext.close();
+    await playerTwoContext.close();
+  }
+});
+
 async function playMove(page: Page, board: "A" | "B", cellNumber: number) {
   await page.getByRole("button", { name: `Board ${board} cell ${cellNumber}` }).click();
 }
@@ -215,4 +261,10 @@ async function playColumn(page: Page, board: "A" | "B", columnNumber: number) {
 async function playChessMove(page: Page, board: "A" | "B", from: string, to: string) {
   await page.getByRole("button", { name: new RegExp(`Board ${board} square ${from} `) }).click();
   await page.getByRole("button", { name: new RegExp(`Board ${board} square ${to} `) }).click();
+}
+
+async function clickExactButton(page: Page, name: string) {
+  const button = page.getByRole("button", { name, exact: true });
+  await expect(button).toBeEnabled();
+  await button.click();
 }
