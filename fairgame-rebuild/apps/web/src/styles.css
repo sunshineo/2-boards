@@ -456,15 +456,9 @@ button:disabled {
   background: #b74f2a;
 }
 
-.chess-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(110px, 0.36fr);
-  gap: 14px;
-  align-items: start;
-}
-
 .react-chessboard-shell {
-  width: min(100%, 520px);
+  width: 100%;
+  max-width: 560px;
   aspect-ratio: 1;
   border: 1px solid #8c947f;
   border-radius: 8px;
@@ -491,26 +485,6 @@ button:disabled {
 .react-chessboard-square-button:disabled {
   cursor: default;
   opacity: 1;
-}
-
-.move-history {
-  display: grid;
-  gap: 8px;
-  align-content: start;
-}
-
-.move-history h3,
-.move-history p,
-.move-history ol {
-  margin: 0;
-}
-
-.move-history h3 {
-  font-size: 0.95rem;
-}
-
-.move-history ol {
-  padding-left: 20px;
 }
 
 .error-banner {
@@ -596,7 +570,6 @@ button:disabled {
   .lobby-grid,
   .setup-grid,
   .boards-grid,
-  .chess-layout,
   .clock-strip,
   .match-summary {
     grid-template-columns: 1fr;

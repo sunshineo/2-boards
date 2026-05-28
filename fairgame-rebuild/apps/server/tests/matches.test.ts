@@ -22,10 +22,12 @@ describe("match API", () => {
       match: {
         id: "match-1",
         gameType: "tictactoe",
+        joinedSeats: 1,
+        maxSeats: 2,
         outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
         boards: [
-          { id: "A", firstSeat: "seat1", cells: Array(9).fill(null), seatsToAct: ["seat1"] },
-          { id: "B", firstSeat: "seat2", cells: Array(9).fill(null), seatsToAct: ["seat2"] }
+          { id: "A", firstSeat: "seat1", cells: Array(9).fill(null), seatsToAct: [] },
+          { id: "B", firstSeat: "seat2", cells: Array(9).fill(null), seatsToAct: [] }
         ]
       }
     });
@@ -42,6 +44,8 @@ describe("match API", () => {
       match: {
         id: "match-1",
         gameType: "connect4",
+        joinedSeats: 1,
+        maxSeats: 2,
         boards: [
           {
             id: "A",
@@ -50,7 +54,7 @@ describe("match API", () => {
             columns: 7,
             cells: Array(42).fill(null),
             playableColumns: [0, 1, 2, 3, 4, 5, 6],
-            seatsToAct: ["seat1"]
+            seatsToAct: []
           },
           {
             id: "B",
@@ -59,7 +63,7 @@ describe("match API", () => {
             columns: 7,
             cells: Array(42).fill(null),
             playableColumns: [0, 1, 2, 3, 4, 5, 6],
-            seatsToAct: ["seat2"]
+            seatsToAct: []
           }
         ]
       }
@@ -78,20 +82,22 @@ describe("match API", () => {
         id: "match-1",
         gameType: "chess",
         gameLabel: "Chess",
+        joinedSeats: 1,
+        maxSeats: 2,
         boards: [
           {
             id: "A",
             kind: "chess",
             whiteSeat: "seat1",
             blackSeat: "seat2",
-            seatsToAct: ["seat1"]
+            seatsToAct: []
           },
           {
             id: "B",
             kind: "chess",
             whiteSeat: "seat2",
             blackSeat: "seat1",
-            seatsToAct: ["seat2"]
+            seatsToAct: []
           }
         ]
       }
@@ -154,6 +160,12 @@ describe("match API", () => {
     );
     expect(response.body.seat).toBe("seat2");
     expect(response.body.match.id).toBe("match-1");
+    expect(response.body.match.joinedSeats).toBe(2);
+    expect(response.body.match.maxSeats).toBe(2);
+    expect(response.body.match.boards.map((board: { seatsToAct: string[] }) => board.seatsToAct)).toEqual([
+      ["seat1"],
+      ["seat2"]
+    ]);
   });
 
   it("lists only matches that are waiting for a second player", async () => {
@@ -262,6 +274,7 @@ describe("match API", () => {
   it("applies a legal move through the server command", async () => {
     const app = appWithDeterministicIds();
     await request(app).post("/api/matches").send({}).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
 
     const response = await request(app)
       .post("/api/matches/match-1/moves")
@@ -271,6 +284,28 @@ describe("match API", () => {
     expect(response.body.match.boards[0].cells[0]).toBe("seat1");
     expect(response.body.match.boards[0].seatsToAct).toEqual(["seat2"]);
     expect(response.body.match.boards[1].cells).toEqual(Array(9).fill(null));
+  });
+
+  it("rejects moves before the second seat joins without starting clocks", async () => {
+    let now = 0;
+    const app = appWithDeterministicIds({
+      clockConfig: { initialMs: 1_000, incrementMs: 100 },
+      nowMs: () => now
+    });
+    await request(app).post("/api/matches").send({}).expect(201);
+
+    now = 250;
+    const response = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { cell: 0 } })
+      .expect(409);
+
+    expect(response.body.error).toBe("match-not-ready");
+    expect(response.body.match.boards[0].cells).toEqual(Array(9).fill(null));
+    expect(response.body.match.boards[0].seatsToAct).toEqual([]);
+    expect(response.body.match.clock.seats.seat1).toEqual({ remainingMs: 1_000, isRunning: false });
+    expect(response.body.match.clock.seats.seat2).toEqual({ remainingMs: 1_000, isRunning: false });
+    expect(response.body.match.clock.runningSeats).toEqual([]);
   });
 
   it("charges shared clocks, adds increment, and recomputes running seats after a move", async () => {
@@ -335,6 +370,7 @@ describe("match API", () => {
   it("applies a legal Connect Four move through the server command", async () => {
     const app = appWithDeterministicIds();
     await request(app).post("/api/matches").send({ gameType: "connect4" }).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
 
     const response = await request(app)
       .post("/api/matches/match-1/moves")
@@ -350,6 +386,7 @@ describe("match API", () => {
   it("applies a legal Chess move through the server command", async () => {
     const app = appWithDeterministicIds();
     await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
 
     const response = await request(app)
       .post("/api/matches/match-1/moves")
@@ -368,6 +405,7 @@ describe("match API", () => {
   it("rejects move shapes that do not match a Chess game", async () => {
     const app = appWithDeterministicIds();
     await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
 
     const response = await request(app)
       .post("/api/matches/match-1/moves")
@@ -380,6 +418,7 @@ describe("match API", () => {
   it("rejects move shapes that do not match the stored game", async () => {
     const app = appWithDeterministicIds();
     await request(app).post("/api/matches").send({ gameType: "connect4" }).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
 
     const response = await request(app)
       .post("/api/matches/match-1/moves")
@@ -392,6 +431,7 @@ describe("match API", () => {
   it("rejects invalid moves", async () => {
     const app = appWithDeterministicIds();
     await request(app).post("/api/matches").send({}).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
 
     const response = await request(app)
       .post("/api/matches/match-1/moves")
@@ -404,6 +444,7 @@ describe("match API", () => {
   it("returns the final combined score when both boards finish", async () => {
     const app = appWithDeterministicIds();
     await request(app).post("/api/matches").send({}).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
 
     for (const command of [
       { boardId: "A", seat: "seat1", move: { cell: 0 } },

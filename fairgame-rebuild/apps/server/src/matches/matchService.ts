@@ -50,7 +50,7 @@ export type RestoredSession = {
 
 type MoveResult =
   | { readonly ok: true; readonly match: MatchView }
-  | { readonly ok: false; readonly status: 400 | 404; readonly reason: string; readonly match?: MatchView };
+  | { readonly ok: false; readonly status: 400 | 404 | 409; readonly reason: string; readonly match?: MatchView };
 
 const defaultClockConfig: ClockConfig = {
   initialMs: 5 * 60 * 1_000,
@@ -252,6 +252,10 @@ export class MatchService {
     }
 
     const nowMs = this.nowMs();
+    if (!this.areAllSeatsJoined(stored)) {
+      return { ok: false, status: 409, reason: "match-not-ready", match: this.createMatchView(stored, nowMs) };
+    }
+
     if (await this.applyClockTimeoutIfNeeded(stored, nowMs)) {
       return { ok: false, status: 400, reason: "clock-expired", match: this.createMatchView(stored, nowMs) };
     }
@@ -343,7 +347,17 @@ export class MatchService {
   }
 
   private createMatchView(stored: StoredMatch, nowMs = this.nowMs()): MatchView {
-    return toMatchView(stored.match, stored.clock ? toClockView(stored.clock, nowMs) : null, stored.playerNames);
+    return toMatchView(
+      stored.match,
+      stored.clock ? toClockView(stored.clock, nowMs) : null,
+      stored.playerNames,
+      stored.joinedSeats.size,
+      this.areAllSeatsJoined(stored)
+    );
+  }
+
+  private areAllSeatsJoined(stored: StoredMatch): boolean {
+    return stored.match.seats.every((seat) => stored.joinedSeats.has(seat));
   }
 
   private async applyClockTimeoutIfNeeded(stored: StoredMatch, nowMs: number): Promise<boolean> {
