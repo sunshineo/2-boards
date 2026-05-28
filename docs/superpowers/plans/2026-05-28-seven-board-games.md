@@ -159,7 +159,7 @@
 
 **Status:** Completed
 
-**Evidence:** Gate feature commit `299a5d5`, review-fix code commit `8884b9f`. Merged all seven domain branches into `codex/add-seven-games-gate`; integrated exports, server registry, route time ranges, web types/renderers/styles, SVG thumbnails, API tests, web tests, and Playwright tests. Review feedback addressed Breakthrough mirrored-board orientation, Dots and Boxes grid/box ownership rendering, and invalid move-shape coverage for the added games. Final verification passed with `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-28. Built-in browser verification was attempted, but no in-app browser backend was available (`agent.browsers.list()` returned `[]`), so Playwright browser automation is the recorded UI verification.
+**Evidence:** Gate feature commit `299a5d5`, review-fix code commit `8884b9f`, thumbnail replacement commit `3c06916`. Merged all seven domain branches into `codex/add-seven-games-gate`; integrated exports, server registry, route time ranges, web types/renderers/styles, high-fidelity PNG thumbnails, API tests, web tests, and Playwright tests. Review feedback addressed Breakthrough mirrored-board orientation, Dots and Boxes grid/box ownership rendering, and invalid move-shape coverage for the added games. Final verification passed with `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-28. Thumbnail replacement verification passed with `npm test -w @fairgame/web -- App && npm run typecheck && npm run build` on 2026-05-28. Built-in browser verification was attempted, but no in-app browser backend was available (`agent.browsers.list()` returned `[]`), so Playwright browser automation is the recorded UI verification.
 
 **Files:**
 - Modify: `fairgame-rebuild/packages/domain/src/index.ts`
@@ -171,13 +171,13 @@
 - Modify: `fairgame-rebuild/apps/web/src/App.test.tsx`
 - Modify: `fairgame-rebuild/apps/web/src/styles.css`
 - Modify: `fairgame-rebuild/tests/e2e/tictactoe.spec.ts`
-- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/gomoku.svg`
-- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/hex.svg`
-- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/reversi.svg`
-- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/breakthrough.svg`
-- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/mancala.svg`
-- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/dots-boxes.svg`
-- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/order-chaos.svg`
+- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/gomoku.png`
+- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/hex.png`
+- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/reversi.png`
+- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/breakthrough.png`
+- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/mancala.png`
+- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/dots-boxes.png`
+- Create: `fairgame-rebuild/apps/web/public/game-thumbnails/order-chaos.png`
 
 - [x] Merge the seven worker branches into `codex/add-seven-games-gate`.
 - [x] Export all seven domain modules from `packages/domain/src/index.ts`.
@@ -185,7 +185,7 @@
 - [x] Add game-specific clock ranges in `routes.ts`.
 - [x] Extend web types, game options, time ranges, route validation, recent-match parsing, and move payload types.
 - [x] Add board renderers for placement grids, Reversi, Breakthrough, Mancala, Dots and Boxes, and Order and Chaos; Dots and Boxes renders a dot/edge/box grid with owned boxes.
-- [x] Add thumbnail SVG assets.
+- [x] Add high-fidelity GPT-generated PNG thumbnail assets.
 - [x] Add server, web, and Playwright tests for the new games.
 - [x] Run `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e`.
 - [-] Start the dev server and verify the picker plus representative new-game move flows in the built-in browser.
@@ -198,4 +198,4 @@
 - Baseline verification before implementation: `npm run typecheck` passed; `npm test` passed with shared 2 tests, domain 44 tests, server 40 tests, and web 16 tests.
 - Final verification after review fixes: `npm run typecheck && npm test && npm run build && npm run test:e2e` passed. Unit totals: shared 2, domain 96, server 44, web 18. Playwright: 6 Chromium tests passed.
 - Built-in browser attempt: local dev server started, but Browser plugin reported no available in-app browser backend (`agent.browsers.list()` returned `[]`). Dev server was stopped; Playwright e2e is the browser-flow verification evidence.
-- Gate feature commit: `299a5d5`. Review-fix code commit: `8884b9f`.
+- Gate feature commit: `299a5d5`. Review-fix code commit: `8884b9f`. Thumbnail replacement commit: `3c06916`; verification `npm test -w @fairgame/web -- App && npm run typecheck && npm run build` passed.
