@@ -3,11 +3,13 @@ import { Server } from "socket.io";
 
 import { createApp } from "./app.js";
 import { loadServerConfig } from "./config.js";
+import { loadLocalEnv } from "./env.js";
 import type { SupportedGameState } from "./matches/gameRegistry.js";
 import { MatchService } from "./matches/matchService.js";
 import { PostgresMatchRepository } from "./persistence/postgresMatchRepository.js";
 import { registerRealtime } from "./realtime.js";
 
+loadLocalEnv();
 const config = loadServerConfig();
 const repository = await PostgresMatchRepository.open<SupportedGameState>(config.databaseUrl);
 const matchService = new MatchService({ repository });

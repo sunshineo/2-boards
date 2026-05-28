@@ -27,6 +27,8 @@ Start local development servers:
 npm run dev
 ```
 
+The server loads `fairgame-rebuild/.env` automatically for local runs.
+
 Run the built app as a single production server:
 
 ```bash
