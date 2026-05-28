@@ -1177,7 +1177,8 @@ function DotsBoxesBoard(props: {
   onMove: (edge: string) => void;
 }) {
   const canAct = canCurrentSeatAct(props.board, props.currentSeat);
-  const edges = getDotsBoxesEdges(props.board);
+  const visualRows = props.board.boxRows * 2 + 1;
+  const visualColumns = props.board.boxColumns * 2 + 1;
 
   return (
     <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
@@ -1186,21 +1187,109 @@ function DotsBoxesBoard(props: {
         <span>{props.board.scores.seat1}</span>
         <span>{props.board.scores.seat2}</span>
       </div>
-      <div className="dots-edges">
-        {edges.map((edge) => (
-          <button
-            aria-label={`Board ${props.board.id} edge ${edge}`}
-            className={`edge-button ${edge.startsWith("h") ? "horizontal" : "vertical"}${props.board.drawnEdges.includes(edge) ? " drawn" : ""}`}
-            disabled={props.isBusy || !canAct || !props.board.playableEdges.includes(edge)}
-            key={edge}
-            onClick={() => props.onMove(edge)}
-            type="button"
-          >
-            {props.board.drawnEdges.includes(edge) ? "-" : ""}
-          </button>
-        ))}
+      <div
+        aria-label={`Board ${props.board.id} Dots and Boxes grid`}
+        className="dots-board"
+        role="group"
+        style={{ gridTemplateColumns: `repeat(${visualColumns}, minmax(0, 1fr))` }}
+      >
+        {Array.from({ length: visualRows }, (_, visualRow) =>
+          Array.from({ length: visualColumns }, (_, visualColumn) =>
+            renderDotsBoxesCell({
+              board: props.board,
+              canAct,
+              isBusy: props.isBusy,
+              onMove: props.onMove,
+              visualColumn,
+              visualRow
+            })
+          )
+        )}
       </div>
     </section>
+  );
+}
+
+function renderDotsBoxesCell(props: {
+  board: DotsBoxesBoardView;
+  canAct: boolean;
+  isBusy: boolean;
+  onMove: (edge: string) => void;
+  visualColumn: number;
+  visualRow: number;
+}) {
+  if (props.visualRow % 2 === 0 && props.visualColumn % 2 === 0) {
+    return (
+      <span
+        aria-hidden="true"
+        className="dot-node"
+        key={`dot-${props.visualRow}-${props.visualColumn}`}
+      />
+    );
+  }
+
+  if (props.visualRow % 2 === 0) {
+    const edge = `h-${props.visualRow / 2}-${Math.floor(props.visualColumn / 2)}`;
+    return (
+      <DotsBoxesEdgeButton
+        board={props.board}
+        canAct={props.canAct}
+        edge={edge}
+        isBusy={props.isBusy}
+        key={edge}
+        orientation="horizontal"
+        onMove={props.onMove}
+      />
+    );
+  }
+
+  if (props.visualColumn % 2 === 0) {
+    const edge = `v-${Math.floor(props.visualRow / 2)}-${props.visualColumn / 2}`;
+    return (
+      <DotsBoxesEdgeButton
+        board={props.board}
+        canAct={props.canAct}
+        edge={edge}
+        isBusy={props.isBusy}
+        key={edge}
+        orientation="vertical"
+        onMove={props.onMove}
+      />
+    );
+  }
+
+  const boxIndex = Math.floor(props.visualRow / 2) * props.board.boxColumns + Math.floor(props.visualColumn / 2);
+  const owner = props.board.boxes[boxIndex] ?? null;
+  return (
+    <span
+      aria-label={`Board ${props.board.id} box ${boxIndex + 1}${owner ? ` ${owner}` : " empty"}`}
+      className={`dots-box${owner ? ` owned ${owner}` : ""}`}
+      key={`box-${boxIndex}`}
+    >
+      {owner ? formatMark(owner) : ""}
+    </span>
+  );
+}
+
+function DotsBoxesEdgeButton(props: {
+  board: DotsBoxesBoardView;
+  canAct: boolean;
+  edge: string;
+  isBusy: boolean;
+  onMove: (edge: string) => void;
+  orientation: "horizontal" | "vertical";
+}) {
+  const isDrawn = props.board.drawnEdges.includes(props.edge);
+
+  return (
+    <button
+      aria-label={`Board ${props.board.id} edge ${props.edge}`}
+      aria-pressed={isDrawn}
+      className={`edge-button ${props.orientation}${isDrawn ? " drawn" : ""}`}
+      disabled={props.isBusy || !props.canAct || !props.board.playableEdges.includes(props.edge)}
+      onClick={() => props.onMove(props.edge)}
+      type="button"
+    />
   );
 }
 
@@ -1298,23 +1387,6 @@ function formatPawn(seat: SeatId) {
 
 function canCurrentSeatAct(board: MatchBoardView, currentSeat: SeatId | null) {
   return currentSeat !== null && board.outcome.status === "in_progress" && board.seatsToAct.includes(currentSeat);
-}
-
-function getDotsBoxesEdges(board: DotsBoxesBoardView) {
-  const edges: string[] = [];
-  for (let row = 0; row <= board.boxRows; row += 1) {
-    for (let column = 0; column < board.boxColumns; column += 1) {
-      edges.push(`h-${row}-${column}`);
-    }
-  }
-
-  for (let row = 0; row < board.boxRows; row += 1) {
-    for (let column = 0; column <= board.boxColumns; column += 1) {
-      edges.push(`v-${row}-${column}`);
-    }
-  }
-
-  return edges;
 }
 
 const startingChessFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";

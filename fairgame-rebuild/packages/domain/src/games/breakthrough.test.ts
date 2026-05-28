@@ -5,19 +5,20 @@ import { breakthroughRules, type BreakthroughState } from "./breakthrough";
 const seats = ["seat1", "seat2"] as const;
 
 describe("breakthroughRules", () => {
-  it("creates an eight-by-eight board with the first two rows assigned to seat1 and last two rows assigned to seat2", () => {
+  it("creates an eight-by-eight board with the first seat moving toward the far row", () => {
     const state = breakthroughRules.createInitialState({ firstSeat: "seat2", seats });
 
     expect(breakthroughRules.gameType).toBe("breakthrough");
     expect(state.rows).toBe(8);
     expect(state.columns).toBe(8);
     expect(state.cells).toHaveLength(64);
-    expect(row(state, 0)).toEqual(Array(8).fill("seat1"));
-    expect(row(state, 1)).toEqual(Array(8).fill("seat1"));
+    expect(state.firstSeat).toBe("seat2");
+    expect(row(state, 0)).toEqual(Array(8).fill("seat2"));
+    expect(row(state, 1)).toEqual(Array(8).fill("seat2"));
     expect(row(state, 2)).toEqual(Array(8).fill(null));
     expect(row(state, 5)).toEqual(Array(8).fill(null));
-    expect(row(state, 6)).toEqual(Array(8).fill("seat2"));
-    expect(row(state, 7)).toEqual(Array(8).fill("seat2"));
+    expect(row(state, 6)).toEqual(Array(8).fill("seat1"));
+    expect(row(state, 7)).toEqual(Array(8).fill("seat1"));
     expect(breakthroughRules.getSeatsToAct(state)).toEqual(["seat2"]);
     expect(breakthroughRules.getOutcome(state)).toEqual({ status: "in_progress" });
   });
@@ -34,6 +35,33 @@ describe("breakthroughRules", () => {
     expect(cellAt(state, 6, 4)).toBeNull();
     expect(cellAt(state, 5, 4)).toBe("seat2");
     expect(breakthroughRules.getSeatsToAct(state)).toEqual(["seat1"]);
+  });
+
+  it("uses the first-seat orientation for seat2 on the mirrored board", () => {
+    let state = breakthroughRules.createInitialState({ firstSeat: "seat2", seats });
+
+    state = play(state, "seat2", index(1, 4), index(2, 4));
+    expect(cellAt(state, 1, 4)).toBeNull();
+    expect(cellAt(state, 2, 4)).toBe("seat2");
+    expect(breakthroughRules.getSeatsToAct(state)).toEqual(["seat1"]);
+
+    state = play(
+      {
+        ...state,
+        cells: withCells([[6, 2, "seat2"]]),
+        nextSeat: "seat2"
+      },
+      "seat2",
+      index(6, 2),
+      index(7, 2)
+    );
+
+    expect(state.outcome).toEqual({
+      status: "win",
+      winner: "seat2",
+      loser: "seat1",
+      reason: "far-rank"
+    });
   });
 
   it("captures diagonally into an opponent-occupied square", () => {

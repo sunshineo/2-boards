@@ -684,21 +684,22 @@ function getPlayableBreakthroughMoves(state: BreakthroughState): BreakthroughMov
   const [seat] = breakthroughRules.getSeatsToAct(state);
   if (!seat) return [];
 
-  const direction = seat === "seat1" ? 1 : -1;
   const moves: BreakthroughMove[] = [];
   for (let from = 0; from < state.cells.length; from += 1) {
     if (state.cells[from] !== seat) continue;
 
     const row = Math.floor(from / state.columns);
     const column = from % state.columns;
-    for (const columnDelta of [-1, 0, 1]) {
-      const nextRow = row + direction;
-      const nextColumn = column + columnDelta;
-      if (nextRow < 0 || nextRow >= state.rows || nextColumn < 0 || nextColumn >= state.columns) continue;
-      const to = nextRow * state.columns + nextColumn;
-      const move = { from, to };
-      if (breakthroughRules.validateMove({ state, seat, move }).ok) {
-        moves.push(move);
+    for (const rowDelta of [-1, 1]) {
+      for (const columnDelta of [-1, 0, 1]) {
+        const nextRow = row + rowDelta;
+        const nextColumn = column + columnDelta;
+        if (nextRow < 0 || nextRow >= state.rows || nextColumn < 0 || nextColumn >= state.columns) continue;
+        const to = nextRow * state.columns + nextColumn;
+        const move = { from, to };
+        if (breakthroughRules.validateMove({ state, seat, move }).ok) {
+          moves.push(move);
+        }
       }
     }
   }

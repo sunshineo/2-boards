@@ -460,6 +460,25 @@ describe("match API", () => {
     }
   });
 
+  it("projects Breakthrough moves using each board's first-seat orientation", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({ gameType: "breakthrough" }).expect(201);
+
+    const response = await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    const boardA = response.body.match.boards[0];
+    const boardB = response.body.match.boards[1];
+    expect(boardA.firstSeat).toBe("seat1");
+    expect(boardA.playableMoves).toEqual(
+      expect.arrayContaining([{ from: 8, to: 16 }, { from: 9, to: 17 }])
+    );
+    expect(boardB.firstSeat).toBe("seat2");
+    expect(boardB.playableMoves).toEqual(
+      expect.arrayContaining([{ from: 8, to: 16 }, { from: 9, to: 17 }])
+    );
+    expect(boardB.playableMoves).not.toEqual(expect.arrayContaining([{ from: 48, to: 40 }]));
+  });
+
   it("rejects move shapes that do not match a Chess game", async () => {
     const app = appWithDeterministicIds();
     await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
@@ -484,6 +503,31 @@ describe("match API", () => {
       .expect(400);
 
     expect(response.body.error).toBe("invalid-move");
+  });
+
+  it("rejects move shapes that do not match the added games", async () => {
+    const cases = [
+      { gameType: "gomoku", move: { column: 0 } },
+      { gameType: "hex", move: { row: 0, column: 0 } },
+      { gameType: "reversi", move: { from: 0, to: 1 } },
+      { gameType: "breakthrough", move: { cell: 0 } },
+      { gameType: "mancala", move: { cell: 0 } },
+      { gameType: "dots-boxes", move: { cell: 0 } },
+      { gameType: "order-chaos", move: { cell: 0, mark: "Z" } }
+    ];
+
+    for (const testCase of cases) {
+      const app = appWithDeterministicIds();
+      await request(app).post("/api/matches").send({ gameType: testCase.gameType }).expect(201);
+      await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+      const response = await request(app)
+        .post("/api/matches/match-1/moves")
+        .send({ boardId: "A", seat: "seat1", move: testCase.move })
+        .expect(400);
+
+      expect(response.body.error).toBe("invalid-move");
+    }
   });
 
   it("rejects invalid moves", async () => {

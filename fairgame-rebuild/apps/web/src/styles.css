@@ -621,14 +621,26 @@ button:disabled {
   font-weight: 900;
 }
 
-.dots-edges {
+.dots-board {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 6px;
+  grid-auto-rows: auto;
+  align-items: stretch;
+  justify-items: stretch;
+  gap: 5px;
+  width: min(100%, 340px);
+  margin: 0 auto;
+}
+
+.dot-node {
+  width: 10px;
+  height: 10px;
+  align-self: center;
+  justify-self: center;
+  border-radius: 50%;
+  background: #1f2a3d;
 }
 
 .edge-button {
-  min-height: 34px;
   border: 1px solid #bdc7d4;
   border-radius: 4px;
   background: #f8fafc;
@@ -636,10 +648,44 @@ button:disabled {
   font-weight: 900;
 }
 
+.edge-button.horizontal {
+  width: 100%;
+  min-height: 12px;
+  align-self: center;
+}
+
+.edge-button.vertical {
+  width: 12px;
+  min-height: 100%;
+  justify-self: center;
+}
+
 .edge-button.drawn {
   background: #245d63;
   color: #ffffff;
   opacity: 1;
+}
+
+.dots-box {
+  display: grid;
+  min-height: 54px;
+  align-items: center;
+  justify-items: center;
+  border-radius: 6px;
+  background: #eef1f5;
+  color: #1f2a3d;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.dots-box.owned.seat1 {
+  background: #f4d18f;
+  color: #6b3b08;
+}
+
+.dots-box.owned.seat2 {
+  background: #b7ddd6;
+  color: #174c55;
 }
 
 .mark-toggle {

@@ -9,6 +9,7 @@ export type BreakthroughState = {
   readonly columns: number;
   readonly cells: readonly BreakthroughCell[];
   readonly seats: SeatPair;
+  readonly firstSeat: SeatId;
   readonly nextSeat: SeatId | null;
   readonly outcome: BoardOutcome;
 };
@@ -26,12 +27,13 @@ export const breakthroughRules: GameRules<BreakthroughState, BreakthroughMove> =
 
   createInitialState({ firstSeat, seats }) {
     const cells = Array<BreakthroughCell>(breakthroughRows * breakthroughColumns).fill(null);
+    const secondSeat = getOtherSeat(seats, firstSeat);
 
     for (let column = 0; column < breakthroughColumns; column += 1) {
-      cells[getIndex(0, column)] = "seat1";
-      cells[getIndex(1, column)] = "seat1";
-      cells[getIndex(6, column)] = "seat2";
-      cells[getIndex(7, column)] = "seat2";
+      cells[getIndex(0, column)] = firstSeat;
+      cells[getIndex(1, column)] = firstSeat;
+      cells[getIndex(6, column)] = secondSeat;
+      cells[getIndex(7, column)] = secondSeat;
     }
 
     return {
@@ -39,6 +41,7 @@ export const breakthroughRules: GameRules<BreakthroughState, BreakthroughMove> =
       columns: breakthroughColumns,
       cells,
       seats,
+      firstSeat,
       nextSeat: firstSeat,
       outcome: { status: "in_progress" }
     };
@@ -74,7 +77,7 @@ export const breakthroughRules: GameRules<BreakthroughState, BreakthroughMove> =
     const toPosition = getPosition(state, move.to);
     const rowDelta = toPosition.row - fromPosition.row;
     const columnDelta = toPosition.column - fromPosition.column;
-    const direction = getDirection(seat);
+    const direction = getDirection(state, seat);
 
     if (rowDelta !== direction || Math.abs(columnDelta) > 1) {
       return { ok: false, reason: "illegal-direction" };
@@ -118,7 +121,7 @@ export const breakthroughRules: GameRules<BreakthroughState, BreakthroughMove> =
 };
 
 function getBreakthroughOutcome(state: BreakthroughState, movedSeat: SeatId, to: number): BoardOutcome {
-  if (getPosition(state, to).row === getFarRank(movedSeat)) {
+  if (getPosition(state, to).row === getFarRank(state, movedSeat)) {
     return {
       status: "win",
       winner: movedSeat,
@@ -155,12 +158,12 @@ function isCellIndex(state: Pick<BreakthroughState, "cells">, cell: number) {
   return Number.isInteger(cell) && cell >= 0 && cell < state.cells.length;
 }
 
-function getDirection(seat: SeatId) {
-  return seat === "seat1" ? 1 : -1;
+function getDirection(state: Pick<BreakthroughState, "firstSeat">, seat: SeatId) {
+  return seat === state.firstSeat ? 1 : -1;
 }
 
-function getFarRank(seat: SeatId) {
-  return seat === "seat1" ? breakthroughRows - 1 : 0;
+function getFarRank(state: Pick<BreakthroughState, "firstSeat" | "rows">, seat: SeatId) {
+  return seat === state.firstSeat ? state.rows - 1 : 0;
 }
 
 function getOtherSeat(seats: SeatPair, seat: SeatId): SeatId {

@@ -532,6 +532,35 @@ describe("App", () => {
     }
   });
 
+  it("renders Dots and Boxes as a dot grid with owned boxes", async () => {
+    const seatSession = createAddedGameSeatSession("dots-boxes", "Dots and Boxes");
+    const boardA = seatSession.match.boards[0] as {
+      drawnEdges: string[];
+      boxes: ("seat1" | "seat2" | null)[];
+      scores: { seat1: number; seat2: number };
+    };
+    boardA.drawnEdges = ["h-0-0", "h-1-0", "v-0-0", "v-0-1"];
+    boardA.boxes = ["seat1", ...Array(8).fill(null)];
+    boardA.scores = { seat1: 1, seat2: 0 };
+
+    vi.stubGlobal(
+      "fetch",
+      createFetchMock({
+        matches: [],
+        seatSession
+      })
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Dots and Boxes lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Dots and Boxes match" }));
+
+    await screen.findByTestId("match-code");
+    expect(screen.getByLabelText("Board A Dots and Boxes grid")).toBeInTheDocument();
+    expect(screen.getByLabelText("Board A box 1 seat1")).toHaveTextContent("X");
+    expect(screen.getByRole("button", { name: "Board A edge h-0-0" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("joins a listed open match without typed name or code", async () => {
     const fetchMock = createFetchMock({
       matches: [
@@ -801,11 +830,12 @@ function createAddedGameBoard(gameType: string, id: "A" | "B", firstSeat: "seat1
 
   if (gameType === "breakthrough") {
     const cells = Array(64).fill(null);
+    const secondSeat = firstSeat === "seat1" ? "seat2" : "seat1";
     for (let column = 0; column < 8; column += 1) {
-      cells[column] = "seat1";
-      cells[8 + column] = "seat1";
-      cells[48 + column] = "seat2";
-      cells[56 + column] = "seat2";
+      cells[column] = firstSeat;
+      cells[8 + column] = firstSeat;
+      cells[48 + column] = secondSeat;
+      cells[56 + column] = secondSeat;
     }
     return {
       ...base,

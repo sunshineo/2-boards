@@ -205,24 +205,52 @@ test("player can make an opening Chess move", async ({ browser }) => {
 });
 
 test("players can make opening moves in the added board games", async ({ browser }) => {
+  const expectBoardAText = async (page: Page, text: string) => {
+    await expect(page.getByRole("region", { name: "Board A" })).toContainText(text);
+  };
   const cases = [
-    { label: "Gomoku", play: (page: Page) => clickExactButton(page, "Board A Gomoku cell 1"), verify: "X" },
-    { label: "Hex", play: (page: Page) => clickExactButton(page, "Board A Hex cell 1"), verify: "X" },
-    { label: "Reversi", play: (page: Page) => clickExactButton(page, "Board A Reversi cell 20"), verify: "X" },
+    {
+      label: "Gomoku",
+      play: (page: Page) => clickExactButton(page, "Board A Gomoku cell 1"),
+      verify: (page: Page) => expectBoardAText(page, "X")
+    },
+    {
+      label: "Hex",
+      play: (page: Page) => clickExactButton(page, "Board A Hex cell 1"),
+      verify: (page: Page) => expectBoardAText(page, "X")
+    },
+    {
+      label: "Reversi",
+      play: (page: Page) => clickExactButton(page, "Board A Reversi cell 20"),
+      verify: (page: Page) => expectBoardAText(page, "X")
+    },
     {
       label: "Breakthrough",
       play: async (page: Page) => {
         await clickExactButton(page, "Board A Breakthrough cell 9 seat1");
         await clickExactButton(page, "Board A Breakthrough cell 17 empty");
       },
-      verify: "▲"
+      verify: (page: Page) => expectBoardAText(page, "▲")
     },
-    { label: "Mancala", play: (page: Page) => clickExactButton(page, "Board A seat1 pit 3"), verify: "0" },
-    { label: "Dots and Boxes", play: (page: Page) => clickExactButton(page, "Board A edge h-0-0"), verify: "-" },
+    {
+      label: "Mancala",
+      play: (page: Page) => clickExactButton(page, "Board A seat1 pit 3"),
+      verify: (page: Page) => expectBoardAText(page, "0")
+    },
+    {
+      label: "Dots and Boxes",
+      play: (page: Page) => clickExactButton(page, "Board A edge h-0-0"),
+      verify: async (page: Page) => {
+        await expect(page.getByRole("button", { name: "Board A edge h-0-0" })).toHaveAttribute(
+          "aria-pressed",
+          "true"
+        );
+      }
+    },
     {
       label: "Order and Chaos",
       play: (page: Page) => clickExactButton(page, "Board A Order and Chaos cell 1"),
-      verify: "X"
+      verify: (page: Page) => expectBoardAText(page, "X")
     }
   ];
 
@@ -243,7 +271,7 @@ test("players can make opening moves in the added board games", async ({ browser
     await playerTwo.locator(`[data-match-id="${matchCode ?? ""}"]`).click();
 
     await testCase.play(playerOne);
-    await expect(playerOne.getByRole("region", { name: "Board A" })).toContainText(testCase.verify);
+    await testCase.verify(playerOne);
 
     await playerOneContext.close();
     await playerTwoContext.close();
