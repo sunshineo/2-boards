@@ -1,6 +1,6 @@
 # Fair Two-Board Game Roadmap
 
-Last updated: 2026-05-27
+Last updated: 2026-05-28
 
 ## Product Goal
 
@@ -238,6 +238,17 @@ Checkpoint 5 implementation commit: `abbd04c`.
   Evidence: Added `packages/domain/src/clocks.test.ts` and server tests with injected time for no-running, one-running, two-running, post-move increment, and timeout behavior. Full verification passed with `npm install` and `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-27. Built-in browser verification loaded `http://192.168.4.149:5173/`, created a TicTacToe match, confirmed both player clocks showed `5:00` paused before Player 2 joined, and confirmed Board A was playable for Player 1.
 
 Checkpoint: timed matches work without breaking independent board turns.
+
+### 10. Seven More Board Games
+
+- [~] Add seven additional game plug-ins without changing generic match orchestration.
+  Evidence: Started on 2026-05-28 in gate worktree `.worktrees/add-seven-games-gate` on branch `codex/add-seven-games-gate`. Design saved to `docs/superpowers/specs/2026-05-28-seven-board-games-design.md`; implementation plan saved to `docs/superpowers/plans/2026-05-28-seven-board-games.md`. Baseline verification before implementation passed with `npm run typecheck` and `npm test`.
+- [ ] Implement domain rules and tests for Gomoku, Hex, Reversi, Breakthrough, Mancala, Dots and Boxes, and Order and Chaos.
+  Evidence: Pending worker branches.
+- [ ] Integrate all seven games into server registry, web game picker, board renderers, API tests, web tests, and e2e flows.
+  Evidence: Pending gate integration.
+- [ ] Verify and record final gate branch commit.
+  Evidence: Pending final `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`, and built-in browser verification.
 
 Checkpoint 6 implementation commit: `df84fe5`.
 
