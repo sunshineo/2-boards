@@ -5,7 +5,8 @@ import {
   setClockRunningSeats,
   toClockView,
   type ClockConfig,
-  type MatchClock
+  type MatchClock,
+  getMatchOutcome
 } from "@fairgame/domain";
 import type { BoardId, SeatId } from "@fairgame/shared";
 import { randomUUID } from "node:crypto";
@@ -17,15 +18,16 @@ import {
   type SupportedFairMatch,
   type SupportedGameState,
   type SupportedGameType
-} from "./gameRegistry";
-import type { MatchEventInput, MatchRepository, SerializedStoredMatch } from "./matchRepository";
-import { toMatchView, type MatchView } from "./matchView";
+} from "./gameRegistry.js";
+import type { MatchEventInput, MatchRepository, SerializedStoredMatch } from "./matchRepository.js";
+import { toMatchView, type MatchView } from "./matchView.js";
 
 type StoredMatch = {
   match: SupportedFairMatch;
   joinedSeats: Set<SeatId>;
   seatClaims: Map<SeatId, string>;
   playerNames: Map<SeatId, string>;
+  lastActivityAtMs: number;
   clock: MatchClock | null;
 };
 
@@ -86,7 +88,7 @@ export class MatchService {
     this.matches.clear();
 
     for (const snapshot of snapshots) {
-      this.matches.set(snapshot.match.id, deserializeStoredMatch(snapshot));
+      this.matches.set(snapshot.match.id, deserializeStoredMatch(snapshot, this.nowMs()));
     }
   }
 
@@ -96,6 +98,7 @@ export class MatchService {
       throw new Error(`Unsupported game type: ${gameType}`);
     }
 
+    const nowMs = this.nowMs();
     const match = game.createMatch(this.createId());
     const seatClaims = new Map<SeatId, string>();
     const claim = this.createSeatClaim(match.id, "seat1", seatClaims);
@@ -107,7 +110,8 @@ export class MatchService {
         ["seat1", sanitizePlayerName(playerName, "Player 1")],
         ["seat2", "Player 2"]
       ]),
-      clock: this.clockConfig ? createMatchClock(this.clockConfig, this.nowMs()) : null
+      lastActivityAtMs: nowMs,
+      clock: this.clockConfig ? createMatchClock(this.clockConfig, nowMs) : null
     };
     this.matches.set(match.id, storedMatch);
     await this.persistChange(storedMatch, {
@@ -137,11 +141,13 @@ export class MatchService {
       };
     }
 
+    const nowMs = this.nowMs();
     stored.joinedSeats.add("seat2");
     stored.playerNames.set("seat2", sanitizePlayerName(playerName, "Player 2"));
     stored.clock = stored.clock
-      ? setClockRunningSeats(stored.clock, getActiveSeats(stored.match), this.nowMs())
+      ? setClockRunningSeats(stored.clock, getActiveSeats(stored.match), nowMs)
       : null;
+    stored.lastActivityAtMs = nowMs;
     const claim = this.createSeatClaim(id, "seat2", stored.seatClaims);
     const match = this.createMatchView(stored);
     await this.persistChange(stored, {
@@ -156,6 +162,35 @@ export class MatchService {
       match,
       claim
     };
+  }
+
+  async pruneStaleMatches(nowMs: number, maxAgeMs: number): Promise<string[]> {
+    const pruned: string[] = [];
+
+    for (const [matchId, stored] of this.matches) {
+      if (nowMs - stored.lastActivityAtMs <= maxAgeMs) continue;
+      const outcome = getMatchOutcome(stored.match);
+      const isCompleted = outcome.status !== "in_progress";
+      const isNeverJoined = !stored.joinedSeats.has("seat2");
+      if (!isCompleted && !isNeverJoined) continue;
+
+      if (this.repository) {
+        await this.repository.appendEvent({
+          matchId,
+          eventType: "match.pruned",
+          payload: {
+            reason: isCompleted ? "completed" : "never-joined",
+            lastActivityAtMs: stored.lastActivityAtMs,
+            prunedAtMs: nowMs
+          }
+        });
+        await this.repository.deleteSnapshot(matchId);
+      }
+      this.matches.delete(matchId);
+      pruned.push(matchId);
+    }
+
+    return pruned;
   }
 
   async getMatch(id: string): Promise<MatchView | null> {
@@ -227,6 +262,7 @@ export class MatchService {
     stored.clock = advancedClock
       ? completeClockMove(advancedClock.clock, input.seat, getActiveSeats(stored.match), nowMs)
       : null;
+    stored.lastActivityAtMs = nowMs;
     const match = this.createMatchView(stored, nowMs);
     await this.persistChange(stored, {
       matchId: input.id,
@@ -297,6 +333,7 @@ export class MatchService {
   ): Promise<void> {
     stored.clock = clock;
     stored.match = applyTimeoutToMatch(stored.match, expiredSeats);
+    stored.lastActivityAtMs = clock.updatedAtMs;
     await this.persistChange(stored, {
       matchId: stored.match.id,
       eventType: "clock.timeout",
@@ -312,11 +349,12 @@ function serializeStoredMatch(stored: StoredMatch): SerializedStoredMatch<Suppor
     joinedSeats: [...stored.joinedSeats],
     seatClaims: [...stored.seatClaims.entries()],
     playerNames: [...stored.playerNames.entries()],
+    lastActivityAtMs: stored.lastActivityAtMs,
     clock: stored.clock
   };
 }
 
-function deserializeStoredMatch(snapshot: SerializedStoredMatch<SupportedGameState>): StoredMatch {
+function deserializeStoredMatch(snapshot: SerializedStoredMatch<SupportedGameState>, fallbackActivityAtMs: number): StoredMatch {
   return {
     match: snapshot.match,
     joinedSeats: new Set(snapshot.joinedSeats),
@@ -325,6 +363,7 @@ function deserializeStoredMatch(snapshot: SerializedStoredMatch<SupportedGameSta
       ["seat1", "Player 1"],
       ["seat2", "Player 2"]
     ]),
+    lastActivityAtMs: snapshot.lastActivityAtMs ?? fallbackActivityAtMs,
     clock: snapshot.clock ?? null
   };
 }

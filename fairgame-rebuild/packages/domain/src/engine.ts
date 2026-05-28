@@ -1,7 +1,7 @@
 import type { BoardId, SeatId } from "@fairgame/shared";
 
-import { getMatchOutcome } from "./scoring";
-import type { ApplyMoveCommand, ApplyMoveResult, FairBoard, FairMatch, GameRules } from "./types";
+import { getMatchOutcome } from "./scoring.js";
+import type { ApplyMoveCommand, ApplyMoveResult, FairBoard, FairMatch, GameRules } from "./types.js";
 
 const seats = ["seat1", "seat2"] as const;
 

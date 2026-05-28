@@ -273,16 +273,18 @@ Checkpoint 8 implementation commit: `cbd1cd7`.
 
 ### 9. Production Hardening
 
-- [ ] Add authentication if needed.
-  Evidence: Not started.
-- [ ] Add deployment configuration.
-  Evidence: Not started.
-- [ ] Add logging, health checks, error reporting, rate limits, and stale game cleanup.
-  Evidence: Not started.
-- [ ] Add database migrations or equivalent schema-management process.
-  Evidence: Not started.
+- [x] Add authentication if needed.
+  Evidence: Account authentication is deliberately deferred because the product has no account-owned data yet; seat ownership remains the authorization boundary. Added typed production config and secure-cookie defaults so HTTP-only seat cookies are secure by default in production.
+- [x] Add deployment configuration.
+  Evidence: Added single-process static web serving, production same-origin API URLs, Node-runnable ESM builds, `Dockerfile`, `.dockerignore`, `.env.example`, and `fairgame-rebuild/docs/deployment.md`.
+- [x] Add logging, health checks, error reporting, rate limits, and stale game cleanup.
+  Evidence: Added `helmet`, `pino-http`, API rate limits, CORS allow-list handling, `/ready`, stable JSON API 404/error responses, startup cleanup scheduling, and stale snapshot pruning for completed or never-joined matches while preserving event history.
+- [x] Add database migrations or equivalent schema-management process.
+  Evidence: Added a PGlite migration runner with `schema_migrations`, recorded `001_initial_persistence`, repository health checks, and tests proving migration idempotency. Full verification passed with `npm install` and fresh `npm run typecheck && npm test && npm run build && npm run test:e2e` on 2026-05-27. Built-in browser verification loaded the compiled production server at `http://127.0.0.1:4100/`, created a TicTacToe match, confirmed same-origin API behavior, and verified `/ready`.
 
 Checkpoint: the product can be operated beyond local development.
+
+Checkpoint 9 implementation commit: pending.
 
 ## Lessons From Prior Attempts
 

@@ -2,7 +2,7 @@ import { Chess } from "chess.js";
 import type { Square } from "chess.js";
 import type { BoardOutcome, SeatId } from "@fairgame/shared";
 
-import type { GameRules, SeatPair, ValidationResult } from "../types";
+import type { GameRules, SeatPair, ValidationResult } from "../types.js";
 
 export type ChessColor = "w" | "b";
 export type ChessPieceType = "p" | "n" | "b" | "r" | "q" | "k";

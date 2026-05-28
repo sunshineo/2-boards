@@ -1,6 +1,6 @@
 import type { Server } from "socket.io";
 
-import type { MatchService } from "./matches/matchService";
+import type { MatchService } from "./matches/matchService.js";
 
 type WatchMatchPayload = {
   readonly matchId?: string;

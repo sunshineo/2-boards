@@ -27,4 +27,14 @@ Start local development servers:
 npm run dev
 ```
 
+Run the built app as a single production server:
+
+```bash
+npm run build
+NODE_ENV=production FAIRGAME_WEB_DIST_DIR=apps/web/dist npm run dev:server
+```
+
+See `docs/deployment.md` for Docker, health checks, environment variables, and the future
+Neon/Postgres persistence path.
+
 The active rebuild follows `/Volumes/T9/code/2-boards/roadmap.md`.

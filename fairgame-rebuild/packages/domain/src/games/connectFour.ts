@@ -1,6 +1,6 @@
 import type { BoardOutcome, SeatId } from "@fairgame/shared";
 
-import type { GameRules, SeatPair, ValidationResult } from "../types";
+import type { GameRules, SeatPair, ValidationResult } from "../types.js";
 
 export type ConnectFourCell = SeatId | null;
 

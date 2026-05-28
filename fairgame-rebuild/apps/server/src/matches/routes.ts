@@ -2,8 +2,8 @@ import { Router } from "express";
 import type { Response } from "express";
 import type { BoardId, SeatId } from "@fairgame/shared";
 
-import { parseSupportedGameType } from "./gameRegistry";
-import type { MatchService, SeatClaim } from "./matchService";
+import { parseSupportedGameType } from "./gameRegistry.js";
+import type { MatchService, SeatClaim } from "./matchService.js";
 
 type CreateBody = {
   readonly gameType?: unknown;
@@ -20,7 +20,10 @@ type MoveBody = {
   readonly move?: unknown;
 };
 
-export function createMatchRouter(matchService: MatchService) {
+export function createMatchRouter(
+  matchService: MatchService,
+  options: { readonly secureCookies?: boolean } = {}
+) {
   const router = Router();
 
   router.post("/", async (request, response) => {
@@ -32,7 +35,7 @@ export function createMatchRouter(matchService: MatchService) {
     }
 
     const result = await matchService.createMatch(gameType, typeof body.playerName === "string" ? body.playerName : undefined);
-    setSeatClaimCookie(response, result.claim);
+    setSeatClaimCookie(response, result.claim, options);
     response.status(201).json({ seat: result.seat, match: result.match });
   });
 
@@ -53,7 +56,7 @@ export function createMatchRouter(matchService: MatchService) {
       return;
     }
 
-    setSeatClaimCookie(response, result.claim);
+    setSeatClaimCookie(response, result.claim, options);
     response.json({ seat: result.seat, match: result.match });
   });
 
@@ -125,11 +128,15 @@ export function getSeatCookieName(matchId: string) {
   return `fg_seat_${matchId}`;
 }
 
-function setSeatClaimCookie(response: Response, claim: SeatClaim) {
+function setSeatClaimCookie(
+  response: Response,
+  claim: SeatClaim,
+  options: { readonly secureCookies?: boolean } = {}
+) {
   response.cookie(getSeatCookieName(claim.matchId), `${claim.seat}.${claim.secret}`, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: options.secureCookies ?? false,
     path: "/"
   });
 }

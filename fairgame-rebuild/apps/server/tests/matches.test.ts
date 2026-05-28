@@ -397,3 +397,47 @@ describe("match API", () => {
     });
   });
 });
+
+describe("match cleanup", () => {
+  it("prunes stale completed and never-joined matches while retaining active matches", async () => {
+    let now = 0;
+    let idIndex = 0;
+    const service = new MatchService({
+      createId: () => `match-${++idIndex}`,
+      nowMs: () => now
+    });
+
+    await service.createMatch("tictactoe");
+    await service.joinMatch("match-1");
+    await finishDrawnTicTacToe(service, "match-1");
+    await service.createMatch("tictactoe");
+    await service.createMatch("tictactoe");
+    await service.joinMatch("match-3");
+
+    now = 1_000;
+    const pruned = await service.pruneStaleMatches(now, 500);
+
+    expect(pruned).toEqual(["match-1", "match-2"]);
+    expect(await service.getMatch("match-1")).toBeNull();
+    expect(await service.getMatch("match-2")).toBeNull();
+    expect((await service.getMatch("match-3"))?.outcome.status).toBe("in_progress");
+  });
+});
+
+async function finishDrawnTicTacToe(service: MatchService, matchId: string) {
+  for (const command of [
+    { boardId: "A" as const, seat: "seat1" as const, move: { cell: 0 } },
+    { boardId: "A" as const, seat: "seat2" as const, move: { cell: 3 } },
+    { boardId: "A" as const, seat: "seat1" as const, move: { cell: 1 } },
+    { boardId: "A" as const, seat: "seat2" as const, move: { cell: 4 } },
+    { boardId: "A" as const, seat: "seat1" as const, move: { cell: 2 } },
+    { boardId: "B" as const, seat: "seat2" as const, move: { cell: 0 } },
+    { boardId: "B" as const, seat: "seat1" as const, move: { cell: 3 } },
+    { boardId: "B" as const, seat: "seat2" as const, move: { cell: 1 } },
+    { boardId: "B" as const, seat: "seat1" as const, move: { cell: 4 } },
+    { boardId: "B" as const, seat: "seat2" as const, move: { cell: 2 } }
+  ]) {
+    const result = await service.applyMove({ id: matchId, ...command });
+    expect(result.ok).toBe(true);
+  }
+}

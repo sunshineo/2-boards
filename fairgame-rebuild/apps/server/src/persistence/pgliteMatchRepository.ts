@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 
 import { PGlite } from "@electric-sql/pglite";
 
-import type { MatchEventInput, MatchRepository, SerializedStoredMatch } from "../matches/matchRepository";
+import type { MatchEventInput, MatchRepository, SerializedStoredMatch } from "../matches/matchRepository.js";
 
 type SnapshotRow<TState> = {
   match_id: string;
@@ -14,19 +14,14 @@ type EventCountRow = {
   count: string;
 };
 
-export class PgliteMatchRepository<TState = unknown> implements MatchRepository<TState> {
-  private constructor(private readonly db: PGlite) {}
+type MigrationRow = {
+  version: string;
+};
 
-  static async open<TState = unknown>(dataDir: string): Promise<PgliteMatchRepository<TState>> {
-    await mkdir(dirname(dataDir), { recursive: true });
-    const db = await PGlite.create(dataDir);
-    const repository = new PgliteMatchRepository<TState>(db);
-    await repository.initialize();
-    return repository;
-  }
-
-  async initialize(): Promise<void> {
-    await this.db.exec(`
+const migrations: readonly { readonly version: string; readonly sql: string }[] = [
+  {
+    version: "001_initial_persistence",
+    sql: `
       CREATE TABLE IF NOT EXISTS match_events (
         id BIGSERIAL PRIMARY KEY,
         match_id TEXT NOT NULL,
@@ -43,7 +38,51 @@ export class PgliteMatchRepository<TState = unknown> implements MatchRepository<
         payload JSONB NOT NULL,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+    `
+  }
+];
+
+export class PgliteMatchRepository<TState = unknown> implements MatchRepository<TState> {
+  private constructor(private readonly db: PGlite) {}
+
+  static async open<TState = unknown>(dataDir: string): Promise<PgliteMatchRepository<TState>> {
+    await mkdir(dirname(dataDir), { recursive: true });
+    const db = await PGlite.create(dataDir);
+    const repository = new PgliteMatchRepository<TState>(db);
+    await repository.initialize();
+    return repository;
+  }
+
+  async initialize(): Promise<void> {
+    await this.db.exec(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        version TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
     `);
+
+    const applied = new Set(await this.listAppliedMigrations());
+    for (const migration of migrations) {
+      if (applied.has(migration.version)) continue;
+      await this.db.exec(migration.sql);
+      await this.db.query(
+        `
+        INSERT INTO schema_migrations(version)
+        VALUES ($1)
+        ON CONFLICT (version) DO NOTHING
+        `,
+        [migration.version]
+      );
+    }
+  }
+
+  async listAppliedMigrations(): Promise<string[]> {
+    const result = await this.db.query<MigrationRow>("SELECT version FROM schema_migrations ORDER BY version ASC");
+    return result.rows.map((row) => row.version);
+  }
+
+  async healthCheck(): Promise<void> {
+    await this.db.query("SELECT 1");
   }
 
   async loadSnapshots(): Promise<SerializedStoredMatch<TState>[]> {
@@ -63,6 +102,10 @@ export class PgliteMatchRepository<TState = unknown> implements MatchRepository<
       `,
       [snapshot.match.id, JSON.stringify(snapshot)]
     );
+  }
+
+  async deleteSnapshot(matchId: string): Promise<void> {
+    await this.db.query("DELETE FROM match_snapshots WHERE match_id = $1", [matchId]);
   }
 
   async appendEvent(event: MatchEventInput): Promise<void> {

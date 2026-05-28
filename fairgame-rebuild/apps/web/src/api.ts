@@ -1,8 +1,9 @@
 import type { BoardId, GameType, MatchView, MovePayload, SeatId, SeatSession } from "./types";
 
-export function getApiBaseUrl() {
-  if (import.meta.env["VITE_API_URL"]) return import.meta.env["VITE_API_URL"];
-  return `${window.location.protocol}//${window.location.hostname}:4000`;
+export function getApiBaseUrl(env: ImportMetaEnv = import.meta.env, location: Location = window.location) {
+  if (env["VITE_API_URL"]) return env["VITE_API_URL"];
+  if (env.DEV) return `${location.protocol}//${location.hostname}:4000`;
+  return location.origin;
 }
 
 export class ApiError extends Error {

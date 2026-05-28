@@ -6,7 +6,7 @@ import {
   type MatchBoardView,
   type SupportedGameState,
   type SupportedGameType
-} from "./gameRegistry";
+} from "./gameRegistry.js";
 
 export type MatchView = {
   readonly id: string;

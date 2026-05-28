@@ -1,31 +1,47 @@
 import { createServer } from "node:http";
-import { resolve } from "node:path";
-
 import { Server } from "socket.io";
 
-import { createApp } from "./app";
-import type { SupportedGameState } from "./matches/gameRegistry";
-import { MatchService } from "./matches/matchService";
-import { PgliteMatchRepository } from "./persistence/pgliteMatchRepository";
-import { registerRealtime } from "./realtime";
+import { createApp } from "./app.js";
+import { loadServerConfig } from "./config.js";
+import type { SupportedGameState } from "./matches/gameRegistry.js";
+import { MatchService } from "./matches/matchService.js";
+import { PgliteMatchRepository } from "./persistence/pgliteMatchRepository.js";
+import { registerRealtime } from "./realtime.js";
 
-const port = Number(process.env["PORT"] ?? 4000);
-const dataDir = process.env["FAIRGAME_DB_DIR"] ?? resolve(process.cwd(), "../../.data/pglite");
-const repository = await PgliteMatchRepository.open<SupportedGameState>(dataDir);
+const config = loadServerConfig();
+const repository = await PgliteMatchRepository.open<SupportedGameState>(config.dataDir);
 const matchService = new MatchService({ repository });
 await matchService.loadFromRepository();
-const app = createApp({ matchService });
+const app = createApp({
+  matchService,
+  config,
+  readinessCheck: () => repository.healthCheck()
+});
 const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: true,
+    origin: config.allowedOrigins.length > 0 ? [...config.allowedOrigins] : true,
     credentials: true
   }
 });
 
 registerRealtime(io, matchService);
 
-httpServer.listen(port, () => {
-  console.log(`FairGame server listening on http://127.0.0.1:${port}`);
+if (config.cleanupIntervalMs > 0) {
+  const cleanupTimer = setInterval(async () => {
+    try {
+      const pruned = await matchService.pruneStaleMatches(Date.now(), config.staleMatchMaxAgeMs);
+      if (pruned.length > 0) {
+        console.log(`Pruned ${pruned.length} stale match snapshot(s)`);
+      }
+    } catch (error) {
+      console.error("Failed to prune stale matches", error);
+    }
+  }, config.cleanupIntervalMs);
+  cleanupTimer.unref();
+}
+
+httpServer.listen(config.port, () => {
+  console.log(`FairGame server listening on http://127.0.0.1:${config.port}`);
 });

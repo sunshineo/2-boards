@@ -13,6 +13,10 @@
     "@fairgame/domain": "0.0.0",
     "@fairgame/shared": "0.0.0",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
+    "pino": "^10.3.1",
+    "pino-http": "^11.0.0",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {

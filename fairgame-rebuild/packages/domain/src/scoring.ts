@@ -1,6 +1,6 @@
 import type { BoardOutcome, SeatId } from "@fairgame/shared";
 
-import type { FairMatch, MatchOutcome, MatchScore } from "./types";
+import type { FairMatch, MatchOutcome, MatchScore } from "./types.js";
 
 const emptyScore: MatchScore = Object.freeze({
   seat1: 0,
