@@ -15,6 +15,14 @@ This index describes the immediate subfolders under `/Volumes/T9/code/2-boards`.
 - The top-level `/Volumes/T9/code/2-boards` folder is the active rebuild repository.
 - Old attempts have moved to `archive/attempts/` and should remain ignored by the top-level Git repo.
 - `archive/attempts/fairgame3/fairgame` is a nested Git repo under another archived Git repo. Treat it as historical reference material only.
+- Deployment is documented in `fairgame-rebuild/docs/deployment.md`.
+- Current production deployment is on Northflank project `two-boards`, service `two-boards`.
+- Northflank builds from GitHub `https://github.com/sunshineo/2-boards` branch `main`; pushes to `main` trigger CI/CD.
+- Northflank uses Docker build context `/fairgame-rebuild` and Dockerfile `/fairgame-rebuild/Dockerfile`.
+- Northflank public service URL is `https://p01--two-boards--6wlsqmd2hdrc.code.run`.
+- Northflank public port must remain HTTP, public enabled, internal port `4000`.
+- Production persistence uses Neon Postgres through `DATABASE_URL`; never print or commit secret connection strings.
+- `FAIRGAME_DB_DIR` and PGlite are obsolete for the active app unless the user explicitly decides to reintroduce local-only storage.
 
 ## Mandatory Worktree Gate
 
@@ -64,7 +72,7 @@ sessions; never reset or revert another session's work without explicit user app
 - Move old attempt folders into `archive/attempts/`, ignore that directory from the top-level Git repo, and treat those attempts as references only.
 - After the archive move, refer to old attempts by paths such as `archive/attempts/fairgame-gpt5`, `archive/attempts/board2`, `archive/attempts/chess2`, `archive/attempts/claude-fairgame`, and `archive/attempts/fairgame2`.
 - Initialize a Git repository at `/Volumes/T9/code/2-boards` and commit completed roadmap checkpoints there. Do not track `archive/attempts/`.
-- Use `npm` as the package manager, PGlite as the local database, and keep the database layer compatible with a later move to Neon Postgres.
+- Use `npm` as the package manager and Neon Postgres through `DATABASE_URL` for both local and deployed runs.
 - Use both append-only event storage and current snapshots for persistence unless the user explicitly changes this decision.
 - Keep the fair-match framework game-agnostic. Game-specific concepts such as checkmate, castling, columns, captures, marks, and draw-offer rules belong inside each game rules module.
 - Keep board outcomes generic: in-progress, draw, win, or canceled. Game-specific outcome reasons may be stored/displayed as strings but should not be interpreted by the framework beyond scoring and match completion.
