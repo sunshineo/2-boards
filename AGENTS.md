@@ -16,11 +16,14 @@ This index describes the immediate subfolders under `/Volumes/T9/code/2-boards`.
 - Old attempts have moved to `archive/attempts/` and should remain ignored by the top-level Git repo.
 - `archive/attempts/fairgame3/fairgame` is a nested Git repo under another archived Git repo. Treat it as historical reference material only.
 - Deployment is documented in `fairgame-rebuild/docs/deployment.md`.
-- Current production deployment is on Northflank project `two-boards`, service `two-boards`.
+- Current frontend deployment is on Vercel project `fairgame-rebuild`, URL `https://fairgame-rebuild.vercel.app`.
+- Current backend deployment is on Northflank project `two-boards`, service `two-boards`.
 - Northflank builds from GitHub `https://github.com/sunshineo/2-boards` branch `main`; pushes to `main` trigger CI/CD.
 - Northflank uses Docker build context `/fairgame-rebuild` and Dockerfile `/fairgame-rebuild/Dockerfile`.
 - Northflank public service URL is `https://p01--two-boards--6wlsqmd2hdrc.code.run`.
 - Northflank public port must remain HTTP, public enabled, internal port `4000`.
+- Vercel serves the static Vite frontend and proxies `/api/*` and `/socket.io/*` to Northflank through `fairgame-rebuild/vercel.json`.
+- For Vercel GitHub imports, use root directory `fairgame-rebuild`, build command `npm run build:packages && npm run build -w @fairgame/web`, and output directory `apps/web/dist`.
 - Production persistence uses Neon Postgres through `DATABASE_URL`; never print or commit secret connection strings.
 - `FAIRGAME_DB_DIR` and PGlite are obsolete for the active app unless the user explicitly decides to reintroduce local-only storage.
 

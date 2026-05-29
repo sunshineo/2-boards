@@ -135,6 +135,41 @@ Defaults:
 
 Keep `FAIRGAME_HTTP_HEADERS_TIMEOUT_MS` greater than `FAIRGAME_HTTP_KEEP_ALIVE_TIMEOUT_MS`.
 
+## Vercel Frontend
+
+The React/Vite frontend can be deployed separately on Vercel while the API and Socket.IO backend
+remain on Northflank. The Vercel configuration lives in `fairgame-rebuild/vercel.json`.
+
+Current Vercel deployment:
+
+- Vercel project: `fairgame-rebuild`
+- Production URL: `https://fairgame-rebuild.vercel.app`
+- Backend origin: `https://p01--two-boards--6wlsqmd2hdrc.code.run`
+
+Vercel project settings should use:
+
+- Root directory: `fairgame-rebuild`
+- Framework preset: Vite
+- Install command: `npm install`
+- Build command: `npm run build:packages && npm run build -w @fairgame/web`
+- Output directory: `apps/web/dist`
+
+Do not set `VITE_API_URL` for this deployment. The frontend should use same-origin requests, and
+`vercel.json` rewrites proxy these paths to Northflank:
+
+- `/api/:path*` -> `https://p01--two-boards--6wlsqmd2hdrc.code.run/api/:path*`
+- `/socket.io/:path*` -> `https://p01--two-boards--6wlsqmd2hdrc.code.run/socket.io/:path*`
+
+This keeps browser requests and seat cookies on the Vercel domain while Northflank continues to
+run the long-lived Express and Socket.IO server.
+
+Deploy manually from the app root when needed:
+
+```bash
+cd fairgame-rebuild
+vercel deploy .
+```
+
 ## Environment
 
 - `PORT`: HTTP port.
