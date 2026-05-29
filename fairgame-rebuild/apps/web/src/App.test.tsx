@@ -69,6 +69,20 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Two-board fair games" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Primary navigation" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Games" })).toBeDisabled();
+    expect(
+      screen.getAllByRole("button", { name: / lobby$/ }).map((button) => button.getAttribute("aria-label"))
+    ).toEqual([
+      "Chess lobby",
+      "TicTacToe lobby",
+      "Connect Four lobby",
+      "Gomoku lobby",
+      "Hex lobby",
+      "Reversi lobby",
+      "Breakthrough lobby",
+      "Mancala lobby",
+      "Dots and Boxes lobby",
+      "Order and Chaos lobby"
+    ]);
     expect(screen.getByRole("button", { name: "TicTacToe lobby" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect Four lobby" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Chess lobby" })).toBeInTheDocument();

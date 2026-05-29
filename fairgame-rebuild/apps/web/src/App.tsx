@@ -40,6 +40,12 @@ const gameOptions: readonly {
   readonly label: string;
 }[] = [
   {
+    gameType: "chess",
+    imageAlt: "Chess preview",
+    imageSrc: "/game-thumbnails/chess.png",
+    label: "Chess"
+  },
+  {
     gameType: "tictactoe",
     imageAlt: "TicTacToe preview",
     imageSrc: "/game-thumbnails/tictactoe.png",
@@ -50,12 +56,6 @@ const gameOptions: readonly {
     imageAlt: "Connect Four preview",
     imageSrc: "/game-thumbnails/connect-four.png",
     label: "Connect Four"
-  },
-  {
-    gameType: "chess",
-    imageAlt: "Chess preview",
-    imageSrc: "/game-thumbnails/chess.png",
-    label: "Chess"
   },
   {
     gameType: "gomoku",
