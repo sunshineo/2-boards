@@ -46,6 +46,7 @@ export type SeatClaim = {
 export type RestoredSession = {
   readonly seat: SeatId | null;
   readonly match: MatchView;
+  readonly claim?: SeatClaim;
 };
 
 type MoveResult =
@@ -146,27 +147,7 @@ export class MatchService {
       };
     }
 
-    const nowMs = this.nowMs();
-    stored.joinedSeats.add("seat2");
-    stored.playerNames.set("seat2", sanitizePlayerName(playerName, "Player 2"));
-    stored.clock = stored.clock
-      ? setClockRunningSeats(stored.clock, getActiveSeats(stored.match), nowMs)
-      : null;
-    stored.lastActivityAtMs = nowMs;
-    const claim = this.createSeatClaim(id, "seat2", stored.seatClaims);
-    const match = this.createMatchView(stored);
-    await this.persistChange(stored, {
-      matchId: id,
-      eventType: "seat.joined",
-      payload: { seat: "seat2" }
-    });
-    this.emitMatchUpdated(match);
-
-    return {
-      seat: "seat2",
-      match,
-      claim
-    };
+    return this.claimSecondSeat(id, stored, playerName);
   }
 
   listOpenMatches(): OpenMatchView[] {
@@ -234,8 +215,20 @@ export class MatchService {
     if (!stored) return null;
     await this.applyClockTimeoutIfNeeded(stored, this.nowMs());
 
+    const seat = this.validateSeatClaim(stored, claimValue);
+    if (seat) {
+      return {
+        seat,
+        match: this.createMatchView(stored)
+      };
+    }
+
+    if (!stored.joinedSeats.has("seat2")) {
+      return this.claimSecondSeat(id, stored);
+    }
+
     return {
-      seat: this.validateSeatClaim(stored, claimValue),
+      seat: null,
       match: this.createMatchView(stored)
     };
   }
@@ -325,6 +318,34 @@ export class MatchService {
     const secret = this.createSecret();
     claims.set(seat, secret);
     return { matchId, seat, secret };
+  }
+
+  private async claimSecondSeat(
+    id: string,
+    stored: StoredMatch,
+    playerName?: string
+  ): Promise<CreateMatchResult> {
+    const nowMs = this.nowMs();
+    stored.joinedSeats.add("seat2");
+    stored.playerNames.set("seat2", sanitizePlayerName(playerName, "Player 2"));
+    stored.clock = stored.clock
+      ? setClockRunningSeats(stored.clock, getActiveSeats(stored.match), nowMs)
+      : null;
+    stored.lastActivityAtMs = nowMs;
+    const claim = this.createSeatClaim(id, "seat2", stored.seatClaims);
+    const match = this.createMatchView(stored);
+    await this.persistChange(stored, {
+      matchId: id,
+      eventType: "seat.joined",
+      payload: { seat: "seat2" }
+    });
+    this.emitMatchUpdated(match);
+
+    return {
+      seat: "seat2",
+      match,
+      claim
+    };
   }
 
   private validateSeatClaim(stored: StoredMatch, claimValue: string | null): SeatId | null {

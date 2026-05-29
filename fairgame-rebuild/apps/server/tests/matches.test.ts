@@ -293,14 +293,40 @@ describe("match API", () => {
     expect(response.body.match.id).toBe("match-1");
   });
 
-  it("returns spectator mode without a valid seat cookie", async () => {
+  it("auto-joins the second seat from a match URL without a valid seat cookie", async () => {
     const app = appWithDeterministicIds();
     await request(app).post("/api/matches").send({}).expect(201);
 
     const response = await request(app).get("/api/matches/match-1/session").expect(200);
 
+    expect(response.headers["set-cookie"]).toEqual(
+      expect.arrayContaining([expect.stringContaining("fg_seat_match-1=seat2.")])
+    );
+    expect(response.body.seat).toBe("seat2");
+    expect(response.body.claim).toBeUndefined();
+    expect(response.body.match).toMatchObject({
+      id: "match-1",
+      joinedSeats: 2,
+      boards: [
+        { id: "A", seatsToAct: ["seat1"] },
+        { id: "B", seatsToAct: ["seat2"] }
+      ]
+    });
+  });
+
+  it("returns spectator mode from a match URL after both seats are joined", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({}).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    const response = await request(app).get("/api/matches/match-1/session").expect(200);
+
+    expect(response.headers["set-cookie"]).toBeUndefined();
     expect(response.body.seat).toBeNull();
-    expect(response.body.match.id).toBe("match-1");
+    expect(response.body.match).toMatchObject({
+      id: "match-1",
+      joinedSeats: 2
+    });
   });
 
   it("reads an existing match", async () => {

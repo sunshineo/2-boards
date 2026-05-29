@@ -1,12 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const baseURL = process.env["PLAYWRIGHT_BASE_URL"] ?? "http://127.0.0.1:5173";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
   reporter: "list",
   globalSetup: "./tests/e2e/global-setup.ts",
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL,
     trace: "on-first-retry"
   },
   projects: [
@@ -17,7 +19,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "npm run dev:e2e",
-    url: "http://127.0.0.1:5173",
+    url: baseURL,
     reuseExistingServer: process.env["PLAYWRIGHT_REUSE_SERVER"] === "1",
     timeout: 120_000
   }

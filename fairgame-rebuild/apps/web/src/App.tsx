@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Chessboard, type ChessboardOptions, type PieceDataType } from "react-chessboard";
 import { io } from "socket.io-client";
 
@@ -142,6 +142,7 @@ export function App() {
   const [customMinutes, setCustomMinutes] = useState(5);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const restoreRequestRef = useRef<{ readonly matchId: string; readonly promise: Promise<SeatSession> } | null>(null);
   const lobbyGame = route.view === "lobby" ? route.gameType : null;
   const activeSession = route.view === "match" && session?.match.id === route.matchId ? session : null;
 
@@ -175,7 +176,26 @@ export function App() {
     let isCurrent = true;
     setIsBusy(true);
     setError(null);
-    restoreSession(route.matchId)
+
+    let restoreRequest = restoreRequestRef.current;
+    if (!restoreRequest || restoreRequest.matchId !== route.matchId) {
+      restoreRequest = {
+        matchId: route.matchId,
+        promise: restoreSession(route.matchId)
+      };
+      restoreRequest.promise.then(() => {
+        if (restoreRequestRef.current === restoreRequest) {
+          restoreRequestRef.current = null;
+        }
+      }, () => {
+        if (restoreRequestRef.current === restoreRequest) {
+          restoreRequestRef.current = null;
+        }
+      });
+      restoreRequestRef.current = restoreRequest;
+    }
+
+    restoreRequest.promise
       .then((restoredSession) => {
         if (isCurrent) setSession(restoredSession);
       })
@@ -221,14 +241,14 @@ export function App() {
       socket.emit("watch-match", { matchId: session.match.id });
     };
 
-    socket.on("connect", watchMatch);
-    if (socket.connected) watchMatch();
     socket.on("match:update", (match: MatchView) => {
       setSession((current) => {
         if (!current || current.match.id !== match.id) return current;
         return { ...current, match };
       });
     });
+    socket.on("connect", watchMatch);
+    if (socket.connected) watchMatch();
 
     return () => {
       socket.close();

@@ -1,5 +1,7 @@
 async function globalSetup() {
-  await Promise.all([waitForOk("http://127.0.0.1:5173"), waitForOk("http://127.0.0.1:4000/ready")]);
+  const webUrl = process.env["PLAYWRIGHT_BASE_URL"] ?? "http://127.0.0.1:5173";
+  const apiUrl = process.env["PLAYWRIGHT_API_URL"] ?? "http://127.0.0.1:4000";
+  await Promise.all([waitForOk(webUrl), waitForOk(`${apiUrl}/ready`)]);
 }
 
 async function waitForOk(url: string) {

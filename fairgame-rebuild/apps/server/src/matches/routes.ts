@@ -85,7 +85,11 @@ export function createMatchRouter(
       return;
     }
 
-    response.json(result);
+    const { claim, ...body } = result;
+    if (claim) {
+      setSeatClaimCookie(response, claim, options);
+    }
+    response.json(body);
   });
 
   router.get("/:id", async (request, response) => {

@@ -62,11 +62,10 @@ test("two players can finish both TicTacToe boards", async ({ browser }) => {
   await expect(playerOne.getByRole("region", { name: "Board A" })).toBeVisible();
   await expect(playerOne.getByRole("button", { name: "Board A cell 1" })).toBeDisabled();
 
-  await playerTwo.goto("/");
-  await playerTwo.getByRole("button", { name: "TicTacToe lobby" }).click();
-  await playerTwo.locator(`[data-match-id="${matchCode ?? ""}"]`).click();
+  await playerTwo.goto(`/matches/${matchCode ?? ""}`);
   await expect(playerTwo.getByTestId("match-code")).toHaveAttribute("data-match-id", matchCode ?? "");
   await expect(playerTwo.locator(".match-summary").getByText("Role")).toHaveCount(0);
+  await expect(playerTwo.getByRole("button", { name: "Board B cell 1" })).toBeEnabled();
 
   await playerTwo.reload();
   await expect(playerTwo.locator(".match-summary").getByText("Role")).toHaveCount(0);

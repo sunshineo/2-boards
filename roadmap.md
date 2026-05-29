@@ -184,11 +184,11 @@ Checkpoint 2 implementation commit: `36fc701`.
 - [x] Add invite link or join code.
   Evidence: Existing join code remains visible; web match view now shows an invite URL using `?match=<id>`.
 - [x] Add refresh/reconnect handling.
-  Evidence: Create/join routes set HTTP-only seat-claim cookies; `GET /api/matches/:id/session` restores Player 1/Player 2 after reload.
+  Evidence: Create/join routes set HTTP-only seat-claim cookies; `GET /api/matches/:id/session` restores Player 1/Player 2 after reload. 2026-05-28 follow-up: opening a match URL without a valid seat cookie now claims Player 2 while the second seat is open.
 - [x] Add spectator/read-only state.
-  Evidence: Session restore without a valid seat cookie returns `seat: null`; web UI shows `Spectator` and disables board cells.
+  Evidence: After both seats are joined, session restore without a valid seat cookie returns `seat: null`; read-only board cells prevent spectator moves.
 - [x] Add Playwright coverage for refresh, reconnect, and spectator behavior.
-  Evidence: Updated `tests/e2e/tictactoe.spec.ts` to verify Player 1 reload, Player 2 reload, live updates without manual refresh, and read-only spectator updates. Full verification passed with `npm install && npm run typecheck && npm test && npm run build && npm run test:e2e`. Built-in browser verification loaded `http://192.168.4.149:5173/?match=7966176c-f64a-4554-85cf-cdcf5e449e45`, confirmed `Spectator`, both boards, visible invite URL, and disabled board A cell.
+  Evidence: Updated `tests/e2e/tictactoe.spec.ts` to verify Player 1 reload, Player 2 reload, live updates without manual refresh, and read-only spectator updates. Full verification passed with `npm install && npm run typecheck && npm test && npm run build && npm run test:e2e`. Built-in browser verification loaded `http://192.168.4.149:5173/?match=7966176c-f64a-4554-85cf-cdcf5e449e45`, confirmed `Spectator`, both boards, visible invite URL, and disabled board A cell. 2026-05-28 follow-up: TicTacToe E2E now has Player 2 join by opening `/matches/:id` directly; verification passed with `npm run typecheck`, `npm test`, `npm run build`, and `PLAYWRIGHT_REUSE_SERVER=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 PLAYWRIGHT_API_URL=http://127.0.0.1:4100 npm run test:e2e`.
 
 Checkpoint: multiple clients converge on the same server state during and after refresh.
 
