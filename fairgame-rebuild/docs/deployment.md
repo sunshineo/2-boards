@@ -142,8 +142,8 @@ remain on Northflank. The Vercel configuration lives in `fairgame-rebuild/vercel
 
 Current Vercel deployment:
 
-- Vercel project: `fairgame-rebuild`
-- Production URL: `https://fairgame-rebuild.vercel.app`
+- Vercel project: `two-boards`
+- Production URL: `https://two-boards.vercel.app`
 - GitHub repository: `https://github.com/sunshineo/2-boards`
 - Production branch: `main`
 - Backend origin: `https://p01--two-boards--6wlsqmd2hdrc.code.run`

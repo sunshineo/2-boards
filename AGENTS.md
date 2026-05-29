@@ -16,7 +16,7 @@ This index describes the immediate subfolders under `/Volumes/T9/code/2-boards`.
 - Old attempts have moved to `archive/attempts/` and should remain ignored by the top-level Git repo.
 - `archive/attempts/fairgame3/fairgame` is a nested Git repo under another archived Git repo. Treat it as historical reference material only.
 - Deployment is documented in `fairgame-rebuild/docs/deployment.md`.
-- Current frontend deployment is on Vercel project `fairgame-rebuild`, URL `https://fairgame-rebuild.vercel.app`.
+- Current frontend deployment is on Vercel project `two-boards`, URL `https://two-boards.vercel.app`.
 - Current backend deployment is on Northflank project `two-boards`, service `two-boards`.
 - Vercel is connected to GitHub `https://github.com/sunshineo/2-boards` with production branch `main`.
 - Northflank builds from GitHub `https://github.com/sunshineo/2-boards` branch `main`; pushes to `main` trigger CI/CD.
