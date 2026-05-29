@@ -20,6 +20,8 @@ const app = createApp({
   readinessCheck: () => repository.healthCheck()
 });
 const httpServer = createServer(app);
+httpServer.keepAliveTimeout = config.httpKeepAliveTimeoutMs;
+httpServer.headersTimeout = config.httpHeadersTimeoutMs;
 
 const io = new Server(httpServer, {
   cors: {
@@ -45,5 +47,5 @@ if (config.cleanupIntervalMs > 0) {
 }
 
 httpServer.listen(config.port, () => {
-  console.log(`FairGame server listening on http://127.0.0.1:${config.port}`);
+  console.log(`FairGame server listening on port ${config.port}`);
 });

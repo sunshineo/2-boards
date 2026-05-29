@@ -15,6 +15,8 @@ export type ServerConfig = {
   };
   readonly staleMatchMaxAgeMs: number;
   readonly cleanupIntervalMs: number;
+  readonly httpKeepAliveTimeoutMs: number;
+  readonly httpHeadersTimeoutMs: number;
   readonly webDistDir: string | null;
 };
 
@@ -38,6 +40,8 @@ export function loadServerConfig(env: Env = process.env, cwd = process.cwd()): S
     },
     staleMatchMaxAgeMs: parsePositiveInteger(env["FAIRGAME_STALE_MATCH_MAX_AGE_MS"], 24 * 60 * 60 * 1_000),
     cleanupIntervalMs: parseNonNegativeInteger(env["FAIRGAME_CLEANUP_INTERVAL_MS"], 5 * 60 * 1_000),
+    httpKeepAliveTimeoutMs: parsePositiveInteger(env["FAIRGAME_HTTP_KEEP_ALIVE_TIMEOUT_MS"], 70_000),
+    httpHeadersTimeoutMs: parsePositiveInteger(env["FAIRGAME_HTTP_HEADERS_TIMEOUT_MS"], 75_000),
     webDistDir: env["FAIRGAME_WEB_DIST_DIR"] ? resolve(cwd, env["FAIRGAME_WEB_DIST_DIR"]) : null
   };
 }

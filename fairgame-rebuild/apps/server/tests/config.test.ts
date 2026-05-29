@@ -14,6 +14,8 @@ describe("server config", () => {
         FAIRGAME_RATE_LIMIT_MAX: "25",
         FAIRGAME_STALE_MATCH_MAX_AGE_MS: "604800000",
         FAIRGAME_CLEANUP_INTERVAL_MS: "900000",
+        FAIRGAME_HTTP_KEEP_ALIVE_TIMEOUT_MS: "80000",
+        FAIRGAME_HTTP_HEADERS_TIMEOUT_MS: "85000",
         FAIRGAME_WEB_DIST_DIR: "/srv/fairgame/web"
       },
       "/repo"
@@ -28,6 +30,8 @@ describe("server config", () => {
       rateLimit: { windowMs: 120_000, max: 25 },
       staleMatchMaxAgeMs: 604_800_000,
       cleanupIntervalMs: 900_000,
+      httpKeepAliveTimeoutMs: 80_000,
+      httpHeadersTimeoutMs: 85_000,
       webDistDir: "/srv/fairgame/web"
     });
   });
@@ -51,6 +55,8 @@ describe("server config", () => {
       rateLimit: { windowMs: 60_000, max: 120 },
       staleMatchMaxAgeMs: 86_400_000,
       cleanupIntervalMs: 300_000,
+      httpKeepAliveTimeoutMs: 70_000,
+      httpHeadersTimeoutMs: 75_000,
       webDistDir: null
     });
   });
