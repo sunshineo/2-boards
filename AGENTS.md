@@ -18,6 +18,7 @@ This index describes the immediate subfolders under `/Volumes/T9/code/2-boards`.
 - Deployment is documented in `fairgame-rebuild/docs/deployment.md`.
 - Current frontend deployment is on Vercel project `fairgame-rebuild`, URL `https://fairgame-rebuild.vercel.app`.
 - Current backend deployment is on Northflank project `two-boards`, service `two-boards`.
+- Vercel is connected to GitHub `https://github.com/sunshineo/2-boards` with production branch `main`.
 - Northflank builds from GitHub `https://github.com/sunshineo/2-boards` branch `main`; pushes to `main` trigger CI/CD.
 - Northflank uses Docker build context `/fairgame-rebuild` and Dockerfile `/fairgame-rebuild/Dockerfile`.
 - Northflank public service URL is `https://p01--two-boards--6wlsqmd2hdrc.code.run`.
