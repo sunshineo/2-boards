@@ -395,6 +395,10 @@ describe("App", () => {
 
     await screen.findByTestId("match-code");
     await waitFor(() => expect(socketIoMock.sockets).toHaveLength(1));
+    expect(socketIoMock.io).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ addTrailingSlash: false, withCredentials: true })
+    );
 
     const socket = socketIoMock.sockets[0];
     if (!socket) throw new Error("Expected realtime socket to be created.");

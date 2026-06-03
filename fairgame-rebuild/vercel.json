@@ -10,6 +10,10 @@
       "destination": "https://p01--two-boards--6wlsqmd2hdrc.code.run/api/:path*"
     },
     {
+      "source": "/socket.io/",
+      "destination": "https://p01--two-boards--6wlsqmd2hdrc.code.run/socket.io"
+    },
+    {
       "source": "/socket.io/:path*",
       "destination": "https://p01--two-boards--6wlsqmd2hdrc.code.run/socket.io/:path*"
     },

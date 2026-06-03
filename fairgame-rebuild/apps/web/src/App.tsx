@@ -235,6 +235,7 @@ export function App() {
     if (!session?.match.id) return;
 
     const socket = io(getApiBaseUrl(), {
+      addTrailingSlash: false,
       withCredentials: true
     });
     const watchMatch = () => {

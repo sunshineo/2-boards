@@ -160,6 +160,7 @@ Do not set `VITE_API_URL` for this deployment. The frontend should use same-orig
 `vercel.json` rewrites proxy these paths to Northflank:
 
 - `/api/:path*` -> `https://p01--two-boards--6wlsqmd2hdrc.code.run/api/:path*`
+- `/socket.io/` -> `https://p01--two-boards--6wlsqmd2hdrc.code.run/socket.io`
 - `/socket.io/:path*` -> `https://p01--two-boards--6wlsqmd2hdrc.code.run/socket.io/:path*`
 
 This keeps browser requests and seat cookies on the Vercel domain while Northflank continues to
