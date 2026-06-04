@@ -73,6 +73,25 @@ export type ChessSquareView = {
 export type ChessMoveRecord = {
   seat: SeatId;
   color: "w" | "b";
+  piece?: ChessPiece["type"];
+  from?: string;
+  to?: string;
+  san: string;
+  lan: string;
+  fenAfter?: string;
+  resignation?: true;
+  drawOffer?: true;
+  drawAccepted?: true;
+  drawDeclined?: true;
+  takebackRequest?: true;
+  takebackAccepted?: true;
+  takebackDeclined?: true;
+  captured?: ChessPiece["type"];
+  promotion?: "q" | "r" | "b" | "n";
+};
+
+export type ChessLegalMove = {
+  color: "w" | "b";
   piece: ChessPiece["type"];
   from: string;
   to: string;
@@ -85,9 +104,16 @@ export type ChessMoveRecord = {
 export type ChessBoardView = BaseBoardView & {
   kind: "chess";
   fen: string;
+  turnColor: "w" | "b";
+  isCheck: boolean;
+  checkSquare: string | null;
+  moveNumber: number;
   whiteSeat: SeatId;
   blackSeat: SeatId;
+  drawOffer: { offeredBy: SeatId } | null;
+  takebackRequest: { requestedBy: SeatId } | null;
   squares: ChessSquareView[];
+  legalMoves: ChessLegalMove[];
   moveHistory: ChessMoveRecord[];
 };
 
@@ -167,6 +193,13 @@ export type MovePayload =
   | { cell: number }
   | { column: number }
   | { from: string; to: string; promotion?: "q" | "r" | "b" | "n" }
+  | { resign: true }
+  | { drawOffer: true }
+  | { acceptDraw: true }
+  | { declineDraw: true }
+  | { requestTakeback: true }
+  | { acceptTakeback: true }
+  | { declineTakeback: true }
   | { from: number; to: number }
   | { pit: number }
   | { edge: string }

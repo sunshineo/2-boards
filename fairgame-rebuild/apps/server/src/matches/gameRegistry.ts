@@ -5,9 +5,15 @@ import {
   connectFourRules,
   createFairMatch,
   dotsBoxesRules,
+  getChessCheckSquare,
+  getChessLegalMoves,
+  getChessMoveNumber,
   getChessSquares,
+  getChessTurnColor,
+  getMatchOutcome,
   gomokuRules,
   hexRules,
+  isChessInCheck,
   mancalaRules,
   orderChaosRules,
   reversiRules,
@@ -17,6 +23,7 @@ import {
   type BreakthroughMove,
   type BreakthroughState,
   type ChessMove,
+  type ChessLegalMove,
   type ChessMoveRecord,
   type ChessState,
   type ChessSquareView,
@@ -102,9 +109,16 @@ export type ChessBoardView = {
   readonly id: BoardId;
   readonly firstSeat: SeatId;
   readonly fen: string;
+  readonly turnColor: "w" | "b";
+  readonly isCheck: boolean;
+  readonly checkSquare: string | null;
+  readonly moveNumber: number;
   readonly whiteSeat: SeatId;
   readonly blackSeat: SeatId;
+  readonly drawOffer: { readonly offeredBy: SeatId } | null;
+  readonly takebackRequest: { readonly requestedBy: SeatId } | null;
   readonly squares: readonly ChessSquareView[];
+  readonly legalMoves: readonly ChessLegalMove[];
   readonly moveHistory: readonly ChessMoveRecord[];
   readonly seatsToAct: readonly SeatId[];
   readonly outcome: BoardOutcome;
@@ -308,6 +322,13 @@ const chessDefinition: SupportedGameDefinition<ChessState, ChessMove> = {
   },
 
   parseMove(move) {
+    if (isRecord(move) && move["resign"] === true) return { resign: true };
+    if (isRecord(move) && move["drawOffer"] === true) return { drawOffer: true };
+    if (isRecord(move) && move["acceptDraw"] === true) return { acceptDraw: true };
+    if (isRecord(move) && move["declineDraw"] === true) return { declineDraw: true };
+    if (isRecord(move) && move["requestTakeback"] === true) return { requestTakeback: true };
+    if (isRecord(move) && move["acceptTakeback"] === true) return { acceptTakeback: true };
+    if (isRecord(move) && move["declineTakeback"] === true) return { declineTakeback: true };
     if (!isRecord(move) || typeof move["from"] !== "string" || typeof move["to"] !== "string") return null;
     const promotion = move["promotion"];
     if (promotion !== undefined && promotion !== "q" && promotion !== "r" && promotion !== "b" && promotion !== "n") {
@@ -321,6 +342,7 @@ const chessDefinition: SupportedGameDefinition<ChessState, ChessMove> = {
   },
 
   applyMove(match, command) {
+    if (isChessBoardControlMove(command.move)) return applyChessBoardControlToMatch(match, command);
     return applyMoveToMatch(match, chessRules, command);
   },
 
@@ -330,15 +352,98 @@ const chessDefinition: SupportedGameDefinition<ChessState, ChessMove> = {
       id: board.id,
       firstSeat: board.firstSeat,
       fen: board.state.fen,
+      turnColor: getChessTurnColor(board.state),
+      isCheck: isChessInCheck(board.state),
+      checkSquare: getChessCheckSquare(board.state),
+      moveNumber: getChessMoveNumber(board.state),
       whiteSeat: board.state.whiteSeat,
       blackSeat: board.state.blackSeat,
+      drawOffer: board.state.drawOffer,
+      takebackRequest: board.state.takebackRequest,
       squares: getChessSquares(board.state),
+      legalMoves: getChessLegalMoves(board.state),
       moveHistory: board.state.moveHistory,
       seatsToAct: chessRules.getSeatsToAct(board.state),
       outcome: board.outcome
     };
   }
 };
+
+function applyChessBoardControlToMatch(
+  match: FairMatch<ChessState>,
+  command: ApplyMoveCommand<ChessMove>
+): ApplyMoveResult<ChessState> {
+  if (getMatchOutcome(match).status !== "in_progress") {
+    return { ok: false, reason: "match-not-active", match };
+  }
+
+  const boardIndex = match.boards.findIndex((board) => board.id === command.boardId);
+  if (boardIndex === -1) {
+    return { ok: false, reason: "board-not-found", match };
+  }
+
+  const board = match.boards[boardIndex];
+  if (!board) {
+    return { ok: false, reason: "board-not-found", match };
+  }
+
+  if (board.outcome.status !== "in_progress") {
+    return { ok: false, reason: "board-not-active", match };
+  }
+
+  const validation = chessRules.validateMove({
+    state: board.state,
+    move: command.move,
+    seat: command.seat
+  });
+
+  if (!validation.ok) {
+    return { ok: false, reason: validation.reason, match };
+  }
+
+  const nextState = chessRules.applyMove({
+    state: board.state,
+    move: command.move,
+    seat: command.seat
+  });
+  const nextBoard: FairBoard<ChessState> = {
+    ...board,
+    state: nextState,
+    outcome: chessRules.getOutcome(nextState)
+  };
+  const nextBoards = match.boards.map((candidate, index) =>
+    index === boardIndex ? nextBoard : candidate
+  ) as [FairBoard<ChessState>, FairBoard<ChessState>];
+
+  return {
+    ok: true,
+    match: {
+      ...match,
+      boards: nextBoards
+    }
+  };
+}
+
+function isChessBoardControlMove(
+  move: ChessMove
+): move is
+  | { readonly resign: true }
+  | { readonly drawOffer: true }
+  | { readonly acceptDraw: true }
+  | { readonly declineDraw: true }
+  | { readonly requestTakeback: true }
+  | { readonly acceptTakeback: true }
+  | { readonly declineTakeback: true } {
+  return (
+    ("resign" in move && move.resign === true) ||
+    ("drawOffer" in move && move.drawOffer === true) ||
+    ("acceptDraw" in move && move.acceptDraw === true) ||
+    ("declineDraw" in move && move.declineDraw === true) ||
+    ("requestTakeback" in move && move.requestTakeback === true) ||
+    ("acceptTakeback" in move && move.acceptTakeback === true) ||
+    ("declineTakeback" in move && move.declineTakeback === true)
+  );
+}
 
 const gomokuDefinition: SupportedGameDefinition<GomokuState, GomokuMove> = {
   gameType: "gomoku",

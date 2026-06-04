@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
+  type WheelEvent
+} from "react";
 import { Chessboard, type ChessboardOptions, type PieceDataType } from "react-chessboard";
 import { io } from "socket.io-client";
 
@@ -15,6 +24,9 @@ import type {
   BreakthroughBoardView,
   BoardId,
   ChessBoardView,
+  ChessLegalMove,
+  ChessMoveRecord,
+  ChessPiece,
   ConnectFourBoardView,
   DotsBoxesBoardView,
   GameType,
@@ -142,9 +154,20 @@ export function App() {
   const [customMinutes, setCustomMinutes] = useState(5);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [isChessZenMode, setIsChessZenMode] = useState(false);
   const restoreRequestRef = useRef<{ readonly matchId: string; readonly promise: Promise<SeatSession> } | null>(null);
+  const mutationVersionRef = useRef(0);
+  const isBusyRef = useRef(false);
+  const isChessMatchActiveRef = useRef(false);
   const lobbyGame = route.view === "lobby" ? route.gameType : null;
   const activeSession = route.view === "match" && session?.match.id === route.matchId ? session : null;
+  const isChessMatchActive = activeSession?.match.gameType === "chess";
+  isChessMatchActiveRef.current = isChessMatchActive;
+  const isChessZenModeActive = isChessMatchActive && isChessZenMode;
+
+  useEffect(() => {
+    isBusyRef.current = isBusy;
+  }, [isBusy]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -257,6 +280,37 @@ export function App() {
   }, [session?.match.id]);
 
   useEffect(() => {
+    if (!session?.match.id || session.match.outcome.status !== "in_progress") return;
+
+    const matchId = session.match.id;
+    let isCurrent = true;
+    let isInFlight = false;
+    const refreshActiveMatch = async () => {
+      if (isInFlight || isBusyRef.current) return;
+      isInFlight = true;
+      const mutationVersion = mutationVersionRef.current;
+      try {
+        const restoredSession = await restoreSession(matchId);
+        if (!isCurrent || isBusyRef.current || mutationVersion !== mutationVersionRef.current) return;
+        setSession((current) => (current?.match.id === matchId ? restoredSession : current));
+      } catch {
+        // Socket updates remain primary; polling failures should not interrupt play.
+      } finally {
+        isInFlight = false;
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      void refreshActiveMatch();
+    }, 2_000);
+
+    return () => {
+      isCurrent = false;
+      window.clearInterval(interval);
+    };
+  }, [session?.match.id, session?.match.outcome.status]);
+
+  useEffect(() => {
     if (!session) return;
     saveRecentMatch(session.match);
     setRecentMatches(loadRecentMatches());
@@ -267,12 +321,36 @@ export function App() {
     setCustomMinutes((current) => clampMinutes(current, gameTimeRanges[lobbyGame]));
   }, [lobbyGame]);
 
+  useEffect(() => {
+    if (!isChessMatchActive) setIsChessZenMode(false);
+  }, [isChessMatchActive]);
+
+  useEffect(() => {
+    function handleZenModeKeyDown(event: globalThis.KeyboardEvent) {
+      if (!isChessMatchActiveRef.current) return;
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.key.toLowerCase() !== "z") {
+        return;
+      }
+      if (isEditableShortcutTarget(event.target)) return;
+      event.preventDefault();
+      setIsChessZenMode((value) => !value);
+    }
+
+    window.addEventListener("keydown", handleZenModeKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleZenModeKeyDown);
+    };
+  }, []);
+
   function navigateTo(nextRoute: AppRoute) {
     window.history.pushState(null, "", getRouteUrl(nextRoute));
     setRoute(nextRoute);
   }
 
   async function run(action: () => Promise<void>) {
+    mutationVersionRef.current += 1;
+    isBusyRef.current = true;
     setIsBusy(true);
     setError(null);
     try {
@@ -287,6 +365,7 @@ export function App() {
         setError("Something went wrong.");
       }
     } finally {
+      isBusyRef.current = false;
       setIsBusy(false);
     }
   }
@@ -363,48 +442,53 @@ export function App() {
   const showMatchLoading = route.view === "match" && !activeSession;
 
   return (
-    <main className="app-shell">
-      <header className="top-bar">
-        <div>
-          <p className="eyebrow">FairGame</p>
-          <h1>Two-board fair games</h1>
-        </div>
-        <div className="top-actions">
-          <nav className="top-nav" aria-label="Primary navigation">
-            <button
-              className="secondary-button compact-button"
-              disabled={route.view === "picker"}
-              onClick={() => navigateTo({ view: "picker" })}
-              type="button"
-            >
-              Games
-            </button>
-            {activeGameType ? (
+    <main className={`app-shell${isChessZenModeActive ? " chess-zen-mode" : ""}`}>
+      {isChessZenModeActive ? (
+        <p className="sr-only">Chess Zen mode active. Press z to exit.</p>
+      ) : (
+        <header className="top-bar">
+          <div>
+            <p className="eyebrow">FairGame</p>
+            <h1>Two-board fair games</h1>
+          </div>
+          <div className="top-actions">
+            <nav className="top-nav" aria-label="Primary navigation">
               <button
                 className="secondary-button compact-button"
-                disabled={route.view === "lobby" && lobbyGame === activeGameType}
-                onClick={() => navigateTo({ view: "lobby", gameType: activeGameType })}
+                disabled={route.view === "picker"}
+                onClick={() => navigateTo({ view: "picker" })}
                 type="button"
               >
-                {getGameLabel(activeGameType)} lobby
+                Games
               </button>
-            ) : null}
+              {activeGameType ? (
+                <button
+                  className="secondary-button compact-button"
+                  disabled={route.view === "lobby" && lobbyGame === activeGameType}
+                  onClick={() => navigateTo({ view: "lobby", gameType: activeGameType })}
+                  type="button"
+                >
+                  {getGameLabel(activeGameType)} lobby
+                </button>
+              ) : null}
+              {activeSession ? (
+                <button className="secondary-button compact-button" disabled type="button">
+                  Match
+                </button>
+              ) : null}
+            </nav>
             {activeSession ? (
-              <button className="secondary-button compact-button" disabled type="button">
-                Match
+              <button className="secondary-button compact-button" onClick={handleRefresh} disabled={isBusy}>
+                Refresh
               </button>
             ) : null}
-          </nav>
-          {activeSession ? (
-            <button className="secondary-button compact-button" onClick={handleRefresh} disabled={isBusy}>
-              Refresh
-            </button>
-          ) : null}
-        </div>
-      </header>
+          </div>
+        </header>
+      )}
 
       {activeSession ? (
         <MatchRoom
+          isZenMode={isChessZenModeActive}
           match={activeSession.match}
           seat={activeSession.seat}
           onMove={handleMove}
@@ -574,34 +658,47 @@ export function App() {
   );
 }
 
+function isEditableShortcutTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tagName = target.tagName.toLowerCase();
+  return target.isContentEditable || tagName === "input" || tagName === "textarea" || tagName === "select";
+}
+
 function MatchRoom(props: {
   match: MatchView;
   seat: SeatId | null;
   onMove: (boardId: BoardId, move: MovePayload) => void;
   onRematch: () => void;
   isBusy: boolean;
+  isZenMode: boolean;
 }) {
   const status = formatMatchStatus(props.match, props.seat);
-  const canRematch = props.match.outcome.status !== "in_progress";
+  const canRematch = props.match.outcome.status !== "in_progress" && !props.isZenMode;
 
   return (
-    <section className="match-room" aria-label={`${props.match.gameLabel} match`}>
-      <div className="match-summary">
-        <div>
-          <span className="meta-label">Game</span>
-          <strong data-testid="match-code" data-match-id={props.match.id}>
-            {props.match.gameLabel}
-          </strong>
+    <section
+      aria-label={`${props.match.gameLabel} match`}
+      className={`match-room${props.isZenMode ? " zen-match-room" : ""}`}
+      data-zen-mode={props.isZenMode ? "true" : "false"}
+    >
+      {props.isZenMode ? null : (
+        <div className="match-summary">
+          <div>
+            <span className="meta-label">Game</span>
+            <strong data-testid="match-code" data-match-id={props.match.id}>
+              {props.match.gameLabel}
+            </strong>
+          </div>
+          <div>
+            <span className="meta-label">Score</span>
+            <strong>{formatScore(props.match)}</strong>
+          </div>
+          <div>
+            <span className="meta-label">Status</span>
+            <strong>{status}</strong>
+          </div>
         </div>
-        <div>
-          <span className="meta-label">Score</span>
-          <strong>{formatScore(props.match)}</strong>
-        </div>
-        <div>
-          <span className="meta-label">Status</span>
-          <strong>{status}</strong>
-        </div>
-      </div>
+      )}
 
       {canRematch ? (
         <div className="match-actions">
@@ -611,12 +708,13 @@ function MatchRoom(props: {
         </div>
       ) : null}
 
-      <ClockStrip clock={props.match.clock} currentSeat={props.seat} />
+      {props.match.gameType === "chess" ? null : <ClockStrip clock={props.match.clock} currentSeat={props.seat} />}
 
       <div className="boards-grid">
         {props.match.boards.map((board) => (
           <BoardRenderer
             board={board}
+            clock={props.match.clock}
             currentSeat={props.seat}
             isBusy={props.isBusy}
             key={board.id}
@@ -629,22 +727,7 @@ function MatchRoom(props: {
 }
 
 function ClockStrip(props: { clock: MatchClockView | null; currentSeat: SeatId | null }) {
-  const snapshotReceivedAtMs = useMemo(() => Date.now(), [props.clock]);
-  const [clientNowMs, setClientNowMs] = useState(() => Date.now());
-  const hasRunningClock = props.clock?.status === "active" && props.clock.runningSeats.length > 0;
-
-  useEffect(() => {
-    setClientNowMs(Date.now());
-    if (!hasRunningClock) return;
-
-    const tick = window.setInterval(() => {
-      setClientNowMs(Date.now());
-    }, 250);
-
-    return () => {
-      window.clearInterval(tick);
-    };
-  }, [hasRunningClock, props.clock]);
+  const { clientNowMs, snapshotReceivedAtMs } = useProjectedClockTime(props.clock);
 
   const clock = props.clock;
   if (!clock) return null;
@@ -671,8 +754,30 @@ function ClockStrip(props: { clock: MatchClockView | null; currentSeat: SeatId |
   );
 }
 
+function useProjectedClockTime(clock: MatchClockView | null) {
+  const snapshotReceivedAtMs = useMemo(() => Date.now(), [clock]);
+  const [clientNowMs, setClientNowMs] = useState(() => Date.now());
+  const hasRunningClock = clock?.status === "active" && clock.runningSeats.length > 0;
+
+  useEffect(() => {
+    setClientNowMs(Date.now());
+    if (!hasRunningClock) return;
+
+    const tick = window.setInterval(() => {
+      setClientNowMs(Date.now());
+    }, 250);
+
+    return () => {
+      window.clearInterval(tick);
+    };
+  }, [hasRunningClock, clock]);
+
+  return { clientNowMs, snapshotReceivedAtMs };
+}
+
 function BoardRenderer(props: {
   board: MatchBoardView;
+  clock: MatchClockView | null;
   currentSeat: SeatId | null;
   isBusy: boolean;
   onMove: (move: MovePayload) => void;
@@ -692,6 +797,7 @@ function BoardRenderer(props: {
     return (
       <ChessBoard
         board={props.board}
+        clock={props.clock}
         currentSeat={props.currentSeat}
         isBusy={props.isBusy}
         onMove={(move) => props.onMove(move)}
@@ -789,70 +895,517 @@ function BoardRenderer(props: {
 
 function ChessBoard(props: {
   board: ChessBoardView;
+  clock: MatchClockView | null;
   currentSeat: SeatId | null;
   isBusy: boolean;
-  onMove: (move: { from: string; to: string; promotion?: "q" }) => void;
+  onMove: (move: MovePayload) => void;
 }) {
+  const { clientNowMs, snapshotReceivedAtMs } = useProjectedClockTime(props.clock);
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
-  const canAct =
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [reviewPly, setReviewPly] = useState<number | null>(null);
+  const [annotationCircles, setAnnotationCircles] = useState<Record<string, ChessAnnotationColor>>({});
+  const [annotationArrows, setAnnotationArrows] = useState<readonly ChessAnnotationArrow[]>([]);
+  const pendingAnnotationArrow = useRef<{ readonly color: ChessAnnotationColor; readonly from: string } | null>(null);
+  const skipNextContextMenuAnnotation = useRef(false);
+  const [pendingPromotion, setPendingPromotion] = useState<{
+    readonly from: string;
+    readonly to: string;
+    readonly moves: readonly ChessLegalMove[];
+  } | null>(null);
+  const [pendingPremove, setPendingPremove] = useState<ChessPremove | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState<"drawOffer" | "resign" | null>(null);
+  const reviewMove = reviewPly === null || reviewPly === 0 ? null : props.board.moveHistory[reviewPly - 1] ?? null;
+  const reviewFen = reviewPly === null ? null : reviewPly === 0 ? startingChessFen : (reviewMove?.fenAfter ?? null);
+  const isReviewing = reviewFen !== null;
+  const displayedFen = reviewFen ?? props.board.fen;
+  const canActLive =
     props.currentSeat !== null &&
     props.board.outcome.status === "in_progress" &&
     props.board.seatsToAct.includes(props.currentSeat);
+  const canAct = canActLive && !isReviewing;
+  const isSeatOnBoard = props.currentSeat === props.board.whiteSeat || props.currentSeat === props.board.blackSeat;
+  const canPlanPremove =
+    props.currentSeat !== null &&
+    isSeatOnBoard &&
+    props.board.outcome.status === "in_progress" &&
+    props.board.seatsToAct.length > 0 &&
+    !canActLive &&
+    !isReviewing;
+  const canResign =
+    props.currentSeat !== null &&
+    props.board.outcome.status === "in_progress" &&
+    props.board.seatsToAct.length > 0 &&
+    !isReviewing;
+  const canUseDrawControls = canResign;
+  const drawOffer = props.board.drawOffer;
+  const isOwnDrawOffer = drawOffer !== null && drawOffer.offeredBy === props.currentSeat;
+  const isOpponentDrawOffer =
+    drawOffer !== null && props.currentSeat !== null && drawOffer.offeredBy !== props.currentSeat;
+  const takebackRequest = props.board.takebackRequest ?? null;
+  const isOwnTakebackRequest = takebackRequest !== null && takebackRequest.requestedBy === props.currentSeat;
+  const isOpponentTakebackRequest =
+    takebackRequest !== null && props.currentSeat !== null && takebackRequest.requestedBy !== props.currentSeat;
+  const isConfirmingDrawOffer = pendingConfirmation === "drawOffer";
+  const isConfirmingResign = pendingConfirmation === "resign";
+  const selectedLegalMoves = useMemo(
+    () => (canAct && selectedSquare ? getChessMovesFromSquare(props.board, selectedSquare) : []),
+    [canAct, props.board, selectedSquare]
+  );
+  const latestReplayableMove = getLatestReplayableChessMoveRecord(props.board.moveHistory);
+  const lastMove = isReviewing ? reviewMove : latestReplayableMove;
+  const displayedCheckSquare = isReviewing ? null : props.board.checkSquare;
+  const canUseTakebackControls =
+    props.currentSeat !== null && props.board.outcome.status === "in_progress" && !isReviewing;
+  const canRequestTakeback = canUseTakebackControls && latestReplayableMove !== null && takebackRequest === null;
+  const baseOrientation = getChessboardOrientation(props.board, props.currentSeat);
+  const boardOrientation = isFlipped ? getOppositeChessboardOrientation(baseOrientation) : baseOrientation;
+  const pendingPromotionPosition = pendingPromotion ? getChessSquareGridPosition(pendingPromotion.to, boardOrientation) : null;
+  const boardStatus =
+    isReviewing && reviewPly === 0
+      ? "Starting position"
+      : isReviewing && reviewPly !== null
+        ? `Reviewing move ${reviewPly}`
+        : formatChessBoardStatus(props.board, props.currentSeat, canAct);
+  const turnPillClassName = isReviewing
+    ? "chess-turn-pill review"
+    : props.board.outcome.status !== "in_progress"
+      ? "chess-turn-pill result"
+      : props.board.takebackRequest
+        ? "chess-turn-pill takeback"
+      : props.board.drawOffer
+        ? "chess-turn-pill draw-offer"
+      : `chess-turn-pill ${props.board.turnColor}${props.board.isCheck ? " check" : ""}`;
+  const turnPillText = isReviewing ? "Review" : formatChessTurnPill(props.board);
+  const replayNavigation = getChessReplayNavigation(props.board.moveHistory, isReviewing ? reviewPly : null);
 
   useEffect(() => {
-    if (!canAct) setSelectedSquare(null);
+    setPendingPromotion(null);
+    if (!canAct) {
+      setSelectedSquare(null);
+      setPendingConfirmation(null);
+    }
   }, [canAct, props.board.fen]);
 
-  function handleSquareClick(square: string, piece: PieceDataType | null) {
-    if (!canAct) return;
+  useEffect(() => {
+    if (!pendingPremove) return;
+    if (props.board.outcome.status !== "in_progress" || isReviewing) {
+      setPendingPremove(null);
+      return;
+    }
+    if (!canAct || props.isBusy) return;
 
-    if (selectedSquare) {
-      if (selectedSquare === square) {
-        setSelectedSquare(null);
-        return;
-      }
-
-      props.onMove({ from: selectedSquare, to: square, promotion: "q" });
-      setSelectedSquare(null);
+    const legalMoves = getChessMovesBetween(props.board, pendingPremove.from, pendingPremove.to);
+    if (legalMoves.length === 0) {
+      setPendingPremove(null);
       return;
     }
 
-    if (piece && getPieceSeatFromPieceType(props.board, piece.pieceType) === props.currentSeat) {
-      setSelectedSquare(square);
+    setPendingPremove(null);
+    void submitChessMoveCandidates(legalMoves);
+  }, [canAct, isReviewing, pendingPremove, props.board, props.board.outcome.status, props.isBusy]);
+
+  useEffect(() => {
+    setPendingConfirmation(null);
+  }, [props.board.fen, props.board.drawOffer, props.board.outcome.status, props.board.takebackRequest]);
+
+  useEffect(() => {
+    if (reviewPly === 0 && getReplayableChessMovePlys(props.board.moveHistory).length === 0) {
+      setReviewPly(null);
     }
+    if (reviewPly !== null && reviewPly > 0 && !props.board.moveHistory[reviewPly - 1]?.fenAfter) {
+      setReviewPly(null);
+    }
+  }, [props.board.moveHistory, reviewPly]);
+
+  function handleSquareClick(square: string, piece: PieceDataType | null) {
+    const isLegalTarget = selectedSquare ? getChessMovesBetween(props.board, selectedSquare, square).length > 0 : false;
+    const isOwnPiece = piece ? getPieceSeatFromPieceType(props.board, piece.pieceType) === props.currentSeat : false;
+    if (!piece && !isLegalTarget) {
+      clearChessAnnotations();
+    }
+
+    if (canPlanPremove) {
+      if (selectedSquare) {
+        if (selectedSquare === square) {
+          setSelectedSquare(null);
+          setPendingPromotion(null);
+          return;
+        }
+
+        if (isOwnPiece) {
+          setSelectedSquare(square);
+          setPendingPremove(null);
+          setPendingPromotion(null);
+          setPendingConfirmation(null);
+          return;
+        }
+
+        setPendingPremove({ from: selectedSquare, to: square });
+        setSelectedSquare(null);
+        setPendingPromotion(null);
+        setPendingConfirmation(null);
+        return;
+      }
+
+      if (isOwnPiece) {
+        setSelectedSquare(square);
+        setPendingPremove(null);
+        setPendingPromotion(null);
+        setPendingConfirmation(null);
+      }
+      return;
+    }
+
+    if (!canAct) return;
+
+    if (selectedSquare) {
+      const legalMoves = isLegalTarget ? getChessMovesBetween(props.board, selectedSquare, square) : [];
+      if (legalMoves.length > 0) {
+        void submitChessMoveCandidates(legalMoves);
+        return;
+      }
+
+      if (isOwnPiece && getChessMovesFromSquare(props.board, square).length > 0) {
+        setSelectedSquare(square);
+        setPendingPremove(null);
+        setPendingPromotion(null);
+        return;
+      }
+
+      if (selectedSquare === square) {
+        setSelectedSquare(null);
+        setPendingPromotion(null);
+        return;
+      }
+
+      setSelectedSquare(null);
+      setPendingPromotion(null);
+      return;
+    }
+
+    if (isOwnPiece && getChessMovesFromSquare(props.board, square).length > 0) {
+      setSelectedSquare(square);
+      setPendingPremove(null);
+    }
+  }
+
+  function submitChessMoveCandidates(legalMoves: readonly ChessLegalMove[]) {
+    if (legalMoves.length === 0) return false;
+    const promotionMoves = sortPromotionMoves(legalMoves.filter((move) => move.promotion));
+    if (promotionMoves.length > 1) {
+      const [firstMove] = promotionMoves;
+      if (!firstMove) return false;
+      setPendingPromotion({ from: firstMove.from, to: firstMove.to, moves: promotionMoves });
+      return false;
+    }
+
+    const move = promotionMoves[0] ?? legalMoves[0];
+    if (!move) return false;
+    props.onMove(toChessMovePayload(move));
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    setPendingConfirmation(null);
+    return true;
+  }
+
+  function handlePromotionChoice(move: ChessLegalMove) {
+    props.onMove(toChessMovePayload(move));
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    setPendingConfirmation(null);
+  }
+
+  function handleReviewPly(nextReviewPly: number) {
+    setReviewPly(nextReviewPly);
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    setPendingConfirmation(null);
+  }
+
+  function handleReturnToLive() {
+    setReviewPly(null);
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    setPendingConfirmation(null);
+  }
+
+  function handleFlipBoard() {
+    setIsFlipped((value) => !value);
+    return true;
+  }
+
+  function handleFirstReplay() {
+    if (replayNavigation.firstPly === null) return false;
+    handleReviewPly(replayNavigation.firstPly);
+    return true;
+  }
+
+  function handleLatestReplay() {
+    if (replayNavigation.latestPly === null) return false;
+    handleReturnToLive();
+    return true;
+  }
+
+  function handlePreviousReplay() {
+    if (replayNavigation.previousPly === null) return false;
+    handleReviewPly(replayNavigation.previousPly);
+    return true;
+  }
+
+  function handleNextReplay() {
+    if (replayNavigation.nextPly === null) return false;
+    if (replayNavigation.isNextLive) {
+      handleReturnToLive();
+      return true;
+    }
+    handleReviewPly(replayNavigation.nextPly);
+    return true;
+  }
+
+  function handleCancelChessInteraction() {
+    if (selectedSquare === null && pendingPremove === null && pendingPromotion === null && pendingConfirmation === null) {
+      return false;
+    }
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    setPendingConfirmation(null);
+    return true;
+  }
+
+  function handleChessKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+    const key = event.key.toLowerCase();
+    const didNavigate =
+      event.key === "Escape"
+        ? handleCancelChessInteraction()
+        : event.key === "ArrowLeft" || key === "h"
+        ? handlePreviousReplay()
+        : event.key === "ArrowRight" || key === "l"
+          ? handleNextReplay()
+          : event.key === "ArrowUp" || key === "k"
+          ? handleFirstReplay()
+          : event.key === "ArrowDown" || key === "j"
+            ? handleLatestReplay()
+            : key === "f"
+              ? handleFlipBoard()
+          : false;
+
+    if (didNavigate) {
+      event.preventDefault();
+    }
+  }
+
+  function handleChessWheel(event: WheelEvent<HTMLElement>) {
+    if (event.deltaY === 0) return;
+    const didNavigate = event.deltaY < 0 ? handlePreviousReplay() : handleNextReplay();
+    if (didNavigate) {
+      event.preventDefault();
+    }
+  }
+
+  function handleChessContextMenu(event: MouseEvent<HTMLElement>) {
+    const square = getChessSquareFromEventTarget(event.target);
+    if (!square) return;
+
+    event.preventDefault();
+    if (skipNextContextMenuAnnotation.current) {
+      skipNextContextMenuAnnotation.current = false;
+      return;
+    }
+
+    if (canPlanPremove && (pendingPremove !== null || selectedSquare !== null)) {
+      pendingAnnotationArrow.current = null;
+      setSelectedSquare(null);
+      setPendingPremove(null);
+      setPendingPromotion(null);
+      setPendingConfirmation(null);
+      return;
+    }
+
+    const color = getChessAnnotationColor(event);
+    setAnnotationCircles((current) => {
+      if (current[square] === color) {
+        const next = { ...current };
+        delete next[square];
+        return next;
+      }
+      return { ...current, [square]: color };
+    });
+  }
+
+  function clearChessAnnotations() {
+    setAnnotationCircles({});
+    setAnnotationArrows([]);
+  }
+
+  function handleChessMouseDown(event: MouseEvent<HTMLElement>) {
+    if (event.button !== 2) return;
+    const square = getChessSquareFromEventTarget(event.target);
+    if (!square) return;
+    pendingAnnotationArrow.current = { color: getChessAnnotationColor(event), from: square };
+  }
+
+  function handleChessMouseUp(event: MouseEvent<HTMLElement>) {
+    if (event.button !== 2) return;
+    const pendingArrow = pendingAnnotationArrow.current;
+    pendingAnnotationArrow.current = null;
+    const to = getChessSquareFromEventTarget(event.target);
+    if (!pendingArrow || !to || pendingArrow.from === to) return;
+
+    event.preventDefault();
+    skipNextContextMenuAnnotation.current = true;
+    setAnnotationArrows((current) => {
+      const isSameArrow = (arrow: ChessAnnotationArrow) =>
+        arrow.from === pendingArrow.from && arrow.to === to && arrow.color === pendingArrow.color;
+      if (current.some(isSameArrow)) {
+        return current.filter((arrow) => !isSameArrow(arrow));
+      }
+      return [...current, { from: pendingArrow.from, to, color: pendingArrow.color }];
+    });
+  }
+
+  function handleResign() {
+    setReviewPly(null);
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    if (pendingConfirmation !== "resign") {
+      setPendingConfirmation("resign");
+      return;
+    }
+    setPendingConfirmation(null);
+    props.onMove({ resign: true });
+  }
+
+  function handleDrawOffer() {
+    setReviewPly(null);
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    if (pendingConfirmation !== "drawOffer") {
+      setPendingConfirmation("drawOffer");
+      return;
+    }
+    setPendingConfirmation(null);
+    props.onMove({ drawOffer: true });
+  }
+
+  function handleTakebackRequest() {
+    setReviewPly(null);
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    setPendingConfirmation(null);
+    props.onMove({ requestTakeback: true });
+  }
+
+  function handleAcceptDraw() {
+    setReviewPly(null);
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    setPendingConfirmation(null);
+    props.onMove({ acceptDraw: true });
+  }
+
+  function handleAcceptTakeback() {
+    setReviewPly(null);
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    setPendingConfirmation(null);
+    props.onMove({ acceptTakeback: true });
+  }
+
+  function handleDeclineDraw() {
+    setReviewPly(null);
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    setPendingConfirmation(null);
+    props.onMove({ declineDraw: true });
+  }
+
+  function handleDeclineTakeback() {
+    setReviewPly(null);
+    setSelectedSquare(null);
+    setPendingPremove(null);
+    setPendingPromotion(null);
+    setPendingConfirmation(null);
+    props.onMove({ declineTakeback: true });
   }
 
   const chessboardOptions: ChessboardOptions = {
     id: `board-${props.board.id}-chessboard`,
-    position: getChessboardPosition(props.board.fen),
-    boardOrientation: getChessboardOrientation(props.board, props.currentSeat),
+    position: getChessboardPosition(displayedFen),
+    boardOrientation,
+    animationDurationInMs: 0,
+    showAnimations: false,
     allowDragging: canAct && !props.isBusy,
     showNotation: true,
-    squareStyles: selectedSquare
-      ? {
-          [selectedSquare]: {
-            boxShadow: "inset 0 0 0 3px #b74f2a"
-          }
-        }
-      : {},
-    canDragPiece({ piece }) {
-      return canAct && !props.isBusy && getPieceSeatFromPieceType(props.board, piece.pieceType) === props.currentSeat;
+    squareStyles: getChessSquareStyles({
+      checkSquare: displayedCheckSquare,
+      lastMove,
+      selectedLegalMoves,
+      selectedSquare
+    }),
+    canDragPiece({ piece, square }) {
+      return (
+        canAct &&
+        !props.isBusy &&
+        square !== null &&
+        getPieceSeatFromPieceType(props.board, piece.pieceType) === props.currentSeat &&
+        getChessMovesFromSquare(props.board, square).length > 0
+      );
     },
     onPieceDrop({ sourceSquare, targetSquare }) {
       if (!canAct || props.isBusy || !targetSquare || sourceSquare === targetSquare) return false;
-      props.onMove({ from: sourceSquare, to: targetSquare, promotion: "q" });
-      setSelectedSquare(null);
-      return true;
+      const legalMoves = getChessMovesBetween(props.board, sourceSquare, targetSquare);
+      return submitChessMoveCandidates(legalMoves);
     },
     onSquareClick({ piece, square }) {
       handleSquareClick(square, piece);
     },
     squareRenderer({ piece, square, children }) {
+      const isLegalTarget = selectedLegalMoves.some((move) => move.to === square);
+      const isSelected = selectedSquare === square;
+      const isCheckedKing = displayedCheckSquare === square;
+      const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
+      const annotationColor = annotationCircles[square] ?? null;
+      const isOwnPiece =
+        piece !== null && getPieceSeatFromPieceType(props.board, piece.pieceType) === props.currentSeat;
+      const isPremoveSource = pendingPremove?.from === square;
+      const isPremoveTarget = pendingPremove?.to === square;
+      const isPremoveDestination =
+        canPlanPremove && selectedSquare !== null && selectedSquare !== square && !isOwnPiece;
+      const canMovePiece =
+        isOwnPiece && (canAct ? getChessMovesFromSquare(props.board, square).length > 0 : canPlanPremove);
+      const canInteractWithSquare = canAct
+        ? canMovePiece || isLegalTarget || isSelected
+        : canPlanPremove
+          ? canMovePiece || isSelected || isPremoveDestination
+          : false;
       return (
         <button
-          aria-label={formatChessSquareLabel(props.board.id, square, piece)}
-          className="react-chessboard-square-button"
-          disabled={props.isBusy || !canAct}
+          aria-label={formatChessSquareLabel(props.board.id, square, piece, {
+            annotationColor,
+            isCheckedKing,
+            isLastMoveSquare,
+            isLegalTarget,
+            isPremoveDestination,
+            isPremoveSource,
+            isPremoveTarget,
+            isSelected
+          })}
+          className={`react-chessboard-square-button${isSelected ? " selected" : ""}${isLegalTarget ? " legal-target" : ""}${isPremoveDestination ? " premove-destination" : ""}${isPremoveSource ? " premove-source" : ""}${isPremoveTarget ? " premove-target" : ""}${isLastMoveSquare ? " last-move" : ""}${isCheckedKing ? " checked-king" : ""}${annotationColor ? ` annotation-${annotationColor}` : ""}`}
+          disabled={props.isBusy || !canInteractWithSquare}
           type="button"
         >
           {children}
@@ -862,21 +1415,505 @@ function ChessBoard(props: {
   };
 
   return (
-    <section className={`board-panel${canAct ? " active-board" : ""}`} aria-label={`Board ${props.board.id}`}>
-      <div className="board-heading">
-        <h2>Board {props.board.id}</h2>
-        <p>{canAct ? "Your move" : formatBoardStatus(props.board, props.currentSeat)}</p>
+    <section
+      aria-label={`Board ${props.board.id}`}
+      className={`board-panel chess-board-panel${canAct ? " active-board" : ""}`}
+      onContextMenu={handleChessContextMenu}
+      onKeyDown={handleChessKeyDown}
+      onMouseDown={handleChessMouseDown}
+      onMouseUp={handleChessMouseUp}
+      onWheel={handleChessWheel}
+      tabIndex={0}
+    >
+      <div className="board-heading chess-heading">
+        <div>
+          <h2>Board {props.board.id}</h2>
+          <p>{boardStatus}</p>
+        </div>
+        <div className="chess-heading-actions">
+          <span className={turnPillClassName}>{turnPillText}</span>
+          <button
+            aria-label={`Flip Board ${props.board.id}`}
+            className="secondary-button compact-button chess-flip-button"
+            onClick={handleFlipBoard}
+            type="button"
+          >
+            Flip
+          </button>
+          {isOpponentTakebackRequest ? (
+            <span className="chess-takeback-response-group">
+              <button
+                aria-label={`Accept Takeback Board ${props.board.id}`}
+                className="secondary-button compact-button chess-takeback-button accept"
+                disabled={props.isBusy || !canUseTakebackControls}
+                onClick={handleAcceptTakeback}
+                type="button"
+              >
+                Accept
+              </button>
+              <button
+                aria-label={`Decline Takeback Board ${props.board.id}`}
+                className="secondary-button compact-button chess-takeback-button"
+                disabled={props.isBusy || !canUseTakebackControls}
+                onClick={handleDeclineTakeback}
+                type="button"
+              >
+                Decline
+              </button>
+            </span>
+          ) : (
+            <button
+              aria-label={
+                isOwnTakebackRequest
+                  ? `Takeback Requested Board ${props.board.id}`
+                  : `Request Takeback Board ${props.board.id}`
+              }
+              className={`secondary-button compact-button chess-takeback-button${isOwnTakebackRequest ? " pending" : ""}`}
+              disabled={props.isBusy || !canRequestTakeback || isOwnTakebackRequest || takebackRequest !== null}
+              onClick={handleTakebackRequest}
+              type="button"
+            >
+              {isOwnTakebackRequest ? "Takeback requested" : "Takeback"}
+            </button>
+          )}
+          {isOpponentDrawOffer ? (
+            <span className="chess-draw-response-group">
+              <button
+                aria-label={`Accept Draw Board ${props.board.id}`}
+                className="secondary-button compact-button chess-draw-button accept"
+                disabled={props.isBusy || !canUseDrawControls}
+                onClick={handleAcceptDraw}
+                type="button"
+              >
+                Accept
+              </button>
+              <button
+                aria-label={`Decline Draw Board ${props.board.id}`}
+                className="secondary-button compact-button chess-draw-button"
+                disabled={props.isBusy || !canUseDrawControls}
+                onClick={handleDeclineDraw}
+                type="button"
+              >
+                Decline
+              </button>
+            </span>
+          ) : (
+            <button
+              aria-label={
+                isOwnDrawOffer
+                  ? `Draw Offered Board ${props.board.id}`
+                  : isConfirmingDrawOffer
+                    ? `Confirm Draw Offer Board ${props.board.id}`
+                    : `Offer Draw Board ${props.board.id}`
+              }
+              className={`secondary-button compact-button chess-draw-button${isOwnDrawOffer ? " pending" : ""}${isConfirmingDrawOffer ? " confirming" : ""}`}
+              disabled={props.isBusy || !canUseDrawControls || isOwnDrawOffer || drawOffer !== null}
+              onClick={handleDrawOffer}
+              type="button"
+            >
+              {isOwnDrawOffer ? "Draw offered" : isConfirmingDrawOffer ? "Confirm draw" : "Offer Draw"}
+            </button>
+          )}
+          <button
+            aria-label={isConfirmingResign ? `Confirm Resign Board ${props.board.id}` : `Resign Board ${props.board.id}`}
+            className={`secondary-button compact-button chess-resign-button${isConfirmingResign ? " confirming" : ""}`}
+            disabled={props.isBusy || !canResign}
+            onClick={handleResign}
+            type="button"
+          >
+            {isConfirmingResign ? "Confirm resign" : "Resign"}
+          </button>
+        </div>
       </div>
-      <div
-        className="react-chessboard-shell"
-        data-board-id={props.board.id}
-        data-interactive={canAct && !props.isBusy ? "true" : "false"}
-        data-testid={`board-${props.board.id}-chessboard`}
-      >
-        <Chessboard options={chessboardOptions} />
+      <div className="chess-board-layout">
+        <div className="chess-board-stage">
+          <div
+            className="react-chessboard-shell"
+            data-board-id={props.board.id}
+            data-interactive={canAct && !props.isBusy ? "true" : "false"}
+            data-orientation={boardOrientation}
+            data-position-fen={displayedFen}
+            data-review-ply={isReviewing ? String(reviewPly) : "live"}
+            data-testid={`board-${props.board.id}-chessboard`}
+          >
+            <Chessboard options={chessboardOptions} />
+            <ChessAnnotationArrows arrows={annotationArrows} boardId={props.board.id} orientation={boardOrientation} />
+          </div>
+          {pendingPromotion ? (
+            <div
+              className="promotion-picker"
+              data-board-orientation={boardOrientation}
+              data-promotion-square={pendingPromotion.to}
+              role="dialog"
+              aria-label={`Board ${props.board.id} choose promotion`}
+              style={
+                pendingPromotionPosition
+                  ? ({
+                      "--promotion-file": String(pendingPromotionPosition.file),
+                      "--promotion-rank": String(pendingPromotionPosition.rank),
+                      "--promotion-offset-y": pendingPromotionPosition.rank <= 3 ? "0" : "-75%"
+                    } as CSSProperties)
+                  : undefined
+              }
+            >
+              {pendingPromotion.moves.map((move) => (
+                <button
+                  aria-label={`Promote to ${formatPromotionPiece(move.promotion ?? "q")}`}
+                  className="promotion-button"
+                  key={move.promotion}
+                  onClick={() => handlePromotionChoice(move)}
+                  type="button"
+                >
+                  {getPromotionGlyph(move)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <aside className="chess-side-panel" aria-label={`Board ${props.board.id} chess details`}>
+          <div className="chess-player-stack" aria-label={`Board ${props.board.id} players`}>
+            <ChessPlayerRow
+              board={props.board}
+              clientNowMs={clientNowMs}
+              clock={props.clock}
+              color="b"
+              currentSeat={props.currentSeat}
+              isReviewing={isReviewing}
+              snapshotReceivedAtMs={snapshotReceivedAtMs}
+            />
+            <ChessPlayerRow
+              board={props.board}
+              clientNowMs={clientNowMs}
+              clock={props.clock}
+              color="w"
+              currentSeat={props.currentSeat}
+              isReviewing={isReviewing}
+              snapshotReceivedAtMs={snapshotReceivedAtMs}
+            />
+          </div>
+          <ChessMoveHistory
+            board={props.board}
+            onReturnToLive={handleReturnToLive}
+            onReviewPly={handleReviewPly}
+            reviewPly={isReviewing ? reviewPly : null}
+          />
+        </aside>
       </div>
     </section>
   );
+}
+
+function ChessAnnotationArrows(props: {
+  readonly arrows: readonly ChessAnnotationArrow[];
+  readonly boardId: BoardId;
+  readonly orientation: "white" | "black";
+}) {
+  if (props.arrows.length === 0) return null;
+
+  return (
+    <svg
+      aria-label={`Board ${props.boardId} annotation arrows`}
+      className="chess-annotation-overlay"
+      viewBox="0 0 100 100"
+    >
+      <defs>
+        {(Object.keys(chessAnnotationSvgColors) as ChessAnnotationColor[]).map((color) => (
+          <marker
+            id={getChessAnnotationMarkerId(props.boardId, color)}
+            key={color}
+            markerHeight="5"
+            markerUnits="strokeWidth"
+            markerWidth="5"
+            orient="auto"
+            refX="4.4"
+            refY="2.5"
+            viewBox="0 0 5 5"
+          >
+            <path d="M 0 0 L 5 2.5 L 0 5 z" fill={chessAnnotationSvgColors[color]} />
+          </marker>
+        ))}
+      </defs>
+      {props.arrows.map((arrow) => {
+        const from = getChessSquareCenter(arrow.from, props.orientation);
+        const to = getChessSquareCenter(arrow.to, props.orientation);
+        return (
+          <line
+            aria-label={`Board ${props.boardId} arrow ${arrow.from} to ${arrow.to} ${arrow.color}`}
+            className={`chess-annotation-arrow annotation-arrow-${arrow.color}`}
+            key={`${arrow.from}-${arrow.to}-${arrow.color}`}
+            markerEnd={`url(#${getChessAnnotationMarkerId(props.boardId, arrow.color)})`}
+            role="img"
+            stroke={chessAnnotationSvgColors[arrow.color]}
+            x1={from.x}
+            x2={to.x}
+            y1={from.y}
+            y2={to.y}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
+function ChessPlayerRow(props: {
+  board: ChessBoardView;
+  clientNowMs: number;
+  clock: MatchClockView | null;
+  color: "w" | "b";
+  currentSeat: SeatId | null;
+  isReviewing: boolean;
+  snapshotReceivedAtMs: number;
+}) {
+  const seat = getSeatForChessColor(props.board, props.color);
+  const capturedPieces = getCapturedPiecesByColor(props.board, props.color);
+  const materialAdvantage = getChessMaterialAdvantage(props.board, props.color);
+  const seatClock = props.clock?.seats[seat] ?? null;
+  const remainingMs = props.clock
+    ? getProjectedClockRemainingMs(props.clock, seat, props.snapshotReceivedAtMs, props.clientNowMs)
+    : null;
+  const isCurrentSeat = seat === props.currentSeat;
+  const isToMove = !props.isReviewing && props.board.outcome.status === "in_progress" && props.board.turnColor === props.color;
+  const isClockRunning =
+    !props.isReviewing &&
+    props.board.outcome.status === "in_progress" &&
+    props.board.seatsToAct.includes(seat) &&
+    seatClock?.isRunning === true;
+
+  return (
+    <div className={`chess-player-row ${props.color}${isToMove ? " to-move" : ""}`}>
+      <span className="chess-color-dot" aria-hidden="true" />
+      <div>
+        <strong>
+          {formatChessColor(props.color)}
+          {isCurrentSeat ? " (You)" : ""}
+        </strong>
+        <span>{formatRelativeSeat(seat, props.currentSeat)}</span>
+        <span className="captured-pieces" aria-label={`${formatChessColor(props.color)} captured material`}>
+          <span>{capturedPieces.length > 0 ? capturedPieces.join(" ") : "-"}</span>
+          {materialAdvantage > 0 ? (
+            <span
+              aria-label={`Board ${props.board.id} ${formatChessColor(props.color)} material advantage`}
+              className="material-advantage"
+            >
+              +{materialAdvantage}
+            </span>
+          ) : null}
+        </span>
+      </div>
+      <strong
+        aria-label={`Board ${props.board.id} ${formatChessColor(props.color)} clock`}
+        className={`chess-player-clock${isClockRunning ? " running" : ""}`}
+      >
+        {remainingMs === null ? "--:--" : formatClockMs(remainingMs)}
+      </strong>
+    </div>
+  );
+}
+
+function ChessMoveHistory(props: {
+  board: ChessBoardView;
+  onReturnToLive: () => void;
+  onReviewPly: (ply: number) => void;
+  reviewPly: number | null;
+}) {
+  const pairs = getChessMovePairs(props.board.moveHistory);
+  const currentMove = props.board.moveHistory.at(-1) ?? null;
+  const replayNavigation = getChessReplayNavigation(props.board.moveHistory, props.reviewPly);
+  const replayMeta =
+    props.reviewPly === null
+      ? `${props.board.moveHistory.length} ply`
+      : props.reviewPly === 0
+        ? `Start / ${props.board.moveHistory.length}`
+        : `Review ${props.reviewPly}/${props.board.moveHistory.length}`;
+
+  function handleFirstReplay() {
+    if (replayNavigation.firstPly === null) return;
+    props.onReviewPly(replayNavigation.firstPly);
+  }
+
+  function handleLatestReplay() {
+    if (replayNavigation.latestPly === null) return;
+    props.onReturnToLive();
+  }
+
+  function handlePreviousReplay() {
+    if (replayNavigation.previousPly === null) return;
+    props.onReviewPly(replayNavigation.previousPly);
+  }
+
+  function handleNextReplay() {
+    if (replayNavigation.nextPly === null) return;
+    if (replayNavigation.isNextLive) {
+      props.onReturnToLive();
+      return;
+    }
+    props.onReviewPly(replayNavigation.nextPly);
+  }
+
+  return (
+    <section className="chess-move-card" aria-label={`Board ${props.board.id} move history`}>
+      <div className="chess-side-title">
+        <h3>Moves</h3>
+        <div className="chess-replay-meta">
+          <span>{replayMeta}</span>
+          <span className="chess-replay-controls">
+            <button
+              aria-label={`Board ${props.board.id} first move`}
+              className="chess-live-button"
+              disabled={replayNavigation.firstPly === null}
+              onClick={handleFirstReplay}
+              type="button"
+            >
+              First
+            </button>
+            <button
+              aria-label={`Board ${props.board.id} previous move`}
+              className="chess-live-button"
+              disabled={replayNavigation.previousPly === null}
+              onClick={handlePreviousReplay}
+              type="button"
+            >
+              Prev
+            </button>
+            <button
+              aria-label={`Board ${props.board.id} next move`}
+              className="chess-live-button"
+              disabled={replayNavigation.nextPly === null}
+              onClick={handleNextReplay}
+              type="button"
+            >
+              Next
+            </button>
+            <button
+              aria-label={`Board ${props.board.id} latest move`}
+              className="chess-live-button"
+              disabled={replayNavigation.latestPly === null}
+              onClick={handleLatestReplay}
+              type="button"
+            >
+              Last
+            </button>
+          </span>
+          {props.reviewPly === null ? null : (
+            <button
+              aria-label={`Board ${props.board.id} return to live position`}
+              className="chess-live-button"
+              onClick={props.onReturnToLive}
+              type="button"
+            >
+              Live
+            </button>
+          )}
+        </div>
+      </div>
+      {pairs.length === 0 ? (
+        <p className="chess-empty-history">No moves yet</p>
+      ) : (
+        <ol className="chess-move-list">
+          {pairs.map((pair) => (
+            <li key={pair.number}>
+              <span className="move-number">{pair.number}.</span>
+              <ChessMoveHistoryButton
+                boardId={props.board.id}
+                currentMove={currentMove}
+                move={pair.white}
+                onReturnToLive={props.onReturnToLive}
+                onReviewPly={props.onReviewPly}
+                ply={pair.whitePly}
+                reviewPly={props.reviewPly}
+              />
+              <ChessMoveHistoryButton
+                boardId={props.board.id}
+                currentMove={currentMove}
+                move={pair.black}
+                onReturnToLive={props.onReturnToLive}
+                onReviewPly={props.onReviewPly}
+                ply={pair.blackPly}
+                reviewPly={props.reviewPly}
+              />
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+function ChessMoveHistoryButton(props: {
+  boardId: BoardId;
+  currentMove: ChessMoveRecord | null;
+  move: ChessMoveRecord | null;
+  onReturnToLive: () => void;
+  onReviewPly: (ply: number) => void;
+  ply: number | null;
+  reviewPly: number | null;
+}) {
+  if (!props.move || props.ply === null) {
+    return <span className="chess-move-empty" />;
+  }
+
+  const isCurrentMove = props.currentMove === props.move;
+  const isReviewMove = props.reviewPly === props.ply;
+  const isReplayable = isReplayableChessMoveRecord(props.move);
+  return (
+    <button
+      aria-label={
+        isCurrentMove ? `Board ${props.boardId} current move ${props.move.san}` : `Board ${props.boardId} review move ${props.move.san}`
+      }
+      className={`chess-move-button${isCurrentMove ? " current-move" : ""}${isReviewMove ? " review-move" : ""}`}
+      disabled={!isReplayable}
+      onClick={() => {
+        if (!isReplayable) return;
+        if (isCurrentMove) {
+          props.onReturnToLive();
+          return;
+        }
+        props.onReviewPly(props.ply ?? 0);
+      }}
+      type="button"
+    >
+      {props.move.san}
+    </button>
+  );
+}
+
+function isReplayableChessMoveRecord(move: ChessMoveRecord) {
+  return Boolean(move.fenAfter && move.from && move.to);
+}
+
+function getReplayableChessMovePlys(moveHistory: readonly ChessMoveRecord[]) {
+  return moveHistory.flatMap((move, index) => (isReplayableChessMoveRecord(move) ? [index + 1] : []));
+}
+
+function getChessReplayNavigation(moveHistory: readonly ChessMoveRecord[], reviewPly: number | null) {
+  const replayablePlys = getReplayableChessMovePlys(moveHistory);
+  const navigationPlys = replayablePlys.length > 0 ? [0, ...replayablePlys] : [];
+  const currentReplayIndex = reviewPly === null ? navigationPlys.length - 1 : navigationPlys.indexOf(reviewPly);
+  const previousPly = currentReplayIndex > 0 ? (navigationPlys[currentReplayIndex - 1] ?? null) : null;
+  const nextPly =
+    reviewPly !== null && currentReplayIndex >= 0 && currentReplayIndex < navigationPlys.length - 1
+      ? (navigationPlys[currentReplayIndex + 1] ?? null)
+      : null;
+  const latestPly =
+    reviewPly !== null && currentReplayIndex >= 0 && currentReplayIndex < navigationPlys.length - 1
+      ? (navigationPlys[navigationPlys.length - 1] ?? null)
+      : null;
+
+  return {
+    firstPly: currentReplayIndex > 0 ? 0 : null,
+    isNextLive: nextPly !== null && currentReplayIndex + 1 === navigationPlys.length - 1,
+    latestPly,
+    nextPly,
+    previousPly
+  };
+}
+
+function getLatestReplayableChessMoveRecord(moveHistory: readonly ChessMoveRecord[]) {
+  for (let index = moveHistory.length - 1; index >= 0; index -= 1) {
+    const move = moveHistory[index];
+    if (move && isReplayableChessMoveRecord(move)) return move;
+  }
+  return null;
 }
 
 function TicTacToeBoard(props: {
@@ -1415,6 +2452,63 @@ function canCurrentSeatAct(board: MatchBoardView, currentSeat: SeatId | null) {
 }
 
 const startingChessFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const chessPromotionOrder = ["q", "r", "b", "n"] as const;
+const chessPieceNames: Record<ChessPiece["type"], string> = {
+  p: "pawn",
+  n: "knight",
+  b: "bishop",
+  r: "rook",
+  q: "queen",
+  k: "king"
+};
+const chessPieceGlyphs: Record<ChessPiece["color"], Record<ChessPiece["type"], string>> = {
+  w: { p: "♙", n: "♘", b: "♗", r: "♖", q: "♕", k: "♔" },
+  b: { p: "♟", n: "♞", b: "♝", r: "♜", q: "♛", k: "♚" }
+};
+const chessStartingPieceCounts: Record<ChessPiece["type"], number> = {
+  p: 8,
+  n: 2,
+  b: 2,
+  r: 2,
+  q: 1,
+  k: 1
+};
+const chessPieceValues: Record<ChessPiece["type"], number> = {
+  p: 1,
+  n: 3,
+  b: 3,
+  r: 5,
+  q: 9,
+  k: 0
+};
+
+type ChessMovePair = {
+  readonly number: number;
+  readonly white: ChessMoveRecord | null;
+  readonly whitePly: number | null;
+  readonly black: ChessMoveRecord | null;
+  readonly blackPly: number | null;
+};
+
+type ChessAnnotationColor = "green" | "red" | "blue" | "yellow";
+
+type ChessAnnotationArrow = {
+  readonly color: ChessAnnotationColor;
+  readonly from: string;
+  readonly to: string;
+};
+
+type ChessPremove = {
+  readonly from: string;
+  readonly to: string;
+};
+
+const chessAnnotationSvgColors: Record<ChessAnnotationColor, string> = {
+  blue: "rgb(61 111 134 / 90%)",
+  green: "rgb(98 158 79 / 90%)",
+  red: "rgb(183 79 42 / 90%)",
+  yellow: "rgb(222 178 72 / 92%)"
+};
 
 function getChessboardPosition(fen: string) {
   return fen === "start" ? startingChessFen : fen;
@@ -1424,9 +2518,137 @@ function getChessboardOrientation(board: ChessBoardView, seat: SeatId | null) {
   return seat && board.blackSeat === seat ? "black" : "white";
 }
 
-function formatChessSquareLabel(boardId: BoardId, square: string, piece: PieceDataType | null) {
-  if (!piece) return `Board ${boardId} square ${square} empty`;
-  return `Board ${boardId} square ${square} ${formatChessPieceType(piece.pieceType)}`;
+function getOppositeChessboardOrientation(orientation: "white" | "black") {
+  return orientation === "white" ? "black" : "white";
+}
+
+function getChessMovesFromSquare(board: ChessBoardView, square: string) {
+  return board.legalMoves.filter((move) => move.from === square);
+}
+
+function getChessMovesBetween(board: ChessBoardView, from: string, to: string) {
+  return board.legalMoves.filter((move) => move.from === from && move.to === to);
+}
+
+function sortPromotionMoves(moves: readonly ChessLegalMove[]) {
+  return [...moves].sort(
+    (left, right) =>
+      chessPromotionOrder.indexOf(left.promotion ?? "q") - chessPromotionOrder.indexOf(right.promotion ?? "q")
+  );
+}
+
+function toChessMovePayload(move: ChessLegalMove) {
+  return move.promotion ? { from: move.from, to: move.to, promotion: move.promotion } : { from: move.from, to: move.to };
+}
+
+function getChessAnnotationColor(event: { readonly altKey: boolean; readonly shiftKey: boolean }): ChessAnnotationColor {
+  if (event.shiftKey && event.altKey) return "yellow";
+  if (event.shiftKey) return "red";
+  if (event.altKey) return "blue";
+  return "green";
+}
+
+function getChessSquareFromEventTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) return null;
+  const squareElement = target.closest("[data-square]");
+  if (!(squareElement instanceof HTMLElement)) return null;
+  return squareElement.dataset["square"] ?? null;
+}
+
+function getChessAnnotationMarkerId(boardId: BoardId, color: ChessAnnotationColor) {
+  return `chess-annotation-arrow-${String(boardId).replace(/[^a-zA-Z0-9_-]/g, "-")}-${color}`;
+}
+
+function getChessSquareGridPosition(square: string, orientation: "white" | "black") {
+  const fileIndex = square.charCodeAt(0) - "a".charCodeAt(0);
+  const rank = Number.parseInt(square.slice(1), 10);
+  return {
+    file: orientation === "white" ? fileIndex : 7 - fileIndex,
+    rank: orientation === "white" ? 8 - rank : rank - 1
+  };
+}
+
+function getChessSquareCenter(square: string, orientation: "white" | "black") {
+  const position = getChessSquareGridPosition(square, orientation);
+  return {
+    x: (position.file + 0.5) * 12.5,
+    y: (position.rank + 0.5) * 12.5
+  };
+}
+
+function getChessSquareStyles(props: {
+  readonly checkSquare: string | null;
+  readonly lastMove: ChessMoveRecord | null;
+  readonly selectedLegalMoves: readonly ChessLegalMove[];
+  readonly selectedSquare: string | null;
+}) {
+  const styles: Record<string, CSSProperties> = {};
+
+  if (props.checkSquare) {
+    mergeChessSquareStyle(styles, props.checkSquare, {
+      background: "radial-gradient(circle, rgb(183 79 42 / 78%) 0 54%, rgb(183 79 42 / 38%) 55%, transparent 74%)"
+    });
+  }
+
+  if (props.lastMove?.from && props.lastMove.to) {
+    mergeChessSquareStyle(styles, props.lastMove.from, {
+      background: "linear-gradient(135deg, rgb(244 209 143 / 72%), rgb(244 209 143 / 52%))"
+    });
+    mergeChessSquareStyle(styles, props.lastMove.to, {
+      background: "linear-gradient(135deg, rgb(244 209 143 / 92%), rgb(244 209 143 / 58%))"
+    });
+  }
+
+  if (props.selectedSquare) {
+    mergeChessSquareStyle(styles, props.selectedSquare, {
+      boxShadow: "inset 0 0 0 4px rgb(183 79 42 / 78%)"
+    });
+  }
+
+  for (const move of props.selectedLegalMoves) {
+    mergeChessSquareStyle(
+      styles,
+      move.to,
+      move.captured
+        ? { boxShadow: "inset 0 0 0 4px rgb(183 79 42 / 62%)" }
+        : { background: "radial-gradient(circle, rgb(36 93 99 / 42%) 0 18%, transparent 19%)" }
+    );
+  }
+
+  return styles;
+}
+
+function mergeChessSquareStyle(styles: Record<string, CSSProperties>, square: string, style: CSSProperties) {
+  styles[square] = { ...(styles[square] ?? {}), ...style };
+}
+
+function formatChessSquareLabel(
+  boardId: BoardId,
+  square: string,
+  piece: PieceDataType | null,
+  state: {
+    readonly annotationColor: ChessAnnotationColor | null;
+    readonly isCheckedKing: boolean;
+    readonly isLastMoveSquare: boolean;
+    readonly isLegalTarget: boolean;
+    readonly isPremoveDestination: boolean;
+    readonly isPremoveSource: boolean;
+    readonly isPremoveTarget: boolean;
+    readonly isSelected: boolean;
+  }
+) {
+  const base = piece
+    ? `Board ${boardId} square ${square} ${formatChessPieceType(piece.pieceType)}`
+    : `Board ${boardId} square ${square} empty`;
+  const annotation = state.annotationColor ? ` ${state.annotationColor} circle` : "";
+  if (state.isCheckedKing) return `${base} in check${annotation}`;
+  if (state.isPremoveSource) return `${base} premove source${annotation}`;
+  if (state.isPremoveTarget) return `${base} premove target${annotation}`;
+  if (state.isSelected) return `${base} selected${annotation}`;
+  if (state.isLegalTarget) return `${base} legal destination${annotation}`;
+  if (state.isPremoveDestination) return `${base} premove destination${annotation}`;
+  if (state.isLastMoveSquare) return `${base} last move${annotation}`;
+  return `${base}${annotation}`;
 }
 
 function getPieceSeatFromPieceType(board: ChessBoardView, pieceType: string) {
@@ -1436,15 +2658,135 @@ function getPieceSeatFromPieceType(board: ChessBoardView, pieceType: string) {
 function formatChessPieceType(pieceType: string) {
   const color = pieceType.startsWith("w") ? "white" : "black";
   const piece = pieceType.slice(1).toLowerCase();
-  const names: Record<string, string> = {
-    p: "pawn",
-    n: "knight",
-    b: "bishop",
-    r: "rook",
-    q: "queen",
-    k: "king"
-  };
-  return `${color} ${names[piece] ?? "piece"}`;
+  return `${color} ${chessPieceNames[piece as ChessPiece["type"]] ?? "piece"}`;
+}
+
+function formatChessColor(color: "w" | "b") {
+  return color === "w" ? "White" : "Black";
+}
+
+function getSeatForChessColor(board: ChessBoardView, color: "w" | "b") {
+  return color === "w" ? board.whiteSeat : board.blackSeat;
+}
+
+function formatChessBoardStatus(board: ChessBoardView, currentSeat: SeatId | null, canAct: boolean) {
+  if (board.outcome.status !== "in_progress") return formatChessOutcomeStatus(board, currentSeat);
+  if (board.takebackRequest && board.takebackRequest.requestedBy === currentSeat) return "Takeback request sent";
+  if (board.takebackRequest && currentSeat && board.takebackRequest.requestedBy !== currentSeat) {
+    return "Opponent requests takeback";
+  }
+  if (board.drawOffer && board.drawOffer.offeredBy === currentSeat) return "Draw offer sent";
+  if (board.drawOffer && currentSeat && board.drawOffer.offeredBy !== currentSeat) return "Opponent offers draw";
+  if (board.seatsToAct.length === 0) return "Waiting";
+  if (canAct) return board.isCheck ? "Your king is in check" : "Your move";
+
+  const turnSeat = getSeatForChessColor(board, board.turnColor);
+  if (!currentSeat) return board.isCheck ? `${formatChessColor(board.turnColor)} in check` : `${formatChessColor(board.turnColor)} to move`;
+  if (turnSeat === currentSeat) return board.isCheck ? "Your king is in check" : "Your move";
+  return board.isCheck ? "Opponent in check" : "Opponent to move";
+}
+
+function formatChessOutcomeStatus(board: ChessBoardView, currentSeat: SeatId | null) {
+  const baseStatus = formatBoardStatus(board, currentSeat);
+  if (board.outcome.status !== "win" && board.outcome.status !== "draw") return baseStatus;
+
+  return `${baseStatus} by ${formatChessOutcomeReason(board.outcome.reason)}`;
+}
+
+function formatChessOutcomeReason(reason: string) {
+  switch (reason) {
+    case "insufficient-material":
+      return "insufficient material";
+    case "threefold-repetition":
+      return "threefold repetition";
+    case "fifty-move-rule":
+      return "fifty-move rule";
+    case "draw":
+      return "rule";
+    default:
+      return reason.split("-").join(" ");
+  }
+}
+
+function formatChessTurnPill(board: ChessBoardView) {
+  if (board.outcome.status !== "in_progress") return formatChessOutcomeStatus(board, null);
+  if (board.takebackRequest) return "Takeback requested";
+  if (board.drawOffer) return "Draw offered";
+  return `${formatChessColor(board.turnColor)}${board.isCheck ? " in check" : " to move"}`;
+}
+
+function getCapturedPiecesByColor(board: ChessBoardView, color: "w" | "b") {
+  const capturedColor = color === "w" ? "b" : "w";
+  const remaining = getRemainingPieceCounts(board, capturedColor);
+
+  return (["q", "r", "b", "n", "p"] as const).flatMap((piece) => {
+    const capturedCount = chessStartingPieceCounts[piece] - remaining[piece];
+    return Array.from({ length: Math.max(0, capturedCount) }, () => chessPieceGlyphs[capturedColor][piece]);
+  });
+}
+
+function getChessMaterialAdvantage(board: ChessBoardView, color: "w" | "b") {
+  const otherColor = color === "w" ? "b" : "w";
+  return Math.max(0, getCapturedMaterialValue(board, color) - getCapturedMaterialValue(board, otherColor));
+}
+
+function getCapturedMaterialValue(board: ChessBoardView, color: "w" | "b") {
+  const capturedColor = color === "w" ? "b" : "w";
+  const remaining = getRemainingPieceCounts(board, capturedColor);
+
+  return (Object.keys(chessStartingPieceCounts) as ChessPiece["type"][]).reduce((total, piece) => {
+    const capturedCount = chessStartingPieceCounts[piece] - remaining[piece];
+    return total + Math.max(0, capturedCount) * chessPieceValues[piece];
+  }, 0);
+}
+
+function getRemainingPieceCounts(board: ChessBoardView, color: "w" | "b") {
+  const counts: Record<ChessPiece["type"], number> = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 };
+  for (const square of board.squares) {
+    if (square.piece?.color === color) {
+      counts[square.piece.type] += 1;
+    }
+  }
+  return counts;
+}
+
+function getChessMovePairs(moveHistory: readonly ChessMoveRecord[]): ChessMovePair[] {
+  const pairs: ChessMovePair[] = [];
+  let currentPair = createChessMovePair(1);
+
+  moveHistory.forEach((move, index) => {
+    if (move.color === "w") {
+      if (currentPair.white || currentPair.black) {
+        pairs.push(currentPair);
+        currentPair = createChessMovePair(currentPair.number + 1);
+      }
+      currentPair = { ...currentPair, white: move, whitePly: index + 1 };
+      return;
+    }
+
+    if (currentPair.black) {
+      pairs.push(currentPair);
+      currentPair = createChessMovePair(currentPair.number + 1);
+    }
+    currentPair = { ...currentPair, black: move, blackPly: index + 1 };
+    pairs.push(currentPair);
+    currentPair = createChessMovePair(currentPair.number + 1);
+  });
+
+  if (currentPair.white || currentPair.black) pairs.push(currentPair);
+  return pairs;
+}
+
+function createChessMovePair(number: number): ChessMovePair {
+  return { number, white: null, whitePly: null, black: null, blackPly: null };
+}
+
+function formatPromotionPiece(piece: "q" | "r" | "b" | "n") {
+  return chessPieceNames[piece];
+}
+
+function getPromotionGlyph(move: ChessLegalMove) {
+  return chessPieceGlyphs[move.color][move.promotion ?? "q"];
 }
 
 function formatClockMs(ms: number) {

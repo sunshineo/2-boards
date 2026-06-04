@@ -468,6 +468,197 @@ describe("match API", () => {
     });
     expect(board.moveHistory[0]).toMatchObject({ from: "e2", to: "e4", san: "e4", seat: "seat1" });
     expect(board.seatsToAct).toEqual(["seat2"]);
+    expect(board.turnColor).toBe("b");
+    expect(board.isCheck).toBe(false);
+    expect(board.checkSquare).toBeNull();
+    expect(board.moveNumber).toBe(1);
+    expect(board.legalMoves).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ from: "e7", to: "e5", san: "e5", color: "b", piece: "p" })
+      ])
+    );
+  });
+
+  it("applies a per-board Chess resignation without ending the other board", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    const response = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat2", move: { resign: true } })
+      .expect(200);
+
+    expect(response.body.match.outcome).toEqual({
+      status: "in_progress",
+      score: { seat1: 1, seat2: 0 }
+    });
+    expect(response.body.match.boards[0].outcome).toEqual({
+      status: "win",
+      winner: "seat1",
+      loser: "seat2",
+      reason: "resignation"
+    });
+    expect(response.body.match.boards[0].seatsToAct).toEqual([]);
+    expect(response.body.match.boards[0].moveHistory.at(-1)).toMatchObject({
+      seat: "seat2",
+      san: "resigns",
+      resignation: true
+    });
+    expect(response.body.match.boards[1].outcome).toEqual({ status: "in_progress" });
+    expect(response.body.match.boards[1].seatsToAct).toEqual(["seat2"]);
+  });
+
+  it("applies a per-board Chess draw offer and acceptance without ending the other board", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    const offered = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat2", move: { drawOffer: true } })
+      .expect(200);
+
+    expect(offered.body.match.boards[0]).toMatchObject({
+      outcome: { status: "in_progress" },
+      drawOffer: { offeredBy: "seat2" },
+      seatsToAct: ["seat1"]
+    });
+    expect(offered.body.match.boards[1]).toMatchObject({
+      outcome: { status: "in_progress" },
+      seatsToAct: ["seat2"]
+    });
+
+    const accepted = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { acceptDraw: true } })
+      .expect(200);
+
+    expect(accepted.body.match.outcome).toEqual({
+      status: "in_progress",
+      score: { seat1: 0.5, seat2: 0.5 }
+    });
+    expect(accepted.body.match.boards[0]).toMatchObject({
+      outcome: { status: "draw", reason: "agreement" },
+      drawOffer: null,
+      seatsToAct: []
+    });
+    expect(accepted.body.match.boards[0].moveHistory.at(-1)).toMatchObject({
+      seat: "seat1",
+      san: "draw agreed",
+      drawAccepted: true
+    });
+    expect(accepted.body.match.boards[1]).toMatchObject({
+      outcome: { status: "in_progress" },
+      seatsToAct: ["seat2"]
+    });
+  });
+
+  it("applies a per-board Chess draw offer decline without ending either board", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat2", move: { drawOffer: true } })
+      .expect(200);
+
+    const declined = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { declineDraw: true } })
+      .expect(200);
+
+    expect(declined.body.match.outcome).toEqual({
+      status: "in_progress",
+      score: { seat1: 0, seat2: 0 }
+    });
+    expect(declined.body.match.boards[0]).toMatchObject({
+      outcome: { status: "in_progress" },
+      drawOffer: null,
+      seatsToAct: ["seat1"]
+    });
+    expect(declined.body.match.boards[0].moveHistory.at(-1)).toMatchObject({
+      seat: "seat1",
+      san: "declines draw",
+      drawDeclined: true
+    });
+    expect(declined.body.match.boards[1]).toMatchObject({
+      outcome: { status: "in_progress" },
+      seatsToAct: ["seat2"]
+    });
+  });
+
+  it("applies a per-board Chess takeback acceptance without changing the other board", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    const moved = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { from: "e2", to: "e4" } })
+      .expect(200);
+    const initialBoardBFen = moved.body.match.boards[1].fen;
+
+    const requested = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { requestTakeback: true } })
+      .expect(200);
+
+    expect(requested.body.match.boards[0]).toMatchObject({
+      outcome: { status: "in_progress" },
+      takebackRequest: { requestedBy: "seat1" },
+      seatsToAct: ["seat2"]
+    });
+
+    const accepted = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat2", move: { acceptTakeback: true } })
+      .expect(200);
+
+    const boardA = accepted.body.match.boards[0];
+    expect(boardA.takebackRequest).toBeNull();
+    expect(boardA.squares.find((square: { square: string }) => square.square === "e2").piece).toEqual({
+      color: "w",
+      type: "p"
+    });
+    expect(boardA.squares.find((square: { square: string }) => square.square === "e4").piece).toBeNull();
+    expect(boardA.seatsToAct).toEqual(["seat1"]);
+    expect(boardA.moveHistory).not.toEqual(expect.arrayContaining([expect.objectContaining({ san: "e4" })]));
+    expect(boardA.moveHistory.at(-1)).toMatchObject({
+      seat: "seat2",
+      san: "takeback accepted",
+      takebackAccepted: true
+    });
+    expect(accepted.body.match.boards[1]).toMatchObject({
+      outcome: { status: "in_progress" },
+      fen: initialBoardBFen,
+      seatsToAct: ["seat2"]
+    });
+  });
+
+  it("projects the checked king square through Chess board views", async () => {
+    const app = appWithDeterministicIds();
+    await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+    await request(app).post("/api/matches/match-1/join").send({}).expect(200);
+
+    await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { from: "e2", to: "e4" } })
+      .expect(200);
+    await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat2", move: { from: "f7", to: "f5" } })
+      .expect(200);
+    const response = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { from: "d1", to: "h5" } })
+      .expect(200);
+
+    const board = response.body.match.boards[0];
+    expect(board.isCheck).toBe(true);
+    expect(board.turnColor).toBe("b");
+    expect(board.checkSquare).toBe("e8");
   });
 
   it("applies representative opening moves for the added board games", async () => {

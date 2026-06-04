@@ -197,7 +197,7 @@ test("player can make an opening Chess move", async ({ browser }) => {
   await playChessMove(playerOne, "A", "e2", "e4");
 
   await expect(playerOne.getByRole("button", { name: "Board A square e4 white pawn" })).toBeVisible();
-  await expect(playerOne.getByRole("region", { name: "Board A move history" })).toHaveCount(0);
+  await expect(playerOne.getByRole("region", { name: "Board A move history" })).toContainText("e4");
 
   await playerOneContext.close();
   await playerTwoContext.close();
