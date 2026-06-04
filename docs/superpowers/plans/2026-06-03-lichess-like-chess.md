@@ -564,4 +564,4 @@ Started: 2026-06-04
 - [x] Run a final two-board Chess browser smoke.
   Evidence: In-app browser smoke against a disposable in-memory API on port 4100 and Vite on port 5174 created a Chess match, joined Player 2 through the local API, played Board A `e2-e4`, verified Board A move history showed `e4`, queued Board B black `e7-e5` as a premove, submitted Board B White `e2-e4` through the local API, verified the Board B premove auto-submitted and Board B move history showed `e5`, verified focused Board A `f` flipped only Board A while Board B remained black-oriented, toggled Zen mode with `z`, saved `/tmp/fairgame-chess-final-smoke.png`, and confirmed ports 4100 and 5174 were clear afterward.
 - [x] Update roadmap and this plan with closure evidence.
-  Evidence: Updated `roadmap.md` and this plan with fresh verification and final browser-smoke evidence. Commit hash pending.
+  Evidence: Updated `roadmap.md` and this plan with fresh verification and final browser-smoke evidence. Implementation commit: `dab79ed5a75c264ffd1ed94bea2f916da4aae3f6`.
