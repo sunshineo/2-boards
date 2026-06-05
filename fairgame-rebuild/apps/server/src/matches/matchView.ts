@@ -7,6 +7,7 @@ import {
   type SupportedGameState,
   type SupportedGameType
 } from "./gameRegistry.js";
+import type { BrowserChessBot } from "./browserChessBot.js";
 
 export type MatchView = {
   readonly id: string;
@@ -19,6 +20,7 @@ export type MatchView = {
   readonly outcome: MatchOutcome;
   readonly clock: MatchClockView | null;
   readonly boards: readonly MatchBoardView[];
+  readonly bot?: BrowserChessBot;
 };
 
 export type OpenMatchView = {
@@ -37,7 +39,8 @@ export function toMatchView(
   clock: MatchClockView | null = null,
   playerNames: ReadonlyMap<SeatId, string> = new Map(),
   joinedSeats: number = match.seats.length,
-  movesEnabled = true
+  movesEnabled = true,
+  browserBot: BrowserChessBot | null = null
 ): MatchView {
   const game = getGameDefinition(match.gameType);
   if (!game) {
@@ -58,7 +61,8 @@ export function toMatchView(
     },
     outcome: getMatchOutcome(match),
     clock,
-    boards: movesEnabled ? boards : boards.map(withoutSeatsToAct)
+    boards: movesEnabled ? boards : boards.map(withoutSeatsToAct),
+    ...(browserBot ? { bot: browserBot } : {})
   };
 }
 

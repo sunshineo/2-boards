@@ -79,7 +79,13 @@ export function createApp(
     }
   });
 
-  app.use("/api/matches", createMatchRouter(matchService, { secureCookies: config.secureCookies }));
+  app.use(
+    "/api/matches",
+    createMatchRouter(matchService, {
+      browserChessBotEnabled: config.browserChessBot.enabled,
+      secureCookies: config.secureCookies
+    })
+  );
   app.use("/api", (_request, response) => {
     response.status(404).json({ error: "not-found" });
   });

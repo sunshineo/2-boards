@@ -4,12 +4,19 @@ import type { BoardId, SeatId } from "@fairgame/shared";
 import type { ClockConfig } from "@fairgame/domain";
 
 import { parseSupportedGameType, type SupportedGameType } from "./gameRegistry.js";
+import {
+  getBotControlCookieName,
+  parseBotControlCookie,
+  parseBrowserChessBotDifficulty,
+  type BotControlClaim
+} from "./browserChessBot.js";
 import type { MatchService, SeatClaim } from "./matchService.js";
 
 type CreateBody = {
   readonly gameType?: unknown;
   readonly clockInitialMs?: unknown;
   readonly playerName?: unknown;
+  readonly bot?: unknown;
 };
 
 type JoinBody = {
@@ -24,7 +31,7 @@ type MoveBody = {
 
 export function createMatchRouter(
   matchService: MatchService,
-  options: { readonly secureCookies?: boolean } = {}
+  options: { readonly browserChessBotEnabled?: boolean; readonly secureCookies?: boolean } = {}
 ) {
   const router = Router();
 
@@ -46,12 +53,27 @@ export function createMatchRouter(
       return;
     }
 
+    const botDifficulty = parseCreateBotDifficulty(body.bot);
+    if (botDifficulty && gameType !== "chess") {
+      response.status(400).json({ error: "unsupported-bot-game" });
+      return;
+    }
+
+    if (botDifficulty && !options.browserChessBotEnabled) {
+      response.status(409).json({ error: "browser-bot-disabled" });
+      return;
+    }
+
     const result = await matchService.createMatch(
       gameType,
       typeof body.playerName === "string" ? body.playerName : undefined,
-      clockConfig
+      clockConfig,
+      botDifficulty ? { browserBotDifficulty: botDifficulty } : {}
     );
     setSeatClaimCookie(response, result.claim, options);
+    if (result.botControl) {
+      setBotControlCookie(response, result.botControl, options);
+    }
     response.status(201).json({ seat: result.seat, match: result.match });
   });
 
@@ -103,6 +125,38 @@ export function createMatchRouter(
     response.json({ match });
   });
 
+  router.post("/:id/bot-moves", async (request, response) => {
+    const body = request.body as MoveBody;
+    const id = request.params["id"] ?? "";
+
+    if (!isBoardId(body.boardId) || !isRecord(body.move)) {
+      response.status(400).json({ error: "invalid-command" });
+      return;
+    }
+
+    if (!options.browserChessBotEnabled) {
+      response.status(409).json({ error: "browser-bot-disabled" });
+      return;
+    }
+
+    const result = await matchService.applyBrowserBotMove({
+      id,
+      boardId: body.boardId,
+      move: body.move,
+      control: parseBotControlCookie(request.headers.cookie, id)
+    });
+
+    if (!result.ok) {
+      response.status(result.status).json({
+        error: result.reason,
+        match: result.match
+      });
+      return;
+    }
+
+    response.json({ match: result.match });
+  });
+
   router.post("/:id/moves", async (request, response) => {
     const body = request.body as MoveBody;
 
@@ -144,6 +198,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function parseCreateBotDifficulty(value: unknown) {
+  if (!isRecord(value)) return null;
+  return parseBrowserChessBotDifficulty(value["difficulty"]);
+}
+
 function parseClockConfig(
   gameType: SupportedGameType,
   clockInitialMs: unknown
@@ -172,6 +231,19 @@ function setSeatClaimCookie(
   options: { readonly secureCookies?: boolean } = {}
 ) {
   response.cookie(getSeatCookieName(claim.matchId), `${claim.seat}.${claim.secret}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: options.secureCookies ?? false,
+    path: "/"
+  });
+}
+
+function setBotControlCookie(
+  response: Response,
+  claim: BotControlClaim,
+  options: { readonly secureCookies?: boolean } = {}
+) {
+  response.cookie(getBotControlCookieName(claim.matchId), claim.secret, {
     httpOnly: true,
     sameSite: "lax",
     secure: options.secureCookies ?? false,

@@ -1,11 +1,14 @@
 import type { FairMatch, MatchClock } from "@fairgame/domain";
 import type { BoardId, SeatId } from "@fairgame/shared";
+import type { BrowserChessBot } from "./browserChessBot.js";
 
 export type SerializedStoredMatch<TState = unknown> = {
   readonly match: FairMatch<TState>;
   readonly joinedSeats: readonly SeatId[];
   readonly seatClaims: readonly (readonly [SeatId, string])[];
   readonly playerNames?: readonly (readonly [SeatId, string])[];
+  readonly browserBot?: BrowserChessBot | null;
+  readonly botControlSecret?: string | null;
   readonly lastActivityAtMs?: number;
   readonly clock?: MatchClock | null;
 };

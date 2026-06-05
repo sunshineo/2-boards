@@ -10,6 +10,9 @@ export type ServerConfig = {
     readonly moveDelayMs: number;
     readonly seat: "seat2";
   };
+  readonly browserChessBot: {
+    readonly enabled: boolean;
+  };
   readonly allowedOrigins: readonly string[];
   readonly secureCookies: boolean;
   readonly trustProxy: boolean;
@@ -40,6 +43,9 @@ export function loadServerConfig(env: Env = process.env, cwd = process.cwd()): S
       name: parseOptionalName(env["FAIRGAME_DEBUG_CHESS_BOT_NAME"], "Debug Bot"),
       moveDelayMs: parseNonNegativeInteger(env["FAIRGAME_DEBUG_CHESS_BOT_MOVE_DELAY_MS"], 2_000),
       seat: "seat2"
+    },
+    browserChessBot: {
+      enabled: parseBoolean(env["FAIRGAME_BROWSER_CHESS_BOT"], nodeEnv !== "production")
     },
     allowedOrigins: parseCsv(env["FAIRGAME_ALLOWED_ORIGINS"]),
     secureCookies: parseBoolean(env["FAIRGAME_SECURE_COOKIES"], nodeEnv === "production"),

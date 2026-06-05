@@ -47,7 +47,7 @@
 - Modify: `fairgame-rebuild/apps/server/src/matches/routes.ts`
 - Test: `fairgame-rebuild/apps/server/src/matches/browserChessBot.test.ts`
 
-- [ ] **Step 1: Write failing server tests for bot creation and authorization**
+- [x] **Step 1: Write failing server tests for bot creation and authorization**
 
 Create `fairgame-rebuild/apps/server/src/matches/browserChessBot.test.ts` with tests that construct `MatchService` and `createMatchRouter` directly:
 
@@ -152,7 +152,7 @@ describe("browser Chess bot", () => {
 });
 ```
 
-- [ ] **Step 2: Run server bot tests and confirm they fail**
+- [x] **Step 2: Run server bot tests and confirm they fail**
 
 Run:
 
@@ -162,7 +162,7 @@ npm test -w @fairgame/server -- browserChessBot
 
 Expected: FAIL because `browserChessBotEnabled`, bot metadata, bot cookies, and `/bot-moves` do not exist yet.
 
-- [ ] **Step 3: Implement server bot config, metadata, cookies, and endpoint**
+- [x] **Step 3: Implement server bot config, metadata, cookies, and endpoint**
 
 Implementation details:
 
@@ -184,7 +184,7 @@ botControlSecret: string | null;
 - Add `POST /:id/bot-moves` in `routes.ts`. It must read the bot-control cookie, never accept a request `seat`, call the service bot-move method, and return the same `{ match }` shape.
 - Set the bot-control cookie in `POST /api/matches` only for bot matches.
 
-- [ ] **Step 4: Run server tests and typecheck**
+- [x] **Step 4: Run server tests and typecheck**
 
 Run:
 
@@ -195,7 +195,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit server bot model**
+- [ ] **Step 5: Commit server bot model** _(in progress)_
 
 ```bash
 git add fairgame-rebuild/apps/server/src/config.ts \
