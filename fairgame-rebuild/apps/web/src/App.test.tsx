@@ -394,6 +394,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
 
     expect(await screen.findByTestId("match-code")).toHaveAttribute("data-match-id", "match-bot-create");
+    expect(screen.getByTestId("match-opponent-name")).toHaveTextContent("Stockfish Normal");
     expect(fetchMock).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({

@@ -789,13 +789,19 @@ function MatchRoom(props: {
       data-zen-mode={props.isZenMode ? "true" : "false"}
     >
       {props.isZenMode ? null : (
-        <div className="match-summary">
+        <div className={`match-summary${props.match.bot?.kind === "browser-stockfish" ? " bot-match-summary" : ""}`}>
           <div>
             <span className="meta-label">Game</span>
             <strong data-testid="match-code" data-match-id={props.match.id}>
               {props.match.gameLabel}
             </strong>
           </div>
+          {props.match.bot?.kind === "browser-stockfish" ? (
+            <div>
+              <span className="meta-label">Opponent</span>
+              <strong data-testid="match-opponent-name">{props.match.bot.displayName}</strong>
+            </div>
+          ) : null}
           <div>
             <span className="meta-label">Score</span>
             <strong>{formatScore(props.match)}</strong>
