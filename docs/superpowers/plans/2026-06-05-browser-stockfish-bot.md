@@ -760,7 +760,7 @@ npm run build
 
 Expected: all pass.
 
-**Task 6 Step 1 Evidence:** `npm test -w @fairgame/web -- App` passed with 38 tests; `npm run typecheck` passed; final `npm test` passed with 213 tests across shared/domain/server/web workspaces; `npm run build` passed and copied 2 Stockfish assets. One earlier full-suite `npm test` run hit a transient 404 in `tests/matches.test.ts`; `npm test -w @fairgame/server -- tests/matches.test.ts`, `npm test -w @fairgame/server`, and the final full `npm test` rerun all passed.
+**Task 6 Step 1 Evidence:** `npm test -w @fairgame/web -- App` passed with 39 tests; `npm run typecheck` passed; final `npm test` passed with 214 tests across shared/domain/server/web workspaces; `npm run build` passed and copied 2 Stockfish assets. One earlier full-suite `npm test` run hit a transient 404 in `tests/matches.test.ts`; `npm test -w @fairgame/server -- tests/matches.test.ts`, `npm test -w @fairgame/server`, and the final full `npm test` rerun all passed.
 
 - [x] **Step 2: Start local servers with browser bot enabled**
 
@@ -818,7 +818,7 @@ git add docs/superpowers/specs/2026-06-05-browser-stockfish-bot-design.md
 git commit -m "docs: record browser chess bot evidence"
 ```
 
-**Task 6 Step 5 Evidence:** Commit `371459d` recorded the implementation evidence in the design doc, updated this execution plan through final verification, and added the roadmap follow-up that supersedes the retired local heuristic bot.
+**Task 6 Step 5 Evidence:** Commit `371459d` recorded the implementation evidence in the design doc, updated this execution plan through final verification, and added the roadmap follow-up that supersedes the retired local heuristic bot. Follow-up commit `6978cb5` closed the final UI-state audit gap by adding the pending `Creating bot game` state; verification was rerun afterward.
 
 ---
 
