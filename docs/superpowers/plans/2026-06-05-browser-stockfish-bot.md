@@ -384,7 +384,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit web API and assets** _(in progress)_
+- [x] **Step 6: Commit web API and assets**
 
 ```bash
 git add fairgame-rebuild/apps/web/package.json fairgame-rebuild/package-lock.json \
@@ -395,6 +395,8 @@ git add fairgame-rebuild/apps/web/package.json fairgame-rebuild/package-lock.jso
 git commit -m "feat: add browser chess bot web API"
 ```
 
+**Task 2 Evidence:** Commit `f0424dd`; `npm run prebuild -w @fairgame/web` copied 2 assets; `npm test -w @fairgame/web -- api` passed; `npm run typecheck` passed.
+
 ---
 
 ### Task 3: Browser Stockfish Engine And Bot Controller
@@ -403,7 +405,7 @@ git commit -m "feat: add browser chess bot web API"
 - Create: `fairgame-rebuild/apps/web/src/browserChessBot.ts`
 - Create: `fairgame-rebuild/apps/web/src/browserChessBot.test.ts`
 
-- [ ] **Step 1: Write failing browser bot utility tests**
+- [x] **Step 1: Write failing browser bot utility tests**
 
 Create `browserChessBot.test.ts`:
 
@@ -482,7 +484,7 @@ describe("browserChessBot", () => {
 
 Use a local `createBotMatch` fixture with one Chess board containing `fen`, `legalMoves`, `drawOffer`, `takebackRequest`, and `seatsToAct`.
 
-- [ ] **Step 2: Run browser bot utility tests and confirm they fail**
+- [x] **Step 2: Run browser bot utility tests and confirm they fail**
 
 Run:
 
@@ -492,7 +494,7 @@ npm test -w @fairgame/web -- browserChessBot
 
 Expected: FAIL because `browserChessBot.ts` does not exist.
 
-- [ ] **Step 3: Implement presets, UCI conversion, selection, and controller**
+- [x] **Step 3: Implement presets, UCI conversion, selection, and controller**
 
 Create `browserChessBot.ts` with:
 
@@ -519,7 +521,7 @@ type BrowserChessBotEngine = {
 - `createStockfishEngine()` that starts a Worker from `/vendor/stockfish/stockfish-18-lite-single.js`.
 - `createBrowserChessBotController({ createEngine, submitMove, onStatus })` that serializes bot work, validates best moves against `board.legalMoves`, reports status, and exposes `runForMatch(match)` and `dispose()`.
 
-- [ ] **Step 4: Run browser bot utility tests and typecheck**
+- [x] **Step 4: Run browser bot utility tests and typecheck**
 
 Run:
 
@@ -530,7 +532,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit browser bot utilities**
+- [ ] **Step 5: Commit browser bot utilities** _(in progress)_
 
 ```bash
 git add fairgame-rebuild/apps/web/src/browserChessBot.ts fairgame-rebuild/apps/web/src/browserChessBot.test.ts
