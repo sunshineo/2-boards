@@ -532,12 +532,14 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit browser bot utilities** _(in progress)_
+- [x] **Step 5: Commit browser bot utilities**
 
 ```bash
 git add fairgame-rebuild/apps/web/src/browserChessBot.ts fairgame-rebuild/apps/web/src/browserChessBot.test.ts
 git commit -m "feat: add browser stockfish controller"
 ```
+
+**Task 3 Evidence:** Commit `e478d90`; `npm test -w @fairgame/web -- browserChessBot` passed; `npm run typecheck` passed.
 
 ---
 
@@ -548,7 +550,7 @@ git commit -m "feat: add browser stockfish controller"
 - Modify: `fairgame-rebuild/apps/web/src/App.test.tsx`
 - Modify: `fairgame-rebuild/apps/web/src/styles.css`
 
-- [ ] **Step 1: Write failing app integration tests**
+- [x] **Step 1: Write failing app integration tests**
 
 Add tests to `App.test.tsx`:
 
@@ -578,7 +580,7 @@ vi.mock("./browserChessBot", async () => {
 });
 ```
 
-- [ ] **Step 2: Run app tests and confirm they fail**
+- [x] **Step 2: Run app tests and confirm they fail**
 
 Run:
 
@@ -588,7 +590,7 @@ npm test -w @fairgame/web -- App
 
 Expected: FAIL because the UI and integration are not implemented.
 
-- [ ] **Step 3: Implement lobby mode and difficulty UI**
+- [x] **Step 3: Implement lobby mode and difficulty UI**
 
 In `App.tsx`:
 
@@ -604,7 +606,7 @@ const [browserBotDifficulty, setBrowserBotDifficulty] = useState<BrowserChessBot
 - Add `Easy` / `Normal` / `Hard` buttons when Bot is selected.
 - Keep quick-pairing buttons using the current selected mode/difficulty.
 
-- [ ] **Step 4: Integrate bot controller in the match screen**
+- [x] **Step 4: Integrate bot controller in the match screen**
 
 In `App.tsx`:
 
@@ -622,7 +624,7 @@ type BrowserBotStatus = "idle" | "loading" | "thinking" | "error";
 - Render lightweight status text in `MatchRoom`, such as `Bot loading`, `Bot thinking`, or `Bot move failed`.
 - Add a retry button when status is `error`.
 
-- [ ] **Step 5: Add compact styles**
+- [x] **Step 5: Add compact styles**
 
 In `styles.css`, add focused styles for:
 
@@ -633,7 +635,7 @@ In `styles.css`, add focused styles for:
 
 Keep controls dense and consistent with existing buttons. Do not add a marketing-style panel or nested cards.
 
-- [ ] **Step 6: Run app tests and typecheck**
+- [x] **Step 6: Run app tests and typecheck**
 
 Run:
 
@@ -644,7 +646,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit app integration**
+- [ ] **Step 7: Commit app integration** _(in progress)_
 
 ```bash
 git add fairgame-rebuild/apps/web/src/App.tsx fairgame-rebuild/apps/web/src/App.test.tsx fairgame-rebuild/apps/web/src/styles.css

@@ -43,6 +43,32 @@ vi.mock("socket.io-client", () => ({
   io: socketIoMock.io
 }));
 
+const browserChessBotMock = vi.hoisted(() => {
+  type MockController = {
+    runForMatch: ReturnType<typeof vi.fn>;
+    dispose: ReturnType<typeof vi.fn>;
+  };
+  const controllers: MockController[] = [];
+  const createBrowserChessBotController = vi.fn(() => {
+    const controller = {
+      runForMatch: vi.fn(async () => undefined),
+      dispose: vi.fn()
+    };
+    controllers.push(controller);
+    return controller;
+  });
+
+  return { controllers, createBrowserChessBotController };
+});
+
+vi.mock("./browserChessBot", async () => {
+  const actual = await vi.importActual<typeof import("./browserChessBot")>("./browserChessBot");
+  return {
+    ...actual,
+    createBrowserChessBotController: browserChessBotMock.createBrowserChessBotController
+  };
+});
+
 import { App } from "./App";
 import type { ChessBoardView, ChessLegalMove, SeatId } from "./types";
 
@@ -50,6 +76,8 @@ afterEach(() => {
   cleanup();
   socketIoMock.io.mockClear();
   socketIoMock.sockets.length = 0;
+  browserChessBotMock.createBrowserChessBotController.mockClear();
+  browserChessBotMock.controllers.length = 0;
   vi.useRealTimers();
   vi.unstubAllGlobals();
   localStorage.clear();
@@ -212,6 +240,22 @@ describe("App", () => {
     expect(screen.getByText("2-20 min")).toBeInTheDocument();
   });
 
+  it("shows Chess bot mode controls and difficulty choices", () => {
+    vi.stubGlobal("fetch", createFetchMock({ matches: [] }));
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+
+    expect(screen.getByRole("button", { name: "Human" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Bot" })).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Bot" }));
+
+    expect(screen.getByRole("button", { name: "Easy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Normal" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Hard" })).toBeInTheDocument();
+  });
+
   it("stores game lobbies in browser history", async () => {
     vi.stubGlobal("fetch", createFetchMock({ matches: [] }));
 
@@ -330,6 +374,65 @@ describe("App", () => {
     expect(screen.getByLabelText("Opponent clock")).toHaveTextContent("10:00");
     expect(screen.queryByLabelText("Board A White clock")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Board B Black clock")).not.toBeInTheDocument();
+  });
+
+  it("creates a Chess bot match with the selected difficulty", async () => {
+    const botSession = createChessSeatSession("match-bot-create");
+    (botSession.match as typeof botSession.match & { bot: unknown }).bot = {
+      seat: "seat2",
+      kind: "browser-stockfish",
+      difficulty: "normal",
+      displayName: "Stockfish Normal"
+    };
+    botSession.match.players.seat2.name = "Stockfish Normal";
+    const fetchMock = createFetchMock({ matches: [], seatSession: botSession });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
+
+    expect(await screen.findByTestId("match-code")).toHaveAttribute("data-match-id", "match-bot-create");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: JSON.stringify({ gameType: "chess", clockInitialMs: 300_000, bot: { difficulty: "normal" } })
+      })
+    );
+  });
+
+  it("does not start the browser bot controller for human Chess matches", async () => {
+    vi.stubGlobal("fetch", createFetchMock({ matches: [], seatSession: createChessSeatSession("match-human") }));
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
+
+    await screen.findByTestId("match-code");
+    expect(browserChessBotMock.createBrowserChessBotController).not.toHaveBeenCalled();
+  });
+
+  it("starts the browser bot controller for bot Chess matches", async () => {
+    const botSession = createChessSeatSession("match-bot-controller");
+    (botSession.match as typeof botSession.match & { bot: unknown }).bot = {
+      seat: "seat2",
+      kind: "browser-stockfish",
+      difficulty: "normal",
+      displayName: "Stockfish Normal"
+    };
+    vi.stubGlobal("fetch", createFetchMock({ matches: [], seatSession: botSession }));
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
+
+    await screen.findByTestId("match-code");
+    await waitFor(() => expect(browserChessBotMock.createBrowserChessBotController).toHaveBeenCalledTimes(1));
+    expect(browserChessBotMock.controllers[0]?.runForMatch).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "match-bot-controller" })
+    );
   });
 
   it("renders the two boards after creating a match", async () => {
@@ -1205,15 +1308,17 @@ describe("App", () => {
     ];
     offeredBoardA.drawOffer = { offeredBy: "seat1" };
 
+    let currentSession = seatSession;
     const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url);
       const method = init?.method ?? "GET";
       if (path.endsWith("/api/matches") && method === "GET") return createJsonResponse({ matches: [] });
       if (path.endsWith("/api/matches") && method === "POST") return createJsonResponse(seatSession);
       if (path.endsWith("/api/matches/match-chess-draw-offer/moves") && method === "POST") {
+        currentSession = offeredSession;
         return createJsonResponse({ match: offeredSession.match });
       }
-      return createJsonResponse(seatSession);
+      return createJsonResponse(currentSession);
     });
     vi.stubGlobal("fetch", fetchMock);
 

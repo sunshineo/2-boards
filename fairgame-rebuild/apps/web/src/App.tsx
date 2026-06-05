@@ -16,13 +16,20 @@ import {
   createMatch,
   getApiBaseUrl,
   joinMatch,
+  makeBotMove,
   listOpenMatches,
   makeMove,
   restoreSession
 } from "./api";
+import {
+  createBrowserChessBotController,
+  type BrowserChessBotController,
+  type BrowserChessBotStatus
+} from "./browserChessBot";
 import type {
   BreakthroughBoardView,
   BoardId,
+  BrowserChessBotDifficulty,
   ChessBoardView,
   ChessLegalMove,
   ChessMoveRecord,
@@ -133,6 +140,15 @@ const gameTimeRanges: Record<GameType, { readonly min: number; readonly max: num
 };
 
 const recentMatchesKey = "fairgame.recentMatches";
+const isBrowserChessBotEnabled = import.meta.env["VITE_BROWSER_CHESS_BOT"] !== "false";
+const browserChessBotDifficultyOptions: readonly {
+  readonly difficulty: BrowserChessBotDifficulty;
+  readonly label: string;
+}[] = [
+  { difficulty: "easy", label: "Easy" },
+  { difficulty: "normal", label: "Normal" },
+  { difficulty: "hard", label: "Hard" }
+];
 
 type RecentMatch = {
   readonly id: string;
@@ -155,10 +171,15 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [isChessZenMode, setIsChessZenMode] = useState(false);
+  const [chessCreateMode, setChessCreateMode] = useState<"human" | "bot">("human");
+  const [browserBotDifficulty, setBrowserBotDifficulty] = useState<BrowserChessBotDifficulty>("normal");
+  const [browserBotStatus, setBrowserBotStatus] = useState<BrowserChessBotStatus>("idle");
+  const [browserBotRetryVersion, setBrowserBotRetryVersion] = useState(0);
   const restoreRequestRef = useRef<{ readonly matchId: string; readonly promise: Promise<SeatSession> } | null>(null);
   const mutationVersionRef = useRef(0);
   const isBusyRef = useRef(false);
   const isChessMatchActiveRef = useRef(false);
+  const browserBotControllerRef = useRef<BrowserChessBotController | null>(null);
   const lobbyGame = route.view === "lobby" ? route.gameType : null;
   const activeSession = route.view === "match" && session?.match.id === route.matchId ? session : null;
   const isChessMatchActive = activeSession?.match.gameType === "chess";
@@ -327,6 +348,37 @@ export function App() {
   }, [isChessMatchActive]);
 
   useEffect(() => {
+    const matchId = activeSession?.match.bot?.kind === "browser-stockfish" ? activeSession.match.id : null;
+    if (!matchId) {
+      browserBotControllerRef.current?.dispose();
+      browserBotControllerRef.current = null;
+      setBrowserBotStatus("idle");
+      return;
+    }
+
+    const controller = createBrowserChessBotController({
+      onStatus: setBrowserBotStatus,
+      submitMove: async ({ boardId, move }) => {
+        const match = await makeBotMove({ matchId, boardId, move });
+        setSession((current) => (current?.match.id === match.id ? { ...current, match } : current));
+      }
+    });
+    browserBotControllerRef.current = controller;
+
+    return () => {
+      controller.dispose();
+      if (browserBotControllerRef.current === controller) {
+        browserBotControllerRef.current = null;
+      }
+    };
+  }, [activeSession?.match.bot?.kind, activeSession?.match.id]);
+
+  useEffect(() => {
+    if (activeSession?.match.bot?.kind !== "browser-stockfish") return;
+    void browserBotControllerRef.current?.runForMatch(activeSession.match);
+  }, [activeSession?.match, browserBotRetryVersion]);
+
+  useEffect(() => {
     function handleZenModeKeyDown(event: globalThis.KeyboardEvent) {
       if (!isChessMatchActiveRef.current) return;
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.key.toLowerCase() !== "z") {
@@ -378,7 +430,11 @@ export function App() {
   async function handleCreate(minutes = customMinutes) {
     if (!lobbyGame) return;
     await run(async () => {
-      const nextSession = await createMatch(lobbyGame, { clockInitialMs: minutesToMs(minutes, lobbyGame) });
+      const shouldCreateBot = isBrowserChessBotEnabled && lobbyGame === "chess" && chessCreateMode === "bot";
+      const nextSession = await createMatch(lobbyGame, {
+        clockInitialMs: minutesToMs(minutes, lobbyGame),
+        ...(shouldCreateBot ? { bot: { difficulty: browserBotDifficulty } } : {})
+      });
       setSession(nextSession);
       navigateTo({ view: "match", matchId: nextSession.match.id });
     });
@@ -421,6 +477,11 @@ export function App() {
         })
       });
     });
+  }
+
+  function handleBrowserBotRetry() {
+    setBrowserBotStatus("idle");
+    setBrowserBotRetryVersion((version) => version + 1);
   }
 
   async function handleRematch() {
@@ -492,8 +553,10 @@ export function App() {
           isZenMode={isChessZenModeActive}
           match={activeSession.match}
           seat={activeSession.seat}
+          botStatus={activeSession.match.bot?.kind === "browser-stockfish" ? browserBotStatus : "idle"}
           onMove={handleMove}
           onRematch={handleRematch}
+          onBotRetry={handleBrowserBotRetry}
           isBusy={isBusy}
         />
       ) : showMatchLoading ? (
@@ -516,6 +579,46 @@ export function App() {
             </div>
             <section className="quick-pairing" aria-label="Quick pairing">
               <h3>Quick pairing</h3>
+              {isBrowserChessBotEnabled && lobbyGame === "chess" ? (
+                <div className="mode-section" aria-label="Chess opponent">
+                  <div className="mode-toggle" role="group" aria-label="Opponent">
+                    <button
+                      aria-pressed={chessCreateMode === "human"}
+                      className={chessCreateMode === "human" ? "selected" : ""}
+                      disabled={isBusy}
+                      onClick={() => setChessCreateMode("human")}
+                      type="button"
+                    >
+                      Human
+                    </button>
+                    <button
+                      aria-pressed={chessCreateMode === "bot"}
+                      className={chessCreateMode === "bot" ? "selected" : ""}
+                      disabled={isBusy}
+                      onClick={() => setChessCreateMode("bot")}
+                      type="button"
+                    >
+                      Bot
+                    </button>
+                  </div>
+                  {chessCreateMode === "bot" ? (
+                    <div className="difficulty-grid" role="group" aria-label="Bot difficulty">
+                      {browserChessBotDifficultyOptions.map((option) => (
+                        <button
+                          aria-pressed={browserBotDifficulty === option.difficulty}
+                          className={browserBotDifficulty === option.difficulty ? "selected" : ""}
+                          disabled={isBusy}
+                          key={option.difficulty}
+                          onClick={() => setBrowserBotDifficulty(option.difficulty)}
+                          type="button"
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="quick-time-grid">
                 {quickTimeOptions.map((option) => (
                   <button
@@ -668,8 +771,10 @@ function isEditableShortcutTarget(target: EventTarget | null) {
 function MatchRoom(props: {
   match: MatchView;
   seat: SeatId | null;
+  botStatus: BrowserChessBotStatus;
   onMove: (boardId: BoardId, move: MovePayload) => void;
   onRematch: () => void;
+  onBotRetry: () => void;
   isBusy: boolean;
   isZenMode: boolean;
 }) {
@@ -710,6 +815,17 @@ function MatchRoom(props: {
         </div>
       ) : null}
 
+      {props.match.bot?.kind === "browser-stockfish" && props.botStatus !== "idle" && !props.isZenMode ? (
+        <div className={`bot-status${props.botStatus === "error" ? " error" : ""}`}>
+          <span>{formatBrowserBotStatus(props.botStatus)}</span>
+          {props.botStatus === "error" ? (
+            <button className="secondary-button compact-button" onClick={props.onBotRetry} type="button">
+              Retry
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <ClockStrip clock={props.match.clock} currentSeat={props.seat} />
 
       <div className="boards-grid">
@@ -725,6 +841,13 @@ function MatchRoom(props: {
       </div>
     </section>
   );
+}
+
+function formatBrowserBotStatus(status: BrowserChessBotStatus) {
+  if (status === "loading") return "Bot loading";
+  if (status === "thinking") return "Bot thinking";
+  if (status === "error") return "Bot move failed";
+  return "";
 }
 
 function ClockStrip(props: { clock: MatchClockView | null; currentSeat: SeatId | null }) {
