@@ -314,17 +314,57 @@ button:disabled {
   gap: 18px;
 }
 
+.app-shell.chess-match-shell {
+  width: min(1760px, 100%);
+  padding: 14px;
+}
+
+.app-shell.chess-match-shell .top-bar {
+  margin-bottom: 12px;
+}
+
+.app-shell.chess-match-shell h1 {
+  font-size: clamp(1.4rem, 3vw, 2.1rem);
+}
+
+.app-shell.chess-match-shell .eyebrow {
+  margin-bottom: 6px;
+}
+
 .app-shell.chess-zen-mode {
-  width: min(1360px, 100%);
-  padding: 16px;
+  width: min(1800px, 100%);
+  padding: 10px;
+}
+
+.chess-match-room {
+  --chess-board-size: min(100%, calc(100svh - 260px));
+  gap: 12px;
 }
 
 .zen-match-room {
   gap: 12px;
 }
 
-.chess-zen-mode .boards-grid {
-  gap: 16px;
+.chess-zen-mode .chess-match-room {
+  --chess-board-size: min(100%, calc(100svh - 96px));
+}
+
+.chess-match-room .match-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 12px;
+}
+
+.chess-match-room .clock-strip {
+  gap: 10px;
+}
+
+.chess-match-room .clock-card {
+  padding: 10px 12px;
+}
+
+.chess-match-room .boards-grid {
+  align-items: start;
+  gap: 12px;
 }
 
 .match-actions {
@@ -375,8 +415,20 @@ button:disabled {
 }
 
 .clock-card.running {
-  border-color: #245d63;
-  box-shadow: 0 0 0 2px rgb(36 93 99 / 12%);
+  border-color: #6aa127;
+  background: #dff0cf;
+  box-shadow:
+    0 0 0 2px rgb(106 161 39 / 18%),
+    0 16px 42px rgb(25 37 24 / 10%);
+}
+
+.clock-card.running .meta-label,
+.clock-card.running span:last-child {
+  color: #35501a;
+}
+
+.clock-card.running strong {
+  color: #1f2a3d;
 }
 
 .boards-grid {
@@ -410,7 +462,9 @@ button:disabled {
 
 .chess-board-panel {
   display: grid;
-  gap: 14px;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
 }
 
 .chess-heading {
@@ -418,7 +472,7 @@ button:disabled {
   margin-bottom: 0;
 }
 
-.chess-heading > div {
+.chess-heading > div:not(.chess-heading-actions) {
   display: grid;
   gap: 4px;
 }
@@ -428,44 +482,7 @@ button:disabled {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.chess-turn-pill {
-  align-self: start;
-  border-radius: 999px;
-  background: #1f2a3d;
-  color: #ffffff;
-  padding: 6px 10px;
-  font-size: 0.78rem;
-  font-weight: 900;
-}
-
-.chess-turn-pill.w {
-  background: #ffffff;
-  color: #1f2a3d;
-  box-shadow: inset 0 0 0 1px #bdc7d4;
-}
-
-.chess-turn-pill.check {
-  background: #b74f2a;
-  color: #ffffff;
-  box-shadow: none;
-}
-
-.chess-turn-pill.draw-offer {
-  background: #5f6b79;
-  color: #ffffff;
-  box-shadow: none;
-}
-
-.chess-turn-pill.takeback {
-  background: #3d6f86;
-  color: #ffffff;
-  box-shadow: none;
-}
-
-.chess-flip-button {
-  min-height: 31px;
+  min-width: 0;
 }
 
 .chess-draw-response-group,
@@ -511,13 +528,18 @@ button:disabled {
 
 .chess-board-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(220px, 0.58fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 14px;
+  justify-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .chess-board-stage {
   position: relative;
+  display: grid;
+  justify-items: center;
+  width: 100%;
   min-width: 0;
 }
 
@@ -589,12 +611,16 @@ button:disabled {
 
 .react-chessboard-shell {
   position: relative;
-  width: 100%;
-  max-width: 560px;
+  width: min(100%, 560px);
   aspect-ratio: 1;
   border: 1px solid #8c947f;
   border-radius: 8px;
   overflow: hidden;
+}
+
+.chess-match-room .react-chessboard-shell {
+  width: var(--chess-board-size);
+  max-width: none;
 }
 
 .react-chessboard-shell > div {
@@ -605,6 +631,8 @@ button:disabled {
 .react-chessboard-square-button {
   display: grid;
   place-items: center;
+  position: relative;
+  isolation: isolate;
   width: 100%;
   height: 100%;
   border: 0;
@@ -612,6 +640,11 @@ button:disabled {
   background: transparent;
   padding: 0;
   cursor: pointer;
+}
+
+.react-chessboard-square-button > :not(.chess-legal-move-dot) {
+  position: relative;
+  z-index: 1;
 }
 
 .react-chessboard-square-button:disabled {
@@ -622,6 +655,31 @@ button:disabled {
 
 .react-chessboard-square-button.legal-target:not(:disabled) {
   cursor: pointer;
+}
+
+.chess-legal-move-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  width: clamp(12px, 28%, 30px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: rgb(52 168 83 / 86%);
+  box-shadow:
+    0 0 0 2px rgb(255 255 255 / 32%),
+    0 2px 8px rgb(31 42 61 / 24%);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.chess-legal-move-dot.capture {
+  width: 78%;
+  background: transparent;
+  border: clamp(3px, 7%, 7px) solid rgb(52 168 83 / 86%);
+  box-shadow:
+    inset 0 0 0 2px rgb(255 255 255 / 18%),
+    0 2px 8px rgb(31 42 61 / 22%);
 }
 
 .react-chessboard-square-button.selected:not(:disabled) {
@@ -743,106 +801,16 @@ button:disabled {
 
 .chess-side-panel {
   display: grid;
-  gap: 14px;
-  min-width: 0;
-}
-
-.chess-player-stack {
-  display: grid;
-  gap: 0;
-  overflow: hidden;
-  border: 1px solid #d7ddd2;
-  border-radius: 8px;
-}
-
-.chess-player-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
   gap: 8px;
-  min-height: 58px;
-  background: #ffffff;
-  padding: 10px;
-}
-
-.chess-player-row + .chess-player-row {
-  border-top: 1px solid #d7ddd2;
-}
-
-.chess-player-row.to-move {
-  background: #eef7f5;
-}
-
-.chess-player-row > div {
-  display: grid;
-  gap: 3px;
+  width: min(100%, var(--chess-board-size));
   min-width: 0;
-}
-
-.chess-player-row strong,
-.chess-player-row span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chess-player-row > div span {
-  color: #56627a;
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.chess-color-dot {
-  width: 16px;
-  height: 16px;
-  border: 1px solid #1f2a3d;
-  border-radius: 50%;
-  background: #ffffff;
-}
-
-.chess-player-row.b .chess-color-dot {
-  background: #1f2a3d;
-}
-
-.captured-pieces {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 100%;
-  color: #56627a;
-  font-size: 0.9rem;
-  font-weight: 900;
-  text-align: left;
-}
-
-.material-advantage {
-  color: #245d63;
-}
-
-.chess-player-clock {
-  display: inline-grid;
-  min-width: 54px;
-  border-radius: 6px;
-  background: #e9edf4;
-  color: #1f2a3d;
-  padding: 6px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 0.92rem;
-  font-weight: 900;
-  line-height: 1;
-  text-align: center;
-}
-
-.chess-player-clock.running {
-  background: #1f2a3d;
-  color: #ffffff;
 }
 
 .chess-move-card {
   display: grid;
   gap: 8px;
   min-width: 0;
-  min-height: 176px;
+  min-height: 124px;
   overflow: hidden;
   border-radius: 8px;
   background: #f8fafc;
@@ -910,7 +878,7 @@ button:disabled {
 .chess-move-list {
   display: grid;
   gap: 2px;
-  max-height: 250px;
+  max-height: clamp(82px, 14svh, 180px);
   margin: 0;
   overflow: auto;
   padding: 0;
@@ -1274,6 +1242,21 @@ button:disabled {
   text-align: left;
 }
 
+@media (max-width: 920px) {
+  .app-shell.chess-match-shell {
+    padding: 10px;
+  }
+
+  .chess-match-room {
+    --chess-board-size: min(100%, calc(100svh - 210px));
+  }
+
+  .chess-match-room .boards-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+}
+
 @media (max-width: 560px) {
   .app-shell {
     padding: 18px;
@@ -1302,5 +1285,81 @@ button:disabled {
   .open-match,
   .recent-match {
     grid-template-columns: 1fr;
+  }
+
+  .app-shell.chess-match-shell {
+    padding: 10px;
+  }
+
+  .app-shell.chess-match-shell .top-bar {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .app-shell.chess-match-shell .eyebrow {
+    display: none;
+  }
+
+  .app-shell.chess-match-shell h1 {
+    font-size: 1.25rem;
+  }
+
+  .app-shell.chess-match-shell .compact-button {
+    min-height: 28px;
+    padding: 0 8px;
+    font-size: 0.76rem;
+  }
+
+  .chess-match-room .match-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .chess-match-room .match-summary div {
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .chess-match-room .match-summary strong {
+    overflow: hidden;
+    font-size: 0.82rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chess-match-room .clock-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chess-match-room .clock-card {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .chess-match-room .chess-heading {
+    display: grid;
+    gap: 6px;
+  }
+
+  .chess-match-room .chess-heading-actions {
+    flex-wrap: nowrap;
+    gap: 4px;
+    justify-content: flex-start;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 2px;
+    width: 100%;
+  }
+
+  .chess-match-room .chess-heading-actions .compact-button {
+    padding: 0 6px;
+    font-size: 0.72rem;
+  }
+
+  .chess-match-room .chess-heading-actions > * {
+    flex: 0 0 auto;
   }
 }
