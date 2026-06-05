@@ -540,6 +540,32 @@ button:disabled {
   gap: 4px;
 }
 
+.chess-status-heading {
+  min-width: 0;
+}
+
+.board-heading .chess-turn-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  max-width: 100%;
+  border: 1px solid #cdd4c4;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 8px 12px;
+  color: #26394b;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.board-heading .chess-turn-status.active {
+  border-color: #6aa127;
+  background: #dff0cf;
+  color: #1f2a3d;
+  box-shadow: 0 0 0 2px rgb(106 161 39 / 18%);
+}
+
 .chess-heading-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1407,6 +1433,12 @@ button:disabled {
   .chess-match-room .chess-heading {
     display: grid;
     gap: 6px;
+  }
+
+  .chess-match-room .board-heading .chess-turn-status {
+    min-height: 34px;
+    padding: 6px 9px;
+    font-size: 0.98rem;
   }
 
   .chess-match-room .chess-heading-actions {

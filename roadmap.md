@@ -277,6 +277,7 @@ Checkpoint 7 implementation commit: `1746f23`.
 
 - [x] Improve active-board and active-player affordances.
   Evidence: Added active-board styling and `Your move` affordances for TicTacToe, Connect Four, and Chess board renderers; built-in browser verification confirmed Board A as the only active board for Player 1 while Board B was disabled.
+  Follow-up 2026-06-05: Chess board panels no longer render visible `Board A`/`Board B` headings; board IDs remain available through section labels while the larger status badge carries the header. Active `Your move` statuses reuse the running-clock green background and border, while inactive statuses stay white. Verification passed with `npm test -w @fairgame/web -- App -t "shows active Chess targets"`, `npm test -w @fairgame/web -- App`, `npm test -w @fairgame/web`, `npm run typecheck`, and `npm run build`. Built-in browser verification at `http://localhost:5176/games/chess` confirmed zero `Board A`/`Board B` heading roles, hidden board labels at `1x1`, active status styling at `rgb(223, 240, 207)` with border `rgb(106, 161, 39)`, a post-move transition to white `Opponent to move`, and no header overlap.
 - [x] Add player names, rematch, copy invite link, and match history view.
   Evidence: Added generic player-name metadata to match snapshots and `MatchView`, setup name inputs, copy-invite feedback, completed-match rematch control, and local recent-match history.
 - [x] Improve desktop and mobile layouts.

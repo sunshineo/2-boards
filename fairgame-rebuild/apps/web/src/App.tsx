@@ -1565,9 +1565,11 @@ function ChessBoard(props: {
       tabIndex={0}
     >
       <div className="board-heading chess-heading">
-        <div>
-          <h2>Board {props.board.id}</h2>
-          <p>{boardStatus}</p>
+        <div className="chess-status-heading">
+          <span className="sr-only">Board {props.board.id}</span>
+          <p className={`chess-turn-status${canAct ? " active" : ""}`} data-testid={`board-${props.board.id}-status`}>
+            {boardStatus}
+          </p>
         </div>
         <div className="chess-heading-actions">
           {isOpponentTakebackRequest ? (

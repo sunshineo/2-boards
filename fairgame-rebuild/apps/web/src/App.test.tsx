@@ -1224,6 +1224,12 @@ describe("App", () => {
     expect(boardA).toHaveAttribute("data-position-fen", boardAFenAfterE5);
     expect(boardAPanel).toHaveAttribute("tabindex", "0");
     expect(boardBPanel).toHaveAttribute("tabindex", "0");
+    expect(screen.queryByRole("heading", { name: "Board A" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Board B" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("board-A-status")).toHaveTextContent("Your move");
+    expect(screen.getByTestId("board-A-status")).toHaveClass("active");
+    expect(screen.getByTestId("board-B-status")).toHaveTextContent("Opponent to move");
+    expect(screen.getByTestId("board-B-status")).not.toHaveClass("active");
     expect(screen.getByRole("region", { name: "Clocks" })).toBeInTheDocument();
     expect(screen.getByLabelText("You clock")).toHaveTextContent("5:00");
     expect(screen.getByLabelText("Opponent clock")).toHaveTextContent("5:00");
