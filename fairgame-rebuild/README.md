@@ -29,6 +29,16 @@ npm run dev
 
 The server loads `fairgame-rebuild/.env` automatically for local runs.
 
+Start local development with a Chess bot opponent:
+
+```bash
+FAIRGAME_DEBUG_CHESS_BOT=true npm run dev
+```
+
+When enabled outside production, newly created Chess matches auto-seat Player 2 as
+the debug bot and the bot plays simple deterministic legal moves. Production mode
+forces this off even if the environment variable is present.
+
 Run the built app as a single production server:
 
 ```bash

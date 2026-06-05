@@ -111,6 +111,65 @@ describe("match API", () => {
     expect(response.body.match.boards[0].squares).toHaveLength(64);
   });
 
+  it("auto-joins a debug Chess bot and makes its opening move", async () => {
+    const response = await request(
+      appWithDeterministicIds({
+        debugChessBot: { enabled: true, name: "Debug Bot", seat: "seat2" }
+      })
+    )
+      .post("/api/matches")
+      .send({ gameType: "chess" })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      seat: "seat1",
+      match: {
+        id: "match-1",
+        gameType: "chess",
+        joinedSeats: 2,
+        players: {
+          seat1: { label: "Player 1", name: "Player 1" },
+          seat2: { label: "Player 2", name: "Debug Bot" }
+        }
+      }
+    });
+
+    const boardA = response.body.match.boards[0];
+    const boardB = response.body.match.boards[1];
+    expect(boardA.seatsToAct).toEqual(["seat1"]);
+    expect(boardB.seatsToAct).toEqual(["seat1"]);
+    expect(boardB.moveHistory).toEqual([
+      expect.objectContaining({ seat: "seat2", from: "e2", to: "e4", san: "e4" })
+    ]);
+    expect(boardB.squares.find((square: { square: string }) => square.square === "e4").piece).toEqual({
+      color: "w",
+      type: "p"
+    });
+  });
+
+  it("replies with a debug Chess bot move after the player moves", async () => {
+    const app = appWithDeterministicIds({
+      debugChessBot: { enabled: true, name: "Debug Bot", seat: "seat2" }
+    });
+    await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
+
+    const response = await request(app)
+      .post("/api/matches/match-1/moves")
+      .send({ boardId: "A", seat: "seat1", move: { from: "e2", to: "e4" } })
+      .expect(200);
+
+    const boardA = response.body.match.boards[0];
+    expect(boardA.moveHistory).toEqual([
+      expect.objectContaining({ seat: "seat1", from: "e2", to: "e4", san: "e4" }),
+      expect.objectContaining({ seat: "seat2", from: "e7", to: "e5", san: "e5" })
+    ]);
+    expect(boardA.seatsToAct).toEqual(["seat1"]);
+    expect(boardA.squares.find((square: { square: string }) => square.square === "e5").piece).toEqual({
+      color: "b",
+      type: "p"
+    });
+  });
+
   it("creates each added board game with two fair boards", async () => {
     const cases = [
       { gameType: "gomoku", kind: "gomoku", fields: { rows: 15, columns: 15 } },

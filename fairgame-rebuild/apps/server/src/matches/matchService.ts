@@ -19,6 +19,10 @@ import {
   type SupportedGameState,
   type SupportedGameType
 } from "./gameRegistry.js";
+import {
+  selectDebugChessBotCommand,
+  type DebugChessBotConfig
+} from "./debugChessBot.js";
 import type { MatchEventInput, MatchRepository, SerializedStoredMatch } from "./matchRepository.js";
 import { toMatchView, type MatchView, type OpenMatchView } from "./matchView.js";
 
@@ -58,14 +62,23 @@ const defaultClockConfig: ClockConfig = {
   incrementMs: 0
 };
 
+const disabledDebugChessBot: DebugChessBotConfig = {
+  enabled: false,
+  name: "Debug Bot",
+  seat: "seat2"
+};
+
 export class MatchService {
   private readonly matches = new Map<string, StoredMatch>();
   private readonly createId: () => string;
   private readonly createSecret: () => string;
   private readonly repository: MatchRepository<SupportedGameState> | null;
   private readonly clockConfig: ClockConfig | null;
+  private readonly debugChessBot: DebugChessBotConfig;
   private readonly nowMs: () => number;
   private readonly listeners = new Set<(match: MatchView) => void>();
+  private readonly debugChessBotMatchIds = new Set<string>();
+  private isApplyingDebugChessBotMove = false;
 
   constructor(
     options: {
@@ -73,6 +86,7 @@ export class MatchService {
       readonly createSecret?: () => string;
       readonly repository?: MatchRepository<SupportedGameState>;
       readonly clockConfig?: ClockConfig | null;
+      readonly debugChessBot?: DebugChessBotConfig;
       readonly nowMs?: () => number;
     } = {}
   ) {
@@ -80,6 +94,7 @@ export class MatchService {
     this.createSecret = options.createSecret ?? randomUUID;
     this.repository = options.repository ?? null;
     this.clockConfig = options.clockConfig === undefined ? defaultClockConfig : options.clockConfig;
+    this.debugChessBot = options.debugChessBot ?? disabledDebugChessBot;
     this.nowMs = options.nowMs ?? Date.now;
   }
 
@@ -90,6 +105,10 @@ export class MatchService {
 
     for (const snapshot of snapshots) {
       this.matches.set(snapshot.match.id, deserializeStoredMatch(snapshot, this.nowMs()));
+    }
+
+    for (const stored of this.matches.values()) {
+      await this.maybeStartDebugChessBot(stored);
     }
   }
 
@@ -125,6 +144,8 @@ export class MatchService {
       eventType: "match.created",
       payload: { gameType, seat: "seat1", clockConfig: matchClockConfig }
     });
+
+    await this.maybeStartDebugChessBot(storedMatch);
 
     return {
       seat: "seat1",
@@ -300,10 +321,13 @@ export class MatchService {
       }
     });
     this.emitMatchUpdated(match);
+    if (!this.isApplyingDebugChessBotMove) {
+      await this.playDebugChessBotTurns(stored);
+    }
 
     return {
       ok: true,
-      match
+      match: this.createMatchView(stored)
     };
   }
 
@@ -404,6 +428,45 @@ export class MatchService {
       payload: { expiredSeats }
     });
     this.emitMatchUpdated(this.createMatchView(stored, clock.updatedAtMs));
+  }
+
+  private async maybeStartDebugChessBot(stored: StoredMatch): Promise<void> {
+    if (!this.debugChessBot.enabled || stored.match.gameType !== "chess") return;
+    if (getMatchOutcome(stored.match).status !== "in_progress") return;
+
+    if (!stored.joinedSeats.has(this.debugChessBot.seat)) {
+      this.debugChessBotMatchIds.add(stored.match.id);
+      await this.claimSecondSeat(stored.match.id, stored, this.debugChessBot.name);
+    } else if (stored.playerNames.get(this.debugChessBot.seat) === this.debugChessBot.name) {
+      this.debugChessBotMatchIds.add(stored.match.id);
+    }
+
+    await this.playDebugChessBotTurns(stored);
+  }
+
+  private async playDebugChessBotTurns(stored: StoredMatch): Promise<void> {
+    if (!this.debugChessBot.enabled) return;
+    if (!this.debugChessBotMatchIds.has(stored.match.id)) return;
+    if (!this.areAllSeatsJoined(stored)) return;
+    if (this.isApplyingDebugChessBotMove) return;
+
+    this.isApplyingDebugChessBotMove = true;
+    try {
+      for (let moveCount = 0; moveCount < 8; moveCount += 1) {
+        const command = selectDebugChessBotCommand(this.createMatchView(stored), this.debugChessBot.seat);
+        if (!command) return;
+
+        const result = await this.applyMove({
+          id: stored.match.id,
+          boardId: command.boardId,
+          seat: this.debugChessBot.seat,
+          move: command.move
+        });
+        if (!result.ok) return;
+      }
+    } finally {
+      this.isApplyingDebugChessBotMove = false;
+    }
   }
 }
 

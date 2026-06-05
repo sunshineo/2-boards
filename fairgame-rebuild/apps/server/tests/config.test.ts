@@ -60,4 +60,36 @@ describe("server config", () => {
       webDistDir: null
     });
   });
+
+  it("enables the debug Chess bot only for non-production runs", () => {
+    const localConfig = loadServerConfig(
+      {
+        DATABASE_URL: "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require",
+        FAIRGAME_DEBUG_CHESS_BOT: "true",
+        FAIRGAME_DEBUG_CHESS_BOT_NAME: "Local Bot"
+      },
+      "/repo/apps/server"
+    );
+
+    expect(localConfig.debugChessBot).toEqual({
+      enabled: true,
+      name: "Local Bot",
+      seat: "seat2"
+    });
+
+    const productionConfig = loadServerConfig(
+      {
+        NODE_ENV: "production",
+        DATABASE_URL: "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require",
+        FAIRGAME_DEBUG_CHESS_BOT: "true"
+      },
+      "/repo/apps/server"
+    );
+
+    expect(productionConfig.debugChessBot).toEqual({
+      enabled: false,
+      name: "Debug Bot",
+      seat: "seat2"
+    });
+  });
 });
