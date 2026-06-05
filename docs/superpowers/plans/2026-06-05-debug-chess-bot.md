@@ -108,4 +108,4 @@ Result: PASS on 2026-06-05 using Codex in-app Browser at `http://localhost:5174`
 
 Update this plan and `roadmap.md` with files changed, verification commands/results, and commit hash if a commit is created.
 
-Result: Evidence recorded in this plan and `roadmap.md` on 2026-06-05. Feature commit hash pending until branch commit is created.
+Result: Evidence recorded in this plan and `roadmap.md` on 2026-06-05. Feature commit: `4a10490ce4ff1c7ac0ab4c8241259282ea676f26`.
