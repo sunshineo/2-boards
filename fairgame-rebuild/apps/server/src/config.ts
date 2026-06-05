@@ -7,6 +7,7 @@ export type ServerConfig = {
   readonly debugChessBot: {
     readonly enabled: boolean;
     readonly name: string;
+    readonly moveDelayMs: number;
     readonly seat: "seat2";
   };
   readonly allowedOrigins: readonly string[];
@@ -37,6 +38,7 @@ export function loadServerConfig(env: Env = process.env, cwd = process.cwd()): S
     debugChessBot: {
       enabled: nodeEnv !== "production" && parseBoolean(env["FAIRGAME_DEBUG_CHESS_BOT"], false),
       name: parseOptionalName(env["FAIRGAME_DEBUG_CHESS_BOT_NAME"], "Debug Bot"),
+      moveDelayMs: parseNonNegativeInteger(env["FAIRGAME_DEBUG_CHESS_BOT_MOVE_DELAY_MS"], 2_000),
       seat: "seat2"
     },
     allowedOrigins: parseCsv(env["FAIRGAME_ALLOWED_ORIGINS"]),

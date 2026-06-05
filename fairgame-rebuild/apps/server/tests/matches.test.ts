@@ -1,9 +1,13 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../src/app";
 import { loadServerConfig } from "../src/config";
 import { MatchService } from "../src/matches/matchService";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function appWithDeterministicIds(options: Partial<ConstructorParameters<typeof MatchService>[0]> = {}) {
   return createApp({
@@ -114,7 +118,7 @@ describe("match API", () => {
   it("auto-joins a debug Chess bot and makes its opening move", async () => {
     const response = await request(
       appWithDeterministicIds({
-        debugChessBot: { enabled: true, name: "Debug Bot", seat: "seat2" }
+        debugChessBot: { enabled: true, name: "Debug Bot", moveDelayMs: 0, seat: "seat2" }
       })
     )
       .post("/api/matches")
@@ -149,7 +153,7 @@ describe("match API", () => {
 
   it("replies with a debug Chess bot move after the player moves", async () => {
     const app = appWithDeterministicIds({
-      debugChessBot: { enabled: true, name: "Debug Bot", seat: "seat2" }
+      debugChessBot: { enabled: true, name: "Debug Bot", moveDelayMs: 0, seat: "seat2" }
     });
     await request(app).post("/api/matches").send({ gameType: "chess" }).expect(201);
 
@@ -167,6 +171,75 @@ describe("match API", () => {
     expect(boardA.squares.find((square: { square: string }) => square.square === "e5").piece).toEqual({
       color: "b",
       type: "p"
+    });
+  });
+
+  it("delays debug Chess bot replies so the bot clock can tick", async () => {
+    vi.useFakeTimers();
+    let now = 0;
+    const service = new MatchService({
+      createId: () => "match-1",
+      nowMs: () => now,
+      debugChessBot: { enabled: true, name: "Debug Bot", moveDelayMs: 5_000, seat: "seat2" }
+    });
+
+    const created = await service.createMatch("chess");
+    const createdBoardB = created.match.boards.find((board) => board.id === "B");
+    expect(created.match.joinedSeats).toBe(2);
+    expect(createdBoardB).toMatchObject({
+      kind: "chess",
+      moveHistory: [],
+      seatsToAct: ["seat2"]
+    });
+
+    now = 5_000;
+    await vi.advanceTimersByTimeAsync(5_000);
+    const afterOpening = await service.getMatch("match-1");
+    const afterOpeningBoardB = afterOpening?.boards.find((board) => board.id === "B");
+    expect(afterOpeningBoardB).toMatchObject({
+      kind: "chess",
+      moveHistory: [expect.objectContaining({ seat: "seat2", from: "e2", to: "e4", san: "e4" })],
+      seatsToAct: ["seat1"]
+    });
+    expect(afterOpening?.clock?.seats.seat2).toEqual({ remainingMs: 295_000, isRunning: false });
+
+    const playerMove = await service.applyMove({
+      id: "match-1",
+      boardId: "A",
+      seat: "seat1",
+      move: { from: "e2", to: "e4" }
+    });
+    expect(playerMove.ok).toBe(true);
+    if (!playerMove.ok) return;
+    const immediateBoardA = playerMove.match.boards.find((board) => board.id === "A");
+    expect(immediateBoardA).toMatchObject({
+      kind: "chess",
+      moveHistory: [expect.objectContaining({ seat: "seat1", from: "e2", to: "e4", san: "e4" })],
+      seatsToAct: ["seat2"]
+    });
+
+    now = 6_000;
+    await vi.advanceTimersByTimeAsync(1_000);
+    const ticking = await service.getMatch("match-1");
+    const tickingBoardA = ticking?.boards.find((board) => board.id === "A");
+    expect(tickingBoardA).toMatchObject({
+      kind: "chess",
+      moveHistory: [expect.objectContaining({ seat: "seat1", from: "e2", to: "e4", san: "e4" })],
+      seatsToAct: ["seat2"]
+    });
+    expect(ticking?.clock?.seats.seat2).toEqual({ remainingMs: 294_000, isRunning: true });
+
+    now = 10_000;
+    await vi.advanceTimersByTimeAsync(4_000);
+    const afterReply = await service.getMatch("match-1");
+    const afterReplyBoardA = afterReply?.boards.find((board) => board.id === "A");
+    expect(afterReplyBoardA).toMatchObject({
+      kind: "chess",
+      moveHistory: [
+        expect.objectContaining({ seat: "seat1", from: "e2", to: "e4", san: "e4" }),
+        expect.objectContaining({ seat: "seat2", from: "e7", to: "e5", san: "e5" })
+      ],
+      seatsToAct: ["seat1"]
     });
   });
 

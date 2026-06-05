@@ -21,6 +21,7 @@ import {
 } from "./gameRegistry.js";
 import {
   selectDebugChessBotCommand,
+  type DebugChessBotCommand,
   type DebugChessBotConfig
 } from "./debugChessBot.js";
 import type { MatchEventInput, MatchRepository, SerializedStoredMatch } from "./matchRepository.js";
@@ -65,6 +66,7 @@ const defaultClockConfig: ClockConfig = {
 const disabledDebugChessBot: DebugChessBotConfig = {
   enabled: false,
   name: "Debug Bot",
+  moveDelayMs: 2_000,
   seat: "seat2"
 };
 
@@ -78,6 +80,7 @@ export class MatchService {
   private readonly nowMs: () => number;
   private readonly listeners = new Set<(match: MatchView) => void>();
   private readonly debugChessBotMatchIds = new Set<string>();
+  private readonly debugChessBotTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private isApplyingDebugChessBotMove = false;
 
   constructor(
@@ -218,6 +221,7 @@ export class MatchService {
         await this.repository.deleteSnapshot(matchId);
       }
       this.matches.delete(matchId);
+      this.clearDebugChessBotTimer(matchId);
       pruned.push(matchId);
     }
 
@@ -322,7 +326,7 @@ export class MatchService {
     });
     this.emitMatchUpdated(match);
     if (!this.isApplyingDebugChessBotMove) {
-      await this.playDebugChessBotTurns(stored);
+      await this.runOrScheduleDebugChessBot(stored);
     }
 
     return {
@@ -422,6 +426,7 @@ export class MatchService {
     stored.clock = clock;
     stored.match = applyTimeoutToMatch(stored.match, expiredSeats);
     stored.lastActivityAtMs = clock.updatedAtMs;
+    this.clearDebugChessBotTimer(stored.match.id);
     await this.persistChange(stored, {
       matchId: stored.match.id,
       eventType: "clock.timeout",
@@ -441,32 +446,91 @@ export class MatchService {
       this.debugChessBotMatchIds.add(stored.match.id);
     }
 
-    await this.playDebugChessBotTurns(stored);
+    await this.runOrScheduleDebugChessBot(stored);
   }
 
-  private async playDebugChessBotTurns(stored: StoredMatch): Promise<void> {
-    if (!this.debugChessBot.enabled) return;
-    if (!this.debugChessBotMatchIds.has(stored.match.id)) return;
-    if (!this.areAllSeatsJoined(stored)) return;
+  private async runOrScheduleDebugChessBot(stored: StoredMatch): Promise<void> {
+    if (!this.getDebugChessBotCommand(stored)) return;
+    if (this.debugChessBot.moveDelayMs <= 0) {
+      await this.playImmediateDebugChessBotTurns(stored);
+      return;
+    }
+
+    this.scheduleDebugChessBotTurn(stored);
+  }
+
+  private scheduleDebugChessBotTurn(stored: StoredMatch): void {
+    if (this.debugChessBotTimers.has(stored.match.id)) return;
+
+    const timer = setTimeout(() => {
+      this.debugChessBotTimers.delete(stored.match.id);
+      void this.playScheduledDebugChessBotTurn(stored.match.id);
+    }, this.debugChessBot.moveDelayMs);
+    if (typeof timer === "object" && timer && "unref" in timer && typeof timer.unref === "function") {
+      timer.unref();
+    }
+    this.debugChessBotTimers.set(stored.match.id, timer);
+  }
+
+  private async playScheduledDebugChessBotTurn(matchId: string): Promise<void> {
+    const stored = this.matches.get(matchId);
+    if (!stored || this.isApplyingDebugChessBotMove) return;
+
+    const command = this.getDebugChessBotCommand(stored);
+    if (!command) return;
+
+    this.isApplyingDebugChessBotMove = true;
+    try {
+      await this.applyDebugChessBotCommand(stored, command);
+    } finally {
+      this.isApplyingDebugChessBotMove = false;
+    }
+
+    const latest = this.matches.get(matchId);
+    if (latest) {
+      await this.runOrScheduleDebugChessBot(latest);
+    }
+  }
+
+  private async playImmediateDebugChessBotTurns(stored: StoredMatch): Promise<void> {
     if (this.isApplyingDebugChessBotMove) return;
 
     this.isApplyingDebugChessBotMove = true;
     try {
       for (let moveCount = 0; moveCount < 8; moveCount += 1) {
-        const command = selectDebugChessBotCommand(this.createMatchView(stored), this.debugChessBot.seat);
+        const command = this.getDebugChessBotCommand(stored);
         if (!command) return;
 
-        const result = await this.applyMove({
-          id: stored.match.id,
-          boardId: command.boardId,
-          seat: this.debugChessBot.seat,
-          move: command.move
-        });
+        const result = await this.applyDebugChessBotCommand(stored, command);
         if (!result.ok) return;
       }
     } finally {
       this.isApplyingDebugChessBotMove = false;
     }
+  }
+
+  private getDebugChessBotCommand(stored: StoredMatch): DebugChessBotCommand | null {
+    if (!this.debugChessBot.enabled) return null;
+    if (!this.debugChessBotMatchIds.has(stored.match.id)) return null;
+    if (!this.areAllSeatsJoined(stored)) return null;
+    if (getMatchOutcome(stored.match).status !== "in_progress") return null;
+    return selectDebugChessBotCommand(this.createMatchView(stored), this.debugChessBot.seat);
+  }
+
+  private applyDebugChessBotCommand(stored: StoredMatch, command: DebugChessBotCommand): Promise<MoveResult> {
+    return this.applyMove({
+      id: stored.match.id,
+      boardId: command.boardId,
+      seat: this.debugChessBot.seat,
+      move: command.move
+    });
+  }
+
+  private clearDebugChessBotTimer(matchId: string): void {
+    const timer = this.debugChessBotTimers.get(matchId);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.debugChessBotTimers.delete(matchId);
   }
 }
 

@@ -36,8 +36,11 @@ FAIRGAME_DEBUG_CHESS_BOT=true npm run dev
 ```
 
 When enabled outside production, newly created Chess matches auto-seat Player 2 as
-the debug bot and the bot plays simple deterministic legal moves. Production mode
-forces this off even if the environment variable is present.
+the debug bot and the bot plays simple deterministic legal moves after a short
+think delay. The default delay is 2 seconds; override it with
+`FAIRGAME_DEBUG_CHESS_BOT_MOVE_DELAY_MS=5000` when you want more time to inspect
+the opponent clock. Production mode forces this off even if the environment
+variable is present.
 
 Run the built app as a single production server:
 

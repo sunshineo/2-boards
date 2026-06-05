@@ -66,7 +66,8 @@ describe("server config", () => {
       {
         DATABASE_URL: "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require",
         FAIRGAME_DEBUG_CHESS_BOT: "true",
-        FAIRGAME_DEBUG_CHESS_BOT_NAME: "Local Bot"
+        FAIRGAME_DEBUG_CHESS_BOT_NAME: "Local Bot",
+        FAIRGAME_DEBUG_CHESS_BOT_MOVE_DELAY_MS: "3500"
       },
       "/repo/apps/server"
     );
@@ -74,6 +75,7 @@ describe("server config", () => {
     expect(localConfig.debugChessBot).toEqual({
       enabled: true,
       name: "Local Bot",
+      moveDelayMs: 3_500,
       seat: "seat2"
     });
 
@@ -89,6 +91,7 @@ describe("server config", () => {
     expect(productionConfig.debugChessBot).toEqual({
       enabled: false,
       name: "Debug Bot",
+      moveDelayMs: 2_000,
       seat: "seat2"
     });
   });

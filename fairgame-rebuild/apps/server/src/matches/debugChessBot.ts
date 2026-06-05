@@ -7,6 +7,7 @@ import type { MatchView } from "./matchView.js";
 export type DebugChessBotConfig = {
   readonly enabled: boolean;
   readonly name: string;
+  readonly moveDelayMs: number;
   readonly seat: "seat2";
 };
 
