@@ -8,6 +8,7 @@ import {
   type MouseEvent,
   type WheelEvent
 } from "react";
+import { getChessLegalMoves, type ChessState as DomainChessState } from "@fairgame/domain";
 import { Chessboard, type ChessboardOptions, type PieceDataType } from "react-chessboard";
 import { io } from "socket.io-client";
 
@@ -1086,8 +1087,15 @@ function ChessBoard(props: {
   const isConfirmingDrawOffer = pendingConfirmation === "drawOffer";
   const isConfirmingResign = pendingConfirmation === "resign";
   const selectedLegalMoves = useMemo(
-    () => (canAct && selectedSquare ? getChessMovesFromSquare(props.board, selectedSquare) : []),
-    [canAct, props.board, selectedSquare]
+    () =>
+      selectedSquare
+        ? canAct
+          ? getChessMovesFromSquare(props.board, selectedSquare)
+          : canPlanPremove
+            ? getChessPremoveMovesFromSquare(props.board, selectedSquare, props.currentSeat)
+            : []
+        : [],
+    [canAct, canPlanPremove, props.board, props.currentSeat, selectedSquare]
   );
   const latestReplayableMove = getLatestReplayableChessMoveRecord(props.board.moveHistory);
   const lastMove = isReviewing ? reviewMove : latestReplayableMove;
@@ -1145,9 +1153,10 @@ function ChessBoard(props: {
   }, [props.board.moveHistory, reviewPly]);
 
   function handleSquareClick(square: string, piece: PieceDataType | null) {
-    const isLegalTarget = selectedSquare ? getChessMovesBetween(props.board, selectedSquare, square).length > 0 : false;
+    const selectedTargetMoves = selectedSquare ? selectedLegalMoves.filter((move) => move.to === square) : [];
+    const isSelectedTarget = selectedTargetMoves.length > 0;
     const isOwnPiece = piece ? getPieceSeatFromPieceType(props.board, piece.pieceType) === props.currentSeat : false;
-    if (!piece && !isLegalTarget) {
+    if (!piece && !isSelectedTarget) {
       clearChessAnnotations();
     }
 
@@ -1167,10 +1176,12 @@ function ChessBoard(props: {
           return;
         }
 
-        setPendingPremove({ from: selectedSquare, to: square });
-        setSelectedSquare(null);
-        setPendingPromotion(null);
-        setPendingConfirmation(null);
+        if (isSelectedTarget) {
+          setPendingPremove({ from: selectedSquare, to: square });
+          setSelectedSquare(null);
+          setPendingPromotion(null);
+          setPendingConfirmation(null);
+        }
         return;
       }
 
@@ -1186,7 +1197,7 @@ function ChessBoard(props: {
     if (!canAct) return;
 
     if (selectedSquare) {
-      const legalMoves = isLegalTarget ? getChessMovesBetween(props.board, selectedSquare, square) : [];
+      const legalMoves = isSelectedTarget ? selectedTargetMoves : [];
       if (legalMoves.length > 0) {
         void submitChessMoveCandidates(legalMoves);
         return;
@@ -1493,9 +1504,9 @@ function ChessBoard(props: {
       handleSquareClick(square, piece);
     },
     squareRenderer({ piece, square, children }) {
-      const legalTargetMove = selectedLegalMoves.find((move) => move.to === square);
-      const isLegalTarget = legalTargetMove !== undefined;
-      const isCaptureTarget = Boolean(legalTargetMove?.captured || piece);
+      const selectedTargetMove = selectedLegalMoves.find((move) => move.to === square);
+      const isSelectedTarget = selectedTargetMove !== undefined;
+      const isLegalTarget = canAct && isSelectedTarget;
       const isSelected = selectedSquare === square;
       const isCheckedKing = displayedCheckSquare === square;
       const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
@@ -1505,7 +1516,8 @@ function ChessBoard(props: {
       const isPremoveSource = pendingPremove?.from === square;
       const isPremoveTarget = pendingPremove?.to === square;
       const isPremoveDestination =
-        canPlanPremove && selectedSquare !== null && selectedSquare !== square && !isOwnPiece;
+        canPlanPremove && selectedSquare !== null && selectedSquare !== square && isSelectedTarget;
+      const isCaptureTarget = Boolean(selectedTargetMove?.captured || (isSelectedTarget && piece && !isOwnPiece));
       const canMovePiece =
         isOwnPiece && (canAct ? getChessMovesFromSquare(props.board, square).length > 0 : canPlanPremove);
       const canInteractWithSquare = canAct
@@ -1529,7 +1541,7 @@ function ChessBoard(props: {
           disabled={props.isBusy || !canInteractWithSquare}
           type="button"
         >
-          {isLegalTarget ? (
+          {isSelectedTarget ? (
             <span
               aria-hidden="true"
               className={`chess-legal-move-dot${isCaptureTarget ? " capture" : ""}`}
@@ -2551,6 +2563,39 @@ function getChessMovesFromSquare(board: ChessBoardView, square: string) {
 
 function getChessMovesBetween(board: ChessBoardView, from: string, to: string) {
   return board.legalMoves.filter((move) => move.from === from && move.to === to);
+}
+
+function getChessPremoveMovesFromSquare(
+  board: ChessBoardView,
+  square: string,
+  currentSeat: SeatId | null
+): ChessLegalMove[] {
+  const piece = board.squares.find((candidate) => candidate.square === square)?.piece ?? null;
+  if (!piece || currentSeat === null) return [];
+  const pieceSeat = piece.color === "w" ? board.whiteSeat : board.blackSeat;
+  if (pieceSeat !== currentSeat) return [];
+
+  try {
+    return getChessLegalMoves({
+      initialFen: startingChessFen,
+      fen: setChessFenTurnColor(board.fen, piece.color),
+      seats: ["seat1", "seat2"],
+      whiteSeat: board.whiteSeat,
+      blackSeat: board.blackSeat,
+      drawOffer: board.drawOffer,
+      takebackRequest: board.takebackRequest,
+      moveHistory: board.moveHistory,
+      outcome: board.outcome
+    } satisfies DomainChessState).filter((move) => move.from === square);
+  } catch {
+    return [];
+  }
+}
+
+function setChessFenTurnColor(fen: string, turnColor: "w" | "b") {
+  const parts = fen.split(" ");
+  if (parts.length < 2) return fen;
+  return [parts[0], turnColor, ...parts.slice(2)].join(" ");
 }
 
 function sortPromotionMoves(moves: readonly ChessLegalMove[]) {

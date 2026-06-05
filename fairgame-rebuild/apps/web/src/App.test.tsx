@@ -1023,6 +1023,35 @@ describe("App", () => {
     expect(boardB).toHaveAttribute("data-interactive", "true");
   });
 
+  it("shows normal move dots for board-local Chess premove destinations", async () => {
+    const seatSession = createChessSeatSession("match-chess-premove-dots");
+    vi.stubGlobal(
+      "fetch",
+      createFetchMock({
+        matches: [],
+        seatSession
+      })
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
+
+    await screen.findByTestId("match-code");
+    expect(screen.getByTestId("board-B-chessboard")).toHaveAttribute("data-interactive", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Board B square e7 black pawn" }));
+
+    const e6Target = screen.getByRole("button", { name: "Board B square e6 empty premove destination" });
+    const e5Target = screen.getByRole("button", { name: "Board B square e5 empty premove destination" });
+    expect(e6Target.querySelector(".chess-legal-move-dot")).toBeInTheDocument();
+    expect(e5Target.querySelector(".chess-legal-move-dot")).toBeInTheDocument();
+    expect(
+      screen
+        .getByRole("button", { name: "Board B square e7 black pawn selected" })
+        .querySelector(".chess-legal-move-dot")
+    ).not.toBeInTheDocument();
+  });
+
   it("cancels a queued board-local Chess premove without creating an annotation", async () => {
     const seatSession = createChessSeatSession("match-chess-premove-cancel");
     const fetchMock = createFetchMock({
