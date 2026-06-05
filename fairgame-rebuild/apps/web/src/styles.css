@@ -564,6 +564,26 @@ button:disabled {
   background: #dff0cf;
   color: #1f2a3d;
   box-shadow: 0 0 0 2px rgb(106 161 39 / 18%);
+  animation: chess-turn-status-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes chess-turn-status-pulse {
+  0%,
+  100% {
+    background: #dff0cf;
+    box-shadow: 0 0 0 2px rgb(106 161 39 / 18%);
+  }
+
+  50% {
+    background: #cbeaab;
+    box-shadow: 0 0 0 4px rgb(106 161 39 / 24%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board-heading .chess-turn-status.active {
+    animation: none;
+  }
 }
 
 .chess-heading-actions {
