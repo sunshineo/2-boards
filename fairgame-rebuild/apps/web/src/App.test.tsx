@@ -44,15 +44,18 @@ vi.mock("socket.io-client", () => ({
 }));
 
 const browserChessBotMock = vi.hoisted(() => {
+  type MockBotStatus = "idle" | "loading" | "thinking" | "error";
   type MockController = {
     runForMatch: ReturnType<typeof vi.fn>;
     dispose: ReturnType<typeof vi.fn>;
+    setStatus: (status: MockBotStatus) => void;
   };
   const controllers: MockController[] = [];
-  const createBrowserChessBotController = vi.fn(() => {
+  const createBrowserChessBotController = vi.fn((options?: { onStatus?: (status: MockBotStatus) => void }) => {
     const controller = {
       runForMatch: vi.fn(async () => undefined),
-      dispose: vi.fn()
+      dispose: vi.fn(),
+      setStatus: (status: MockBotStatus) => options?.onStatus?.(status)
     };
     controllers.push(controller);
     return controller;
@@ -473,6 +476,31 @@ describe("App", () => {
     expect(browserChessBotMock.controllers[0]?.runForMatch).toHaveBeenCalledWith(
       expect.objectContaining({ id: "match-bot-controller" })
     );
+  });
+
+  it("does not show a thinking banner while the Chess bot searches", async () => {
+    const botSession = createChessSeatSession("match-bot-thinking");
+    (botSession.match as typeof botSession.match & { bot: unknown }).bot = {
+      seat: "seat2",
+      kind: "browser-stockfish",
+      difficulty: "normal",
+      displayName: "Stockfish Normal"
+    };
+    vi.stubGlobal("fetch", createFetchMock({ matches: [], seatSession: botSession }));
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
+
+    await screen.findByTestId("match-code");
+    await waitFor(() => expect(browserChessBotMock.controllers).toHaveLength(1));
+
+    act(() => {
+      browserChessBotMock.controllers[0]?.setStatus("thinking");
+    });
+
+    expect(screen.queryByText("Bot thinking")).not.toBeInTheDocument();
   });
 
   it("renders the two boards after creating a match", async () => {

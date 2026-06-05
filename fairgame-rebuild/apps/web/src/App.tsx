@@ -787,6 +787,11 @@ function MatchRoom(props: {
   const status = formatMatchStatus(props.match, props.seat);
   const canRematch = props.match.outcome.status !== "in_progress" && !props.isZenMode;
   const matchRoomClassName = `match-room${props.match.gameType === "chess" ? " chess-match-room" : ""}${props.isZenMode ? " zen-match-room" : ""}`;
+  const shouldShowBotStatus =
+    props.match.bot?.kind === "browser-stockfish" &&
+    props.botStatus !== "idle" &&
+    props.botStatus !== "thinking" &&
+    !props.isZenMode;
 
   return (
     <section
@@ -827,7 +832,7 @@ function MatchRoom(props: {
         </div>
       ) : null}
 
-      {props.match.bot?.kind === "browser-stockfish" && props.botStatus !== "idle" && !props.isZenMode ? (
+      {shouldShowBotStatus ? (
         <div className={`bot-status${props.botStatus === "error" ? " error" : ""}`}>
           <span>{formatBrowserBotStatus(props.botStatus)}</span>
           {props.botStatus === "error" ? (
@@ -857,7 +862,6 @@ function MatchRoom(props: {
 
 function formatBrowserBotStatus(status: BrowserChessBotStatus) {
   if (status === "loading") return "Bot loading";
-  if (status === "thinking") return "Bot thinking";
   if (status === "error") return "Bot move failed";
   return "";
 }
