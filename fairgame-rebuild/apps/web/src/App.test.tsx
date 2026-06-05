@@ -325,9 +325,11 @@ describe("App", () => {
         body: JSON.stringify({ gameType: "chess", clockInitialMs: 600_000 })
       })
     );
-    expect(screen.queryByRole("region", { name: "Clocks" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Board A White clock")).toHaveTextContent("10:00");
-    expect(screen.getByLabelText("Board B Black clock")).toHaveTextContent("10:00");
+    expect(screen.getByRole("region", { name: "Clocks" })).toBeInTheDocument();
+    expect(screen.getByLabelText("You clock")).toHaveTextContent("10:00");
+    expect(screen.getByLabelText("Opponent clock")).toHaveTextContent("10:00");
+    expect(screen.queryByLabelText("Board A White clock")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Board B Black clock")).not.toBeInTheDocument();
   });
 
   it("renders the two boards after creating a match", async () => {
@@ -513,6 +515,8 @@ describe("App", () => {
     expect(screen.getByTestId("match-code")).toHaveAttribute("data-match-id", "match-clock");
     expect(screen.getByLabelText("You clock")).toHaveTextContent("5:00");
     expect(screen.getByLabelText("Opponent clock")).toHaveTextContent("5:00");
+    expect(screen.getByLabelText("You clock")).toHaveAttribute("data-clock-state", "running");
+    expect(screen.getByLabelText("Opponent clock")).toHaveAttribute("data-clock-state", "paused");
 
     await waitFor(() => expect(screen.getByLabelText("You clock")).toHaveTextContent("4:59"), {
       timeout: 1_500
@@ -653,14 +657,10 @@ describe("App", () => {
     expect(boardB).toHaveAttribute("data-interactive", "false");
     expect(boardA).toHaveAttribute("data-orientation", "white");
     expect(boardB).toHaveAttribute("data-orientation", "black");
-    fireEvent.click(screen.getByRole("button", { name: "Flip Board A" }));
-    expect(boardA).toHaveAttribute("data-orientation", "black");
-    expect(boardB).toHaveAttribute("data-orientation", "black");
-    fireEvent.click(screen.getByRole("button", { name: "Flip Board B" }));
-    expect(boardA).toHaveAttribute("data-orientation", "black");
-    expect(boardB).toHaveAttribute("data-orientation", "white");
+    expect(screen.queryByRole("button", { name: "Flip Board A" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Flip Board B" })).not.toBeInTheDocument();
     fireEvent.keyDown(boardBPanel, { key: "f" });
-    expect(boardA).toHaveAttribute("data-orientation", "black");
+    expect(boardA).toHaveAttribute("data-orientation", "white");
     expect(boardB).toHaveAttribute("data-orientation", "black");
     fireEvent.keyDown(boardAPanel, { key: "f" });
     expect(boardA).toHaveAttribute("data-orientation", "white");
@@ -718,8 +718,8 @@ describe("App", () => {
     expect(screen.getAllByText("Moves")).toHaveLength(2);
     expect(screen.getAllByText("No moves yet")).toHaveLength(2);
     expect(screen.getByRole("region", { name: "Board A move history" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Board A players")).toHaveTextContent("White (You)");
-    expect(screen.getByLabelText("Board B players")).toHaveTextContent("Black (You)");
+    expect(screen.queryByLabelText("Board A players")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Board B players")).not.toBeInTheDocument();
   });
 
   it("toggles a two-board Chess Zen mode with the z shortcut", async () => {
@@ -1024,25 +1024,35 @@ describe("App", () => {
     expect(boardA).toHaveAttribute("data-position-fen", boardAFenAfterE5);
     expect(boardAPanel).toHaveAttribute("tabindex", "0");
     expect(boardBPanel).toHaveAttribute("tabindex", "0");
-    expect(screen.queryByRole("region", { name: "Clocks" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Board A White clock")).toHaveTextContent("5:00");
-    expect(screen.getByLabelText("Board A Black clock")).toHaveTextContent("5:00");
-    expect(screen.getByLabelText("Board B White clock")).toHaveTextContent("5:00");
-    expect(screen.getByLabelText("Board B Black clock")).toHaveTextContent("5:00");
-    await waitFor(() => expect(screen.getByLabelText("Board A White clock")).toHaveTextContent("4:59"), {
+    expect(screen.getByRole("region", { name: "Clocks" })).toBeInTheDocument();
+    expect(screen.getByLabelText("You clock")).toHaveTextContent("5:00");
+    expect(screen.getByLabelText("Opponent clock")).toHaveTextContent("5:00");
+    await waitFor(() => expect(screen.getByLabelText("You clock")).toHaveTextContent("4:59"), {
       timeout: 1_500
     });
-    expect(screen.getByLabelText("Board A Black clock")).toHaveTextContent("5:00");
-    expect(screen.getByLabelText("Board B Black clock")).toHaveTextContent("4:59");
-    expect(screen.getByLabelText("Board A White clock")).toHaveClass("running");
-    expect(screen.getByLabelText("Board B Black clock")).not.toHaveClass("running");
+    expect(screen.getByLabelText("Opponent clock")).toHaveTextContent("5:00");
+    expect(screen.getByLabelText("You clock")).toHaveClass("running");
+    expect(screen.queryByLabelText("Board A White clock")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Board B Black clock")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Board A square g1 white knight" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Board A square g1 white knight" }));
-    expect(screen.getByRole("button", { name: "Board A square f3 empty legal destination" })).toBeEnabled();
+    const knightF3Target = screen.getByRole("button", { name: "Board A square f3 empty legal destination" });
+    const knightH3Target = screen.getByRole("button", { name: "Board A square h3 empty legal destination" });
+    expect(knightF3Target).toBeEnabled();
+    expect(knightF3Target.querySelector(".chess-legal-move-dot")).toBeInTheDocument();
+    expect(knightH3Target.querySelector(".chess-legal-move-dot")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Board A square g1 white knight selected" }).querySelector(".chess-legal-move-dot")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Board A turn indicator")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Board B turn indicator")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Flip Board A" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Flip Board B" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Board A players")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Board B players")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Board A move history" })).toHaveTextContent("e4");
     expect(screen.getByRole("region", { name: "Board A move history" })).toHaveTextContent("e5");
     expect(screen.getByLabelText("Board A current move e5")).toHaveClass("current-move");
-    expect(screen.getByLabelText("Board A players").querySelectorAll(".to-move")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Board A current move e5" }));
     expect(boardA).toHaveAttribute("data-review-ply", "live");
     expect(boardA).toHaveAttribute("data-interactive", "true");
@@ -1121,14 +1131,14 @@ describe("App", () => {
     expect(boardA).toHaveAttribute("data-interactive", "false");
     expect(screen.getByLabelText("Board A", { selector: "section.board-panel" })).toHaveTextContent("Reviewing move 1");
     expect(screen.getByLabelText("Board A", { selector: "section.board-panel" })).not.toHaveTextContent("Your move");
-    expect(screen.getByLabelText("Board A players").querySelectorAll(".to-move")).toHaveLength(0);
+    expect(screen.queryByLabelText("Board A players")).not.toBeInTheDocument();
     expect(boardB).toHaveAttribute("data-review-ply", "live");
     fireEvent.click(screen.getByRole("button", { name: "Board A return to live position" }));
     expect(boardA).toHaveAttribute("data-review-ply", "live");
     expect(boardA).toHaveAttribute("data-position-fen", boardAFenAfterE5);
     expect(boardA).toHaveAttribute("data-interactive", "true");
     expect(screen.getByLabelText("Board A", { selector: "section.board-panel" })).toHaveTextContent("Your move");
-    expect(screen.getByLabelText("Board A players").querySelectorAll(".to-move")).toHaveLength(1);
+    expect(screen.queryByLabelText("Board A players")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Board B square g8 black knight" })).not.toBeDisabled();
     expect(screen.getByRole("button", { name: "Board B square e2 white pawn" })).toBeDisabled();
   }, 10_000);
@@ -1180,13 +1190,9 @@ describe("App", () => {
       })
     );
     expect(await screen.findByText("Opponent won by resignation")).toBeInTheDocument();
-    const boardAResultPill = screen
-      .getByLabelText("Board A", { selector: "section.board-panel" })
-      .querySelector(".chess-turn-pill");
-    expect(boardAResultPill).toHaveTextContent("Won by resignation");
-    expect(boardAResultPill).toHaveClass("result");
-    expect(boardAResultPill).not.toHaveClass("w");
-    expect(boardAResultPill).not.toHaveClass("b");
+    expect(
+      screen.getByLabelText("Board A", { selector: "section.board-panel" }).querySelector(".chess-turn-pill")
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("board-B-chessboard")).toHaveAttribute("data-review-ply", "live");
   });
 
@@ -1235,13 +1241,9 @@ describe("App", () => {
     );
     const drawOfferedButton = await screen.findByRole("button", { name: "Draw Offered Board A" });
     expect(screen.getByLabelText("Board A", { selector: "section.board-panel" })).toHaveTextContent("Draw offer sent");
-    const boardADrawOfferPill = screen
-      .getByLabelText("Board A", { selector: "section.board-panel" })
-      .querySelector(".chess-turn-pill");
-    expect(boardADrawOfferPill).toHaveTextContent("Draw offered");
-    expect(boardADrawOfferPill).toHaveClass("draw-offer");
-    expect(boardADrawOfferPill).not.toHaveClass("w");
-    expect(boardADrawOfferPill).not.toHaveClass("b");
+    expect(
+      screen.getByLabelText("Board A", { selector: "section.board-panel" }).querySelector(".chess-turn-pill")
+    ).not.toBeInTheDocument();
     expect(drawOfferedButton).toBeDisabled();
     expect(screen.getByTestId("board-B-chessboard")).toHaveAttribute("data-review-ply", "live");
   });
@@ -1282,13 +1284,9 @@ describe("App", () => {
 
     await screen.findByTestId("match-code");
     expect(screen.getByLabelText("Board A", { selector: "section.board-panel" })).toHaveTextContent("Opponent offers draw");
-    const boardADrawOfferPill = screen
-      .getByLabelText("Board A", { selector: "section.board-panel" })
-      .querySelector(".chess-turn-pill");
-    expect(boardADrawOfferPill).toHaveTextContent("Draw offered");
-    expect(boardADrawOfferPill).toHaveClass("draw-offer");
-    expect(boardADrawOfferPill).not.toHaveClass("w");
-    expect(boardADrawOfferPill).not.toHaveClass("b");
+    expect(
+      screen.getByLabelText("Board A", { selector: "section.board-panel" }).querySelector(".chess-turn-pill")
+    ).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Accept Draw Board A" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Accept Draw Board A" }));
 
@@ -1301,13 +1299,9 @@ describe("App", () => {
     await waitFor(() =>
       expect(screen.getByLabelText("Board A", { selector: "section.board-panel" })).toHaveTextContent("Draw by agreement")
     );
-    const boardAResultPill = screen
-      .getByLabelText("Board A", { selector: "section.board-panel" })
-      .querySelector(".chess-turn-pill");
-    expect(boardAResultPill).toHaveTextContent("Draw by agreement");
-    expect(boardAResultPill).toHaveClass("result");
-    expect(boardAResultPill).not.toHaveClass("w");
-    expect(boardAResultPill).not.toHaveClass("b");
+    expect(
+      screen.getByLabelText("Board A", { selector: "section.board-panel" }).querySelector(".chess-turn-pill")
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("board-B-chessboard")).toHaveAttribute("data-review-ply", "live");
   });
 
@@ -1703,7 +1697,7 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Board A square e4 white pawn last move" })).toHaveClass("last-move");
   });
 
-  it("shows per-board Chess material advantage", async () => {
+  it("omits board-local Chess player and material rows", async () => {
     vi.stubGlobal(
       "fetch",
       createFetchMock({
@@ -1768,8 +1762,10 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
 
     await screen.findByTestId("match-code");
-    expect(screen.getByLabelText("Board A White material advantage")).toHaveTextContent("+1");
-    expect(screen.getByLabelText("Board B Black material advantage")).toHaveTextContent("+3");
+    expect(screen.queryByLabelText("Board A players")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Board B players")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Board A White material advantage")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Board B Black material advantage")).not.toBeInTheDocument();
   });
 
   it("highlights a checked Chess king square", async () => {

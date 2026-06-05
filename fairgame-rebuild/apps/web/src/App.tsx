@@ -164,6 +164,7 @@ export function App() {
   const isChessMatchActive = activeSession?.match.gameType === "chess";
   isChessMatchActiveRef.current = isChessMatchActive;
   const isChessZenModeActive = isChessMatchActive && isChessZenMode;
+  const appShellClassName = `app-shell${isChessMatchActive ? " chess-match-shell" : ""}${isChessZenModeActive ? " chess-zen-mode" : ""}`;
 
   useEffect(() => {
     isBusyRef.current = isBusy;
@@ -442,7 +443,7 @@ export function App() {
   const showMatchLoading = route.view === "match" && !activeSession;
 
   return (
-    <main className={`app-shell${isChessZenModeActive ? " chess-zen-mode" : ""}`}>
+    <main className={appShellClassName}>
       {isChessZenModeActive ? (
         <p className="sr-only">Chess Zen mode active. Press z to exit.</p>
       ) : (
@@ -674,11 +675,12 @@ function MatchRoom(props: {
 }) {
   const status = formatMatchStatus(props.match, props.seat);
   const canRematch = props.match.outcome.status !== "in_progress" && !props.isZenMode;
+  const matchRoomClassName = `match-room${props.match.gameType === "chess" ? " chess-match-room" : ""}${props.isZenMode ? " zen-match-room" : ""}`;
 
   return (
     <section
       aria-label={`${props.match.gameLabel} match`}
-      className={`match-room${props.isZenMode ? " zen-match-room" : ""}`}
+      className={matchRoomClassName}
       data-zen-mode={props.isZenMode ? "true" : "false"}
     >
       {props.isZenMode ? null : (
@@ -708,13 +710,12 @@ function MatchRoom(props: {
         </div>
       ) : null}
 
-      {props.match.gameType === "chess" ? null : <ClockStrip clock={props.match.clock} currentSeat={props.seat} />}
+      <ClockStrip clock={props.match.clock} currentSeat={props.seat} />
 
       <div className="boards-grid">
         {props.match.boards.map((board) => (
           <BoardRenderer
             board={board}
-            clock={props.match.clock}
             currentSeat={props.seat}
             isBusy={props.isBusy}
             key={board.id}
@@ -738,15 +739,17 @@ function ClockStrip(props: { clock: MatchClockView | null; currentSeat: SeatId |
         const seatClock = clock.seats[seat];
         const remainingMs = getProjectedClockRemainingMs(clock, seat, snapshotReceivedAtMs, clientNowMs);
         const label = formatRelativeSeat(seat, props.currentSeat);
+        const clockState = seatClock?.isRunning ? "running" : "paused";
         return (
           <div
             aria-label={`${label} clock`}
-            className={`clock-card${seatClock?.isRunning ? " running" : ""}`}
+            className={`clock-card${clockState === "running" ? " running" : ""}`}
+            data-clock-state={clockState}
             key={seat}
           >
             <span className="meta-label">{label}</span>
             <strong>{formatClockMs(remainingMs)}</strong>
-            <span>{seatClock?.isRunning ? "Running" : "Paused"}</span>
+            <span>{clockState === "running" ? "Running" : "Paused"}</span>
           </div>
         );
       })}
@@ -777,7 +780,6 @@ function useProjectedClockTime(clock: MatchClockView | null) {
 
 function BoardRenderer(props: {
   board: MatchBoardView;
-  clock: MatchClockView | null;
   currentSeat: SeatId | null;
   isBusy: boolean;
   onMove: (move: MovePayload) => void;
@@ -797,7 +799,6 @@ function BoardRenderer(props: {
     return (
       <ChessBoard
         board={props.board}
-        clock={props.clock}
         currentSeat={props.currentSeat}
         isBusy={props.isBusy}
         onMove={(move) => props.onMove(move)}
@@ -895,14 +896,11 @@ function BoardRenderer(props: {
 
 function ChessBoard(props: {
   board: ChessBoardView;
-  clock: MatchClockView | null;
   currentSeat: SeatId | null;
   isBusy: boolean;
   onMove: (move: MovePayload) => void;
 }) {
-  const { clientNowMs, snapshotReceivedAtMs } = useProjectedClockTime(props.clock);
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
-  const [isFlipped, setIsFlipped] = useState(false);
   const [reviewPly, setReviewPly] = useState<number | null>(null);
   const [annotationCircles, setAnnotationCircles] = useState<Record<string, ChessAnnotationColor>>({});
   const [annotationArrows, setAnnotationArrows] = useState<readonly ChessAnnotationArrow[]>([]);
@@ -958,8 +956,7 @@ function ChessBoard(props: {
   const canUseTakebackControls =
     props.currentSeat !== null && props.board.outcome.status === "in_progress" && !isReviewing;
   const canRequestTakeback = canUseTakebackControls && latestReplayableMove !== null && takebackRequest === null;
-  const baseOrientation = getChessboardOrientation(props.board, props.currentSeat);
-  const boardOrientation = isFlipped ? getOppositeChessboardOrientation(baseOrientation) : baseOrientation;
+  const boardOrientation = getChessboardOrientation(props.board, props.currentSeat);
   const pendingPromotionPosition = pendingPromotion ? getChessSquareGridPosition(pendingPromotion.to, boardOrientation) : null;
   const boardStatus =
     isReviewing && reviewPly === 0
@@ -967,16 +964,6 @@ function ChessBoard(props: {
       : isReviewing && reviewPly !== null
         ? `Reviewing move ${reviewPly}`
         : formatChessBoardStatus(props.board, props.currentSeat, canAct);
-  const turnPillClassName = isReviewing
-    ? "chess-turn-pill review"
-    : props.board.outcome.status !== "in_progress"
-      ? "chess-turn-pill result"
-      : props.board.takebackRequest
-        ? "chess-turn-pill takeback"
-      : props.board.drawOffer
-        ? "chess-turn-pill draw-offer"
-      : `chess-turn-pill ${props.board.turnColor}${props.board.isCheck ? " check" : ""}`;
-  const turnPillText = isReviewing ? "Review" : formatChessTurnPill(props.board);
   const replayNavigation = getChessReplayNavigation(props.board.moveHistory, isReviewing ? reviewPly : null);
 
   useEffect(() => {
@@ -1134,11 +1121,6 @@ function ChessBoard(props: {
     setPendingConfirmation(null);
   }
 
-  function handleFlipBoard() {
-    setIsFlipped((value) => !value);
-    return true;
-  }
-
   function handleFirstReplay() {
     if (replayNavigation.firstPly === null) return false;
     handleReviewPly(replayNavigation.firstPly);
@@ -1193,8 +1175,6 @@ function ChessBoard(props: {
           ? handleFirstReplay()
           : event.key === "ArrowDown" || key === "j"
             ? handleLatestReplay()
-            : key === "f"
-              ? handleFlipBoard()
           : false;
 
     if (didNavigate) {
@@ -1374,7 +1354,9 @@ function ChessBoard(props: {
       handleSquareClick(square, piece);
     },
     squareRenderer({ piece, square, children }) {
-      const isLegalTarget = selectedLegalMoves.some((move) => move.to === square);
+      const legalTargetMove = selectedLegalMoves.find((move) => move.to === square);
+      const isLegalTarget = legalTargetMove !== undefined;
+      const isCaptureTarget = Boolean(legalTargetMove?.captured || piece);
       const isSelected = selectedSquare === square;
       const isCheckedKing = displayedCheckSquare === square;
       const isLastMoveSquare = lastMove?.from === square || lastMove?.to === square;
@@ -1408,6 +1390,12 @@ function ChessBoard(props: {
           disabled={props.isBusy || !canInteractWithSquare}
           type="button"
         >
+          {isLegalTarget ? (
+            <span
+              aria-hidden="true"
+              className={`chess-legal-move-dot${isCaptureTarget ? " capture" : ""}`}
+            />
+          ) : null}
           {children}
         </button>
       );
@@ -1431,15 +1419,6 @@ function ChessBoard(props: {
           <p>{boardStatus}</p>
         </div>
         <div className="chess-heading-actions">
-          <span className={turnPillClassName}>{turnPillText}</span>
-          <button
-            aria-label={`Flip Board ${props.board.id}`}
-            className="secondary-button compact-button chess-flip-button"
-            onClick={handleFlipBoard}
-            type="button"
-          >
-            Flip
-          </button>
           {isOpponentTakebackRequest ? (
             <span className="chess-takeback-response-group">
               <button
@@ -1511,7 +1490,7 @@ function ChessBoard(props: {
               onClick={handleDrawOffer}
               type="button"
             >
-              {isOwnDrawOffer ? "Draw offered" : isConfirmingDrawOffer ? "Confirm draw" : "Offer Draw"}
+              {isOwnDrawOffer ? "Draw offered" : isConfirmingDrawOffer ? "Confirm" : "Draw"}
             </button>
           )}
           <button
@@ -1521,7 +1500,7 @@ function ChessBoard(props: {
             onClick={handleResign}
             type="button"
           >
-            {isConfirmingResign ? "Confirm resign" : "Resign"}
+            {isConfirmingResign ? "Confirm" : "Resign"}
           </button>
         </div>
       </div>
@@ -1571,26 +1550,6 @@ function ChessBoard(props: {
           ) : null}
         </div>
         <aside className="chess-side-panel" aria-label={`Board ${props.board.id} chess details`}>
-          <div className="chess-player-stack" aria-label={`Board ${props.board.id} players`}>
-            <ChessPlayerRow
-              board={props.board}
-              clientNowMs={clientNowMs}
-              clock={props.clock}
-              color="b"
-              currentSeat={props.currentSeat}
-              isReviewing={isReviewing}
-              snapshotReceivedAtMs={snapshotReceivedAtMs}
-            />
-            <ChessPlayerRow
-              board={props.board}
-              clientNowMs={clientNowMs}
-              clock={props.clock}
-              color="w"
-              currentSeat={props.currentSeat}
-              isReviewing={isReviewing}
-              snapshotReceivedAtMs={snapshotReceivedAtMs}
-            />
-          </div>
           <ChessMoveHistory
             board={props.board}
             onReturnToLive={handleReturnToLive}
@@ -1652,61 +1611,6 @@ function ChessAnnotationArrows(props: {
         );
       })}
     </svg>
-  );
-}
-
-function ChessPlayerRow(props: {
-  board: ChessBoardView;
-  clientNowMs: number;
-  clock: MatchClockView | null;
-  color: "w" | "b";
-  currentSeat: SeatId | null;
-  isReviewing: boolean;
-  snapshotReceivedAtMs: number;
-}) {
-  const seat = getSeatForChessColor(props.board, props.color);
-  const capturedPieces = getCapturedPiecesByColor(props.board, props.color);
-  const materialAdvantage = getChessMaterialAdvantage(props.board, props.color);
-  const seatClock = props.clock?.seats[seat] ?? null;
-  const remainingMs = props.clock
-    ? getProjectedClockRemainingMs(props.clock, seat, props.snapshotReceivedAtMs, props.clientNowMs)
-    : null;
-  const isCurrentSeat = seat === props.currentSeat;
-  const isToMove = !props.isReviewing && props.board.outcome.status === "in_progress" && props.board.turnColor === props.color;
-  const isClockRunning =
-    !props.isReviewing &&
-    props.board.outcome.status === "in_progress" &&
-    props.board.seatsToAct.includes(seat) &&
-    seatClock?.isRunning === true;
-
-  return (
-    <div className={`chess-player-row ${props.color}${isToMove ? " to-move" : ""}`}>
-      <span className="chess-color-dot" aria-hidden="true" />
-      <div>
-        <strong>
-          {formatChessColor(props.color)}
-          {isCurrentSeat ? " (You)" : ""}
-        </strong>
-        <span>{formatRelativeSeat(seat, props.currentSeat)}</span>
-        <span className="captured-pieces" aria-label={`${formatChessColor(props.color)} captured material`}>
-          <span>{capturedPieces.length > 0 ? capturedPieces.join(" ") : "-"}</span>
-          {materialAdvantage > 0 ? (
-            <span
-              aria-label={`Board ${props.board.id} ${formatChessColor(props.color)} material advantage`}
-              className="material-advantage"
-            >
-              +{materialAdvantage}
-            </span>
-          ) : null}
-        </span>
-      </div>
-      <strong
-        aria-label={`Board ${props.board.id} ${formatChessColor(props.color)} clock`}
-        className={`chess-player-clock${isClockRunning ? " running" : ""}`}
-      >
-        {remainingMs === null ? "--:--" : formatClockMs(remainingMs)}
-      </strong>
-    </div>
   );
 }
 
@@ -2465,22 +2369,6 @@ const chessPieceGlyphs: Record<ChessPiece["color"], Record<ChessPiece["type"], s
   w: { p: "♙", n: "♘", b: "♗", r: "♖", q: "♕", k: "♔" },
   b: { p: "♟", n: "♞", b: "♝", r: "♜", q: "♛", k: "♚" }
 };
-const chessStartingPieceCounts: Record<ChessPiece["type"], number> = {
-  p: 8,
-  n: 2,
-  b: 2,
-  r: 2,
-  q: 1,
-  k: 1
-};
-const chessPieceValues: Record<ChessPiece["type"], number> = {
-  p: 1,
-  n: 3,
-  b: 3,
-  r: 5,
-  q: 9,
-  k: 0
-};
 
 type ChessMovePair = {
   readonly number: number;
@@ -2516,10 +2404,6 @@ function getChessboardPosition(fen: string) {
 
 function getChessboardOrientation(board: ChessBoardView, seat: SeatId | null) {
   return seat && board.blackSeat === seat ? "black" : "white";
-}
-
-function getOppositeChessboardOrientation(orientation: "white" | "black") {
-  return orientation === "white" ? "black" : "white";
 }
 
 function getChessMovesFromSquare(board: ChessBoardView, square: string) {
@@ -2610,8 +2494,8 @@ function getChessSquareStyles(props: {
       styles,
       move.to,
       move.captured
-        ? { boxShadow: "inset 0 0 0 4px rgb(183 79 42 / 62%)" }
-        : { background: "radial-gradient(circle, rgb(36 93 99 / 42%) 0 18%, transparent 19%)" }
+        ? { boxShadow: "inset 0 0 0 4px rgb(52 168 83 / 64%)" }
+        : { background: "radial-gradient(circle, rgb(52 168 83 / 20%) 0 24%, transparent 25%)" }
     );
   }
 
@@ -2706,48 +2590,6 @@ function formatChessOutcomeReason(reason: string) {
     default:
       return reason.split("-").join(" ");
   }
-}
-
-function formatChessTurnPill(board: ChessBoardView) {
-  if (board.outcome.status !== "in_progress") return formatChessOutcomeStatus(board, null);
-  if (board.takebackRequest) return "Takeback requested";
-  if (board.drawOffer) return "Draw offered";
-  return `${formatChessColor(board.turnColor)}${board.isCheck ? " in check" : " to move"}`;
-}
-
-function getCapturedPiecesByColor(board: ChessBoardView, color: "w" | "b") {
-  const capturedColor = color === "w" ? "b" : "w";
-  const remaining = getRemainingPieceCounts(board, capturedColor);
-
-  return (["q", "r", "b", "n", "p"] as const).flatMap((piece) => {
-    const capturedCount = chessStartingPieceCounts[piece] - remaining[piece];
-    return Array.from({ length: Math.max(0, capturedCount) }, () => chessPieceGlyphs[capturedColor][piece]);
-  });
-}
-
-function getChessMaterialAdvantage(board: ChessBoardView, color: "w" | "b") {
-  const otherColor = color === "w" ? "b" : "w";
-  return Math.max(0, getCapturedMaterialValue(board, color) - getCapturedMaterialValue(board, otherColor));
-}
-
-function getCapturedMaterialValue(board: ChessBoardView, color: "w" | "b") {
-  const capturedColor = color === "w" ? "b" : "w";
-  const remaining = getRemainingPieceCounts(board, capturedColor);
-
-  return (Object.keys(chessStartingPieceCounts) as ChessPiece["type"][]).reduce((total, piece) => {
-    const capturedCount = chessStartingPieceCounts[piece] - remaining[piece];
-    return total + Math.max(0, capturedCount) * chessPieceValues[piece];
-  }, 0);
-}
-
-function getRemainingPieceCounts(board: ChessBoardView, color: "w" | "b") {
-  const counts: Record<ChessPiece["type"], number> = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 };
-  for (const square of board.squares) {
-    if (square.piece?.color === color) {
-      counts[square.piece.type] += 1;
-    }
-  }
-  return counts;
 }
 
 function getChessMovePairs(moveHistory: readonly ChessMoveRecord[]): ChessMovePair[] {
