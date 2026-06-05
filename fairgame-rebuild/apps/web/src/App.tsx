@@ -173,6 +173,7 @@ export function App() {
   const [isChessZenMode, setIsChessZenMode] = useState(false);
   const [chessCreateMode, setChessCreateMode] = useState<"human" | "bot">("human");
   const [browserBotDifficulty, setBrowserBotDifficulty] = useState<BrowserChessBotDifficulty>("normal");
+  const [isCreatingBrowserBotGame, setIsCreatingBrowserBotGame] = useState(false);
   const [browserBotStatus, setBrowserBotStatus] = useState<BrowserChessBotStatus>("idle");
   const [browserBotRetryVersion, setBrowserBotRetryVersion] = useState(0);
   const restoreRequestRef = useRef<{ readonly matchId: string; readonly promise: Promise<SeatSession> } | null>(null);
@@ -429,15 +430,20 @@ export function App() {
 
   async function handleCreate(minutes = customMinutes) {
     if (!lobbyGame) return;
-    await run(async () => {
-      const shouldCreateBot = isBrowserChessBotEnabled && lobbyGame === "chess" && chessCreateMode === "bot";
-      const nextSession = await createMatch(lobbyGame, {
-        clockInitialMs: minutesToMs(minutes, lobbyGame),
-        ...(shouldCreateBot ? { bot: { difficulty: browserBotDifficulty } } : {})
+    const shouldCreateBot = isBrowserChessBotEnabled && lobbyGame === "chess" && chessCreateMode === "bot";
+    setIsCreatingBrowserBotGame(shouldCreateBot);
+    try {
+      await run(async () => {
+        const nextSession = await createMatch(lobbyGame, {
+          clockInitialMs: minutesToMs(minutes, lobbyGame),
+          ...(shouldCreateBot ? { bot: { difficulty: browserBotDifficulty } } : {})
+        });
+        setSession(nextSession);
+        navigateTo({ view: "match", matchId: nextSession.match.id });
       });
-      setSession(nextSession);
-      navigateTo({ view: "match", matchId: nextSession.match.id });
-    });
+    } finally {
+      setIsCreatingBrowserBotGame(false);
+    }
   }
 
   async function handleJoinOpenMatch(matchId: string) {
@@ -675,7 +681,7 @@ export function App() {
               </div>
             </section>
             <button className="primary-button" onClick={() => void handleCreate()} disabled={isBusy}>
-              Create {selectedGameLabel} match
+              {isCreatingBrowserBotGame ? "Creating bot game" : `Create ${selectedGameLabel} match`}
             </button>
           </section>
           <section className="panel open-games-panel" aria-label="Open games">

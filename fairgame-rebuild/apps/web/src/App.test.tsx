@@ -403,6 +403,45 @@ describe("App", () => {
     );
   });
 
+  it("shows a creating state while a Chess bot match request is pending", async () => {
+    const botSession = createChessSeatSession("match-bot-pending");
+    (botSession.match as typeof botSession.match & { bot: unknown }).bot = {
+      seat: "seat2",
+      kind: "browser-stockfish",
+      difficulty: "normal",
+      displayName: "Stockfish Normal"
+    };
+    let resolveCreate: (() => void) | null = null;
+    const fetchMock = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      const method = init?.method ?? "GET";
+      if (path.endsWith("/api/matches") && method === "GET") {
+        return Promise.resolve(createJsonResponse({ matches: [] }));
+      }
+      if (path.endsWith("/api/matches") && method === "POST") {
+        return new Promise((resolve) => {
+          resolveCreate = () => resolve(createJsonResponse(botSession));
+        });
+      }
+      return Promise.resolve(createJsonResponse(botSession));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
+
+    expect(await screen.findByRole("button", { name: "Creating bot game" })).toBeDisabled();
+
+    await act(async () => {
+      resolveCreate?.();
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByTestId("match-code")).toHaveAttribute("data-match-id", "match-bot-pending");
+  });
+
   it("does not start the browser bot controller for human Chess matches", async () => {
     vi.stubGlobal("fetch", createFetchMock({ matches: [], seatSession: createChessSeatSession("match-human") }));
 
