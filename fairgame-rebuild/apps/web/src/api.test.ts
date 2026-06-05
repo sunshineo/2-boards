@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getApiBaseUrl } from "./api";
+import { createMatch, getApiBaseUrl, makeBotMove } from "./api";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("getApiBaseUrl", () => {
   it("uses same-origin API URLs in production builds", () => {
@@ -22,5 +26,44 @@ describe("getApiBaseUrl", () => {
     const location = new URL("https://play.example.com/") as unknown as Location;
 
     expect(getApiBaseUrl(env, location)).toBe("https://api.example.com");
+  });
+
+  it("sends bot difficulty when creating a bot match", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ seat: "seat1", match: { id: "match-bot" } }), {
+        status: 201,
+        headers: { "content-type": "application/json" }
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createMatch("chess", { clockInitialMs: 300_000, bot: { difficulty: "hard" } });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: JSON.stringify({ gameType: "chess", clockInitialMs: 300_000, bot: { difficulty: "hard" } })
+      })
+    );
+  });
+
+  it("submits bot moves without a user-supplied seat", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ match: { id: "match-bot" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await makeBotMove({ matchId: "match-bot", boardId: "B", move: { from: "e7", to: "e5" } });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/matches/match-bot/bot-moves"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ boardId: "B", move: { from: "e7", to: "e5" } })
+      })
+    );
   });
 });

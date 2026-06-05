@@ -1,4 +1,13 @@
-import type { BoardId, GameType, MatchView, MovePayload, OpenMatchView, SeatId, SeatSession } from "./types";
+import type {
+  BoardId,
+  BrowserChessBotDifficulty,
+  GameType,
+  MatchView,
+  MovePayload,
+  OpenMatchView,
+  SeatId,
+  SeatSession
+} from "./types";
 
 export function getApiBaseUrl(env: ImportMetaEnv = import.meta.env, location: Location = window.location) {
   if (env["VITE_API_URL"]) return env["VITE_API_URL"];
@@ -18,6 +27,7 @@ export class ApiError extends Error {
 
 export type CreateMatchOptions = {
   readonly clockInitialMs?: number;
+  readonly bot?: { readonly difficulty: BrowserChessBotDifficulty };
 };
 
 export async function createMatch(
@@ -26,7 +36,7 @@ export async function createMatch(
 ): Promise<SeatSession> {
   return request<SeatSession>("/api/matches", {
     method: "POST",
-    body: JSON.stringify({ gameType, clockInitialMs: options.clockInitialMs })
+    body: JSON.stringify({ gameType, clockInitialMs: options.clockInitialMs, bot: options.bot })
   });
 }
 
@@ -64,6 +74,25 @@ export async function makeMove(input: {
       body: JSON.stringify({
         boardId: input.boardId,
         seat: input.seat,
+        move: input.move
+      })
+    }
+  );
+
+  return response.match;
+}
+
+export async function makeBotMove(input: {
+  matchId: string;
+  boardId: BoardId;
+  move: MovePayload;
+}): Promise<MatchView> {
+  const response = await request<{ match: MatchView }>(
+    `/api/matches/${encodeURIComponent(input.matchId)}/bot-moves`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        boardId: input.boardId,
         move: input.move
       })
     }

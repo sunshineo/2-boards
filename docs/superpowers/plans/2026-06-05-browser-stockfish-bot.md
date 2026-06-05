@@ -195,7 +195,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit server bot model** _(in progress)_
+- [x] **Step 5: Commit server bot model**
 
 ```bash
 git add fairgame-rebuild/apps/server/src/config.ts \
@@ -207,6 +207,8 @@ git add fairgame-rebuild/apps/server/src/config.ts \
   fairgame-rebuild/apps/server/src/matches/routes.ts
 git commit -m "feat: add browser chess bot server flow"
 ```
+
+**Task 1 Evidence:** Commit `da702a3`; `npm test -w @fairgame/server -- browserChessBot` passed; `npm run typecheck` passed.
 
 ---
 
@@ -222,7 +224,7 @@ git commit -m "feat: add browser chess bot server flow"
 - Modify: `fairgame-rebuild/apps/web/src/api.ts`
 - Test: `fairgame-rebuild/apps/web/src/api.test.ts`
 
-- [ ] **Step 1: Write failing web API/type tests**
+- [x] **Step 1: Write failing web API/type tests**
 
 Extend `fairgame-rebuild/apps/web/src/api.test.ts`:
 
@@ -269,7 +271,7 @@ it("submits bot moves without a user-supplied seat", async () => {
 });
 ```
 
-- [ ] **Step 2: Run web API tests and confirm they fail**
+- [x] **Step 2: Run web API tests and confirm they fail**
 
 Run:
 
@@ -279,7 +281,7 @@ npm test -w @fairgame/web -- api
 
 Expected: FAIL because `makeBotMove` and create bot options do not exist.
 
-- [ ] **Step 3: Install Stockfish and add asset copy script**
+- [x] **Step 3: Install Stockfish and add asset copy script**
 
 Run:
 
@@ -322,7 +324,7 @@ npm run prebuild -w @fairgame/web
 
 Expected: `apps/web/public/vendor/stockfish/stockfish-18-lite-single.js` and `.wasm` exist.
 
-- [ ] **Step 4: Implement web bot types and API functions**
+- [x] **Step 4: Implement web bot types and API functions**
 
 Add to `types.ts`:
 
@@ -371,7 +373,7 @@ export async function makeBotMove(input: {
 }
 ```
 
-- [ ] **Step 5: Run web API tests and typecheck**
+- [x] **Step 5: Run web API tests and typecheck**
 
 Run:
 
@@ -382,7 +384,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit web API and assets**
+- [ ] **Step 6: Commit web API and assets** _(in progress)_
 
 ```bash
 git add fairgame-rebuild/apps/web/package.json fairgame-rebuild/package-lock.json \

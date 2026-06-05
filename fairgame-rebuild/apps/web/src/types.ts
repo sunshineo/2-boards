@@ -2,6 +2,15 @@ export type SeatId = "seat1" | "seat2";
 
 export type BoardId = "A" | "B";
 
+export type BrowserChessBotDifficulty = "easy" | "normal" | "hard";
+
+export type BrowserChessBot = {
+  seat: "seat2";
+  kind: "browser-stockfish";
+  difficulty: BrowserChessBotDifficulty;
+  displayName: string;
+};
+
 export type GameType =
   | "tictactoe"
   | "connect4"
@@ -216,6 +225,7 @@ export type MatchView = {
   outcome: MatchOutcome;
   clock: MatchClockView | null;
   boards: MatchBoardView[];
+  bot?: BrowserChessBot;
 };
 
 export type OpenMatchView = {
