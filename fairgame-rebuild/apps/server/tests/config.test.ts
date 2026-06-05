@@ -61,38 +61,26 @@ describe("server config", () => {
     });
   });
 
-  it("enables the debug Chess bot only for non-production runs", () => {
+  it("parses the browser Chess bot feature flag", () => {
     const localConfig = loadServerConfig(
       {
         DATABASE_URL: "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require",
-        FAIRGAME_DEBUG_CHESS_BOT: "true",
-        FAIRGAME_DEBUG_CHESS_BOT_NAME: "Local Bot",
-        FAIRGAME_DEBUG_CHESS_BOT_MOVE_DELAY_MS: "3500"
+        FAIRGAME_BROWSER_CHESS_BOT: "false"
       },
       "/repo/apps/server"
     );
 
-    expect(localConfig.debugChessBot).toEqual({
-      enabled: true,
-      name: "Local Bot",
-      moveDelayMs: 3_500,
-      seat: "seat2"
-    });
+    expect(localConfig.browserChessBot).toEqual({ enabled: false });
 
     const productionConfig = loadServerConfig(
       {
         NODE_ENV: "production",
         DATABASE_URL: "postgresql://fairgame:secret@db.example.com/fairgame?sslmode=require",
-        FAIRGAME_DEBUG_CHESS_BOT: "true"
+        FAIRGAME_BROWSER_CHESS_BOT: "true"
       },
       "/repo/apps/server"
     );
 
-    expect(productionConfig.debugChessBot).toEqual({
-      enabled: false,
-      name: "Debug Bot",
-      moveDelayMs: 2_000,
-      seat: "seat2"
-    });
+    expect(productionConfig.browserChessBot).toEqual({ enabled: true });
   });
 });

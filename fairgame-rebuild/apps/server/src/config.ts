@@ -4,12 +4,6 @@ export type ServerConfig = {
   readonly nodeEnv: "development" | "test" | "production";
   readonly port: number;
   readonly databaseUrl: string;
-  readonly debugChessBot: {
-    readonly enabled: boolean;
-    readonly name: string;
-    readonly moveDelayMs: number;
-    readonly seat: "seat2";
-  };
   readonly browserChessBot: {
     readonly enabled: boolean;
   };
@@ -38,12 +32,6 @@ export function loadServerConfig(env: Env = process.env, cwd = process.cwd()): S
     nodeEnv,
     port: parsePositiveInteger(env["PORT"], 4000),
     databaseUrl: parseRequiredString(env["DATABASE_URL"], "DATABASE_URL"),
-    debugChessBot: {
-      enabled: nodeEnv !== "production" && parseBoolean(env["FAIRGAME_DEBUG_CHESS_BOT"], false),
-      name: parseOptionalName(env["FAIRGAME_DEBUG_CHESS_BOT_NAME"], "Debug Bot"),
-      moveDelayMs: parseNonNegativeInteger(env["FAIRGAME_DEBUG_CHESS_BOT_MOVE_DELAY_MS"], 2_000),
-      seat: "seat2"
-    },
     browserChessBot: {
       enabled: parseBoolean(env["FAIRGAME_BROWSER_CHESS_BOT"], nodeEnv !== "production")
     },
@@ -85,11 +73,6 @@ function parseCsv(value: string | undefined): string[] {
 function parseBoolean(value: string | undefined, fallback: boolean): boolean {
   if (!value) return fallback;
   return ["1", "true", "yes", "on"].includes(value.toLowerCase());
-}
-
-function parseOptionalName(value: string | undefined, fallback: string): string {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed.slice(0, 40) : fallback;
 }
 
 function parsePositiveInteger(value: string | undefined, fallback: number): number {

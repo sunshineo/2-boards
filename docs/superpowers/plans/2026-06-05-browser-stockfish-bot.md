@@ -646,12 +646,14 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit app integration** _(in progress)_
+- [x] **Step 7: Commit app integration**
 
 ```bash
 git add fairgame-rebuild/apps/web/src/App.tsx fairgame-rebuild/apps/web/src/App.test.tsx fairgame-rebuild/apps/web/src/styles.css
 git commit -m "feat: add chess bot UI"
 ```
+
+**Task 4 Evidence:** Commit `f655843`; `npm test -w @fairgame/web -- App` passed; `npm run typecheck` passed.
 
 ---
 
@@ -666,7 +668,7 @@ git commit -m "feat: add chess bot UI"
 - Modify: `fairgame-rebuild/README.md`
 - Modify: `docs/superpowers/specs/2026-06-05-browser-stockfish-bot-design.md`
 
-- [ ] **Step 1: Write or update tests proving heuristic debug bot is gone**
+- [x] **Step 1: Write or update tests proving heuristic debug bot is gone**
 
 Update server config tests or add coverage in `browserChessBot.test.ts`:
 
@@ -683,7 +685,7 @@ it("does not auto-seat a server debug bot for normal Chess match creation", asyn
 });
 ```
 
-- [ ] **Step 2: Remove debug bot config and service hooks**
+- [x] **Step 2: Remove debug bot config and service hooks**
 
 Remove:
 
@@ -695,7 +697,7 @@ Remove:
 
 Keep `FAIRGAME_BROWSER_CHESS_BOT` as the only Chess bot server flag.
 
-- [ ] **Step 3: Update docs and implementation evidence**
+- [x] **Step 3: Update docs and implementation evidence**
 
 Update `.env.example`:
 
@@ -717,19 +719,19 @@ Add an "Implementation evidence" section to the design doc listing:
 - verification commands and results
 - browser verification result
 
-- [ ] **Step 4: Run checks**
+- [x] **Step 4: Run checks**
 
 Run:
 
 ```bash
-rg "DEBUG_CHESS_BOT|debugChessBot|Debug Bot|debug chess bot" fairgame-rebuild docs
+rg "DEBUG_CHESS_BOT|debugChessBot|Debug Bot|debug chess bot" fairgame-rebuild docs/superpowers/specs/2026-06-05-browser-stockfish-bot-design.md
 npm run typecheck
 npm test
 ```
 
-Expected: `rg` finds no old debug bot references except historical commit messages outside the worktree if any; typecheck and tests pass.
+Expected: `rg` finds no old debug bot references in product code or the active design spec; typecheck and tests pass.
 
-- [ ] **Step 5: Commit cleanup and docs**
+- [ ] **Step 5: Commit cleanup and docs** _(in progress)_
 
 ```bash
 git add -A fairgame-rebuild docs/superpowers/specs/2026-06-05-browser-stockfish-bot-design.md

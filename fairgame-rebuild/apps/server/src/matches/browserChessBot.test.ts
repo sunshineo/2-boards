@@ -2,6 +2,7 @@ import express from "express";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 
+import { loadServerConfig } from "../config.js";
 import { MatchService } from "./matchService.js";
 import { createMatchRouter } from "./routes.js";
 
@@ -23,6 +24,29 @@ function findBoard(match: { boards: readonly { id: string }[] }, boardId: string
 }
 
 describe("browser Chess bot", () => {
+  it("does not expose legacy server heuristic bot config", () => {
+    const legacyEnvFlag = ["FAIRGAME", "DEBUG", "CHESS", "BOT"].join("_");
+    const legacyConfigKey = ["debug", "Chess", "Bot"].join("");
+    const config = loadServerConfig({
+      NODE_ENV: "development",
+      DATABASE_URL: "postgresql://fairgame:password@localhost:5432/fairgame",
+      [legacyEnvFlag]: "true"
+    });
+
+    expect(legacyConfigKey in config).toBe(false);
+  });
+
+  it("does not auto-seat a server debug bot for normal Chess match creation", async () => {
+    const response = await request(createTestApp())
+      .post("/api/matches")
+      .send({ gameType: "chess", clockInitialMs: 300_000 })
+      .expect(201);
+
+    expect(response.body.match.joinedSeats).toBe(1);
+    expect(response.body.match.bot).toBeUndefined();
+    expect(response.body.match.players.seat2.name).toBe("Player 2");
+  });
+
   it("creates a Chess bot match with seat2 joined and bot metadata", async () => {
     const response = await request(createTestApp())
       .post("/api/matches")

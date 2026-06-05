@@ -29,18 +29,15 @@ npm run dev
 
 The server loads `fairgame-rebuild/.env` automatically for local runs.
 
-Start local development with a Chess bot opponent:
+Start local development with browser-hosted Chess bot mode enabled:
 
 ```bash
-FAIRGAME_DEBUG_CHESS_BOT=true npm run dev
+FAIRGAME_BROWSER_CHESS_BOT=true VITE_BROWSER_CHESS_BOT=true npm run dev
 ```
 
-When enabled outside production, newly created Chess matches auto-seat Player 2 as
-the debug bot and the bot plays simple deterministic legal moves after a short
-think delay. The default delay is 2 seconds; override it with
-`FAIRGAME_DEBUG_CHESS_BOT_MOVE_DELAY_MS=5000` when you want more time to inspect
-the opponent clock. Production mode forces this off even if the environment
-variable is present.
+When enabled, the Chess lobby exposes a Bot mode. The server creates and
+authorizes the bot match, but Stockfish runs in the player's browser and submits
+validated bot moves back through the normal server-owned match flow.
 
 Run the built app as a single production server:
 

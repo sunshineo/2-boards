@@ -12,7 +12,7 @@ import { registerRealtime } from "./realtime.js";
 loadLocalEnv();
 const config = loadServerConfig();
 const repository = await PostgresMatchRepository.open<SupportedGameState>(config.databaseUrl);
-const matchService = new MatchService({ repository, debugChessBot: config.debugChessBot });
+const matchService = new MatchService({ repository });
 await matchService.loadFromRepository();
 const app = createApp({
   matchService,

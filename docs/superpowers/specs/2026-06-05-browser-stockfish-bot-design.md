@@ -270,7 +270,7 @@ Browser verification:
 
 ## Rollout
 
-Keep the existing local debug chess bot until the browser Stockfish bot is implemented and verified.
+The previous local server-side heuristic Chess bot is retired after the browser Stockfish bot is implemented and verified.
 
 Add a production feature flag for cautious rollout:
 
@@ -281,7 +281,7 @@ FAIRGAME_BROWSER_CHESS_BOT=true
 
 The web flag controls whether the UI exposes Bot mode. The server flag controls whether bot match creation and bot move endpoints are enabled. Production can enable both when ready.
 
-After browser bot mode is stable, remove or disable the old server heuristic debug bot so there is one bot architecture for Chess.
+After browser bot mode is stable, keep the browser Stockfish path as the only Chess bot architecture.
 
 ## References
 
