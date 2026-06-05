@@ -283,6 +283,25 @@ The web flag controls whether the UI exposes Bot mode. The server flag controls 
 
 After browser bot mode is stable, keep the browser Stockfish path as the only Chess bot architecture.
 
+## Implementation Evidence
+
+- Plan: `docs/superpowers/plans/2026-06-05-browser-stockfish-bot.md`
+- Commits:
+  - `f3a522f` - wrote the browser Stockfish bot design spec.
+  - `8c28758` - wrote the implementation plan.
+  - `da702a3` - added the server-owned bot match flow and bot move authorization endpoint.
+  - `f0424dd` - added web API/types and Stockfish asset copying.
+  - `e478d90` - added the browser Stockfish controller.
+  - `f655843` - added the Chess bot lobby and match UI states.
+  - `0f771dd` - retired the old server-side heuristic debug bot.
+  - `19cb133` - rendered the browser bot opponent name in the match header.
+- Verification:
+  - `npm test -w @fairgame/web -- App` - PASS, 38 App tests.
+  - `npm run typecheck` - PASS.
+  - `npm test` - PASS, 213 tests across shared/domain/server/web workspaces. An earlier full-suite run hit one transient server 404 in `tests/matches.test.ts`; the isolated file, server workspace, and final full rerun all passed.
+  - `npm run build` - PASS; copied 2 Stockfish assets and built the Vite frontend.
+  - Browser verification at `http://localhost:5176/games/chess` - PASS. The in-app browser created a Normal bot match, displayed `Stockfish Normal`, submitted a human `e2-e4`, observed the opponent clock decrement while `seat2` was thinking, reloaded while `seat2` was still to act, saw the restored bot submit `e7-e5`, confirmed bot auto-decline for draw and takeback requests, and created a fresh final bot smoke match where Stockfish submitted the Board B opening move.
+
 ## References
 
 - Browser engine package: https://github.com/nmrugg/stockfish.js

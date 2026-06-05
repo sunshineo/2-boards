@@ -731,12 +731,14 @@ npm test
 
 Expected: `rg` finds no old debug bot references in product code or the active design spec; typecheck and tests pass.
 
-- [ ] **Step 5: Commit cleanup and docs** _(in progress)_
+- [x] **Step 5: Commit cleanup and docs**
 
 ```bash
 git add -A fairgame-rebuild docs/superpowers/specs/2026-06-05-browser-stockfish-bot-design.md
 git commit -m "chore: retire heuristic chess debug bot"
 ```
+
+**Task 5 Evidence:** Commit `0f771dd`; legacy debug-bot scan returned no matches in product code or active spec; `npm run typecheck` passed; `npm test` passed.
 
 ---
 
@@ -746,7 +748,7 @@ git commit -m "chore: retire heuristic chess debug bot"
 - Modify: `docs/superpowers/specs/2026-06-05-browser-stockfish-bot-design.md`
 - Optional Modify: `roadmap.md` if the work completes or changes roadmap status.
 
-- [ ] **Step 1: Run full automated verification**
+- [x] **Step 1: Run full automated verification**
 
 Run:
 
@@ -758,7 +760,9 @@ npm run build
 
 Expected: all pass.
 
-- [ ] **Step 2: Start local servers with browser bot enabled**
+**Task 6 Step 1 Evidence:** `npm test -w @fairgame/web -- App` passed with 38 tests; `npm run typecheck` passed; final `npm test` passed with 213 tests across shared/domain/server/web workspaces; `npm run build` passed and copied 2 Stockfish assets. One earlier full-suite `npm test` run hit a transient 404 in `tests/matches.test.ts`; `npm test -w @fairgame/server -- tests/matches.test.ts`, `npm test -w @fairgame/server`, and the final full `npm test` rerun all passed.
+
+- [x] **Step 2: Start local servers with browser bot enabled**
 
 Run from `fairgame-rebuild`:
 
@@ -768,7 +772,9 @@ FAIRGAME_BROWSER_CHESS_BOT=true VITE_BROWSER_CHESS_BOT=true PORT=4110 DATABASE_U
 
 If local Postgres is unavailable, use the existing project local database setup or a test-safe `DATABASE_URL` that the server accepts.
 
-- [ ] **Step 3: Browser verification**
+**Task 6 Step 2 Evidence:** Started a test-safe in-memory API on `http://localhost:4110` with `FAIRGAME_BROWSER_CHESS_BOT=true` and Vite on `http://localhost:5176` with `VITE_BROWSER_CHESS_BOT=true`. The API used the real Express router, Socket.IO registration, and `MatchService` with no production database writes.
+
+- [x] **Step 3: Browser verification**
 
 Open `http://localhost:5173/games/chess` or the Vite port reported by the server logs.
 
@@ -784,7 +790,9 @@ Verify:
 - Takeback request is automatically declined by the bot.
 - Refresh during bot turn resumes bot thinking.
 
-- [ ] **Step 4: Record final evidence in the design doc**
+**Task 6 Step 3 Evidence:** In-app browser verification at `http://localhost:5176/games/chess` passed. Bot mode appeared in the Chess lobby, Normal difficulty created bot matches, `Stockfish Normal` rendered in the match header, a human `e2-e4` move started `seat2` thinking, the opponent clock dropped from `296789ms` to `295583ms` during a 1200ms observation window, reload happened while `seat2` was still to act, the restored controller submitted `e7-e5`, draw and takeback requests were automatically declined, and a fresh final smoke match confirmed `Stockfish Normal` plus a Stockfish Board B opening move.
+
+- [x] **Step 4: Record final evidence in the design doc**
 
 Append evidence to `docs/superpowers/specs/2026-06-05-browser-stockfish-bot-design.md`:
 
@@ -798,10 +806,12 @@ Append evidence to `docs/superpowers/specs/2026-06-05-browser-stockfish-bot-desi
   - `npm run typecheck` - PASS
   - `npm test` - PASS
   - `npm run build` - PASS
-  - Browser verification at `http://localhost:<port>/games/chess` - PASS
+- Browser verification at `http://localhost:<port>/games/chess` - PASS
 ```
 
-- [ ] **Step 5: Commit final evidence**
+**Task 6 Step 4 Evidence:** Final implementation evidence was appended to `docs/superpowers/specs/2026-06-05-browser-stockfish-bot-design.md`.
+
+- [ ] **Step 5: Commit final evidence** _(in progress)_
 
 ```bash
 git add docs/superpowers/specs/2026-06-05-browser-stockfish-bot-design.md
