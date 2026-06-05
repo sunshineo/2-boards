@@ -811,12 +811,14 @@ Append evidence to `docs/superpowers/specs/2026-06-05-browser-stockfish-bot-desi
 
 **Task 6 Step 4 Evidence:** Final implementation evidence was appended to `docs/superpowers/specs/2026-06-05-browser-stockfish-bot-design.md`.
 
-- [ ] **Step 5: Commit final evidence** _(in progress)_
+- [x] **Step 5: Commit final evidence**
 
 ```bash
 git add docs/superpowers/specs/2026-06-05-browser-stockfish-bot-design.md
 git commit -m "docs: record browser chess bot evidence"
 ```
+
+**Task 6 Step 5 Evidence:** Commit `371459d` recorded the implementation evidence in the design doc, updated this execution plan through final verification, and added the roadmap follow-up that supersedes the retired local heuristic bot.
 
 ---
 
