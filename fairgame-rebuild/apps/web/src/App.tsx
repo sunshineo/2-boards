@@ -141,7 +141,6 @@ const gameTimeRanges: Record<GameType, { readonly min: number; readonly max: num
 };
 
 const recentMatchesKey = "fairgame.recentMatches";
-const isBrowserChessBotEnabled = import.meta.env["VITE_BROWSER_CHESS_BOT"] !== "false";
 const browserChessBotDifficultyOptions: readonly {
   readonly difficulty: BrowserChessBotDifficulty;
   readonly label: string;
@@ -431,7 +430,7 @@ export function App() {
 
   async function handleCreate(minutes = customMinutes) {
     if (!lobbyGame) return;
-    const shouldCreateBot = isBrowserChessBotEnabled && lobbyGame === "chess" && chessCreateMode === "bot";
+    const shouldCreateBot = lobbyGame === "chess" && chessCreateMode === "bot";
     setIsCreatingBrowserBotGame(shouldCreateBot);
     try {
       await run(async () => {
@@ -586,7 +585,7 @@ export function App() {
             </div>
             <section className="quick-pairing" aria-label="Quick pairing">
               <h3>Quick pairing</h3>
-              {isBrowserChessBotEnabled && lobbyGame === "chess" ? (
+              {lobbyGame === "chess" ? (
                 <div className="mode-section" aria-label="Chess opponent">
                   <div className="mode-toggle" role="group" aria-label="Opponent">
                     <button

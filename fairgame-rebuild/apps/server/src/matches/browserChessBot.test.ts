@@ -9,7 +9,7 @@ import { createMatchRouter } from "./routes.js";
 function createTestApp(matchService = new MatchService()) {
   const app = express();
   app.use(express.json());
-  app.use("/api/matches", createMatchRouter(matchService, { browserChessBotEnabled: true }));
+  app.use("/api/matches", createMatchRouter(matchService));
   return app;
 }
 
@@ -63,6 +63,16 @@ describe("browser Chess bot", () => {
     });
     expect(response.body.match.players.seat2.name).toBe("Stockfish Normal");
     expect(getSetCookies(response).join("\n")).toContain(`fg_bot_${response.body.match.id}=`);
+  });
+
+  it("creates Chess bot matches without a feature flag", async () => {
+    const response = await request(createTestApp())
+      .post("/api/matches")
+      .send({ gameType: "chess", clockInitialMs: 300_000, bot: { difficulty: "normal" } })
+      .expect(201);
+
+    expect(response.body.match.bot?.displayName).toBe("Stockfish Normal");
+    expect(response.body.match.joinedSeats).toBe(2);
   });
 
   it("rejects bot match creation for non-Chess games", async () => {

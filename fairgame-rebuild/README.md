@@ -29,15 +29,9 @@ npm run dev
 
 The server loads `fairgame-rebuild/.env` automatically for local runs.
 
-Start local development with browser-hosted Chess bot mode enabled:
-
-```bash
-FAIRGAME_BROWSER_CHESS_BOT=true VITE_BROWSER_CHESS_BOT=true npm run dev
-```
-
-When enabled, the Chess lobby exposes a Bot mode. The server creates and
-authorizes the bot match, but Stockfish runs in the player's browser and submits
-validated bot moves back through the normal server-owned match flow.
+The Chess lobby includes Bot mode. The server creates and authorizes the bot
+match, but Stockfish runs in the player's browser and submits validated bot
+moves back through the normal server-owned match flow.
 
 Run the built app as a single production server:
 

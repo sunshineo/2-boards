@@ -82,7 +82,6 @@ export function createApp(
   app.use(
     "/api/matches",
     createMatchRouter(matchService, {
-      browserChessBotEnabled: config.browserChessBot.enabled,
       secureCookies: config.secureCookies
     })
   );

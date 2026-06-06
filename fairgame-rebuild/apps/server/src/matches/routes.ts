@@ -31,7 +31,7 @@ type MoveBody = {
 
 export function createMatchRouter(
   matchService: MatchService,
-  options: { readonly browserChessBotEnabled?: boolean; readonly secureCookies?: boolean } = {}
+  options: { readonly secureCookies?: boolean } = {}
 ) {
   const router = Router();
 
@@ -56,11 +56,6 @@ export function createMatchRouter(
     const botDifficulty = parseCreateBotDifficulty(body.bot);
     if (botDifficulty && gameType !== "chess") {
       response.status(400).json({ error: "unsupported-bot-game" });
-      return;
-    }
-
-    if (botDifficulty && !options.browserChessBotEnabled) {
-      response.status(409).json({ error: "browser-bot-disabled" });
       return;
     }
 
@@ -131,11 +126,6 @@ export function createMatchRouter(
 
     if (!isBoardId(body.boardId) || !isRecord(body.move)) {
       response.status(400).json({ error: "invalid-command" });
-      return;
-    }
-
-    if (!options.browserChessBotEnabled) {
-      response.status(409).json({ error: "browser-bot-disabled" });
       return;
     }
 

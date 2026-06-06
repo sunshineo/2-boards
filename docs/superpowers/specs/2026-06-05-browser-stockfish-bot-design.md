@@ -272,16 +272,9 @@ Browser verification:
 
 The previous local server-side heuristic Chess bot is retired after the browser Stockfish bot is implemented and verified.
 
-Add a production feature flag for cautious rollout:
-
-```env
-VITE_BROWSER_CHESS_BOT=true
-FAIRGAME_BROWSER_CHESS_BOT=true
-```
-
-The web flag controls whether the UI exposes Bot mode. The server flag controls whether bot match creation and bot move endpoints are enabled. Production can enable both when ready.
-
-After browser bot mode is stable, keep the browser Stockfish path as the only Chess bot architecture.
+Bot mode is always available for Chess. The browser Stockfish path is the only
+Chess bot architecture, and it does not require a frontend or backend feature
+flag.
 
 ## Implementation Evidence
 

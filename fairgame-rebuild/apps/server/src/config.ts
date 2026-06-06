@@ -4,9 +4,6 @@ export type ServerConfig = {
   readonly nodeEnv: "development" | "test" | "production";
   readonly port: number;
   readonly databaseUrl: string;
-  readonly browserChessBot: {
-    readonly enabled: boolean;
-  };
   readonly allowedOrigins: readonly string[];
   readonly secureCookies: boolean;
   readonly trustProxy: boolean;
@@ -32,9 +29,6 @@ export function loadServerConfig(env: Env = process.env, cwd = process.cwd()): S
     nodeEnv,
     port: parsePositiveInteger(env["PORT"], 4000),
     databaseUrl: parseRequiredString(env["DATABASE_URL"], "DATABASE_URL"),
-    browserChessBot: {
-      enabled: parseBoolean(env["FAIRGAME_BROWSER_CHESS_BOT"], nodeEnv !== "production")
-    },
     allowedOrigins: parseCsv(env["FAIRGAME_ALLOWED_ORIGINS"]),
     secureCookies: parseBoolean(env["FAIRGAME_SECURE_COOKIES"], nodeEnv === "production"),
     trustProxy: parseBoolean(env["FAIRGAME_TRUST_PROXY"], false),
