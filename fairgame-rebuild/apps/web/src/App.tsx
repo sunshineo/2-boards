@@ -8,7 +8,11 @@ import {
   type MouseEvent,
   type WheelEvent
 } from "react";
-import { getChessLegalMoves, type ChessState as DomainChessState } from "@fairgame/domain";
+import {
+  chessRules,
+  getChessLegalMoves,
+  type ChessState as DomainChessState
+} from "@fairgame/domain";
 import { Chessboard, type ChessboardOptions, type PieceDataType } from "react-chessboard";
 import { io } from "socket.io-client";
 
@@ -1051,11 +1055,13 @@ function ChessBoard(props: {
     readonly moves: readonly ChessLegalMove[];
   } | null>(null);
   const [pendingPremove, setPendingPremove] = useState<ChessPremove | null>(null);
+  const [optimisticMove, setOptimisticMove] = useState<OptimisticChessMove | null>(null);
   const [pendingConfirmation, setPendingConfirmation] = useState<"drawOffer" | "resign" | null>(null);
   const reviewMove = reviewPly === null || reviewPly === 0 ? null : props.board.moveHistory[reviewPly - 1] ?? null;
   const reviewFen = reviewPly === null ? null : reviewPly === 0 ? startingChessFen : (reviewMove?.fenAfter ?? null);
   const isReviewing = reviewFen !== null;
-  const displayedFen = reviewFen ?? props.board.fen;
+  const optimisticFen = optimisticMove?.baseFen === props.board.fen ? optimisticMove.fen : null;
+  const displayedFen = reviewFen ?? optimisticFen ?? props.board.fen;
   const canActLive =
     props.currentSeat !== null &&
     props.board.outcome.status === "in_progress" &&
@@ -1114,11 +1120,16 @@ function ChessBoard(props: {
 
   useEffect(() => {
     setPendingPromotion(null);
+    setOptimisticMove(null);
     if (!canAct) {
       setSelectedSquare(null);
       setPendingConfirmation(null);
     }
   }, [canAct, props.board.fen]);
+
+  useEffect(() => {
+    if (!props.isBusy) setOptimisticMove(null);
+  }, [props.isBusy]);
 
   useEffect(() => {
     if (!pendingPremove) return;
@@ -1238,7 +1249,7 @@ function ChessBoard(props: {
 
     const move = promotionMoves[0] ?? legalMoves[0];
     if (!move) return false;
-    props.onMove(toChessMovePayload(move));
+    submitChessMove(toChessMovePayload(move));
     setSelectedSquare(null);
     setPendingPremove(null);
     setPendingPromotion(null);
@@ -1247,7 +1258,7 @@ function ChessBoard(props: {
   }
 
   function handlePromotionChoice(move: ChessLegalMove) {
-    props.onMove(toChessMovePayload(move));
+    submitChessMove(toChessMovePayload(move));
     setSelectedSquare(null);
     setPendingPremove(null);
     setPendingPromotion(null);
@@ -1469,6 +1480,11 @@ function ChessBoard(props: {
     setPendingPromotion(null);
     setPendingConfirmation(null);
     props.onMove({ declineTakeback: true });
+  }
+
+  function submitChessMove(move: MovePayload) {
+    setOptimisticMove(getOptimisticChessMove(props.board, props.currentSeat, move));
+    props.onMove(move);
   }
 
   const chessboardOptions: ChessboardOptions = {
@@ -2543,6 +2559,13 @@ type ChessPremove = {
   readonly to: string;
 };
 
+type OptimisticChessMove = {
+  readonly baseFen: string;
+  readonly fen: string;
+};
+
+type ChessCoordinateMovePayload = Extract<MovePayload, { from: string; to: string }>;
+
 const chessAnnotationSvgColors: Record<ChessAnnotationColor, string> = {
   blue: "rgb(61 111 134 / 90%)",
   green: "rgb(98 158 79 / 90%)",
@@ -2591,6 +2614,48 @@ function getChessPremoveMovesFromSquare(
   } catch {
     return [];
   }
+}
+
+function getOptimisticChessMove(
+  board: ChessBoardView,
+  currentSeat: SeatId | null,
+  move: MovePayload
+): OptimisticChessMove | null {
+  if (!currentSeat || !isChessCoordinateMovePayload(move)) return null;
+  if (!board.legalMoves.some((legalMove) => isSameChessCoordinateMove(legalMove, move))) return null;
+
+  try {
+    const nextState = chessRules.applyMove({
+      state: toDomainChessState(board),
+      seat: currentSeat,
+      move
+    });
+    return nextState.fen === board.fen ? null : { baseFen: board.fen, fen: nextState.fen };
+  } catch {
+    return null;
+  }
+}
+
+function toDomainChessState(board: ChessBoardView): DomainChessState {
+  return {
+    initialFen: startingChessFen,
+    fen: board.fen,
+    seats: ["seat1", "seat2"],
+    whiteSeat: board.whiteSeat,
+    blackSeat: board.blackSeat,
+    drawOffer: board.drawOffer,
+    takebackRequest: board.takebackRequest,
+    moveHistory: board.moveHistory,
+    outcome: board.outcome
+  };
+}
+
+function isChessCoordinateMovePayload(move: MovePayload): move is ChessCoordinateMovePayload {
+  return "from" in move && typeof move.from === "string" && "to" in move && typeof move.to === "string";
+}
+
+function isSameChessCoordinateMove(legalMove: ChessLegalMove, move: ChessCoordinateMovePayload) {
+  return legalMove.from === move.from && legalMove.to === move.to && legalMove.promotion === move.promotion;
 }
 
 function setChessFenTurnColor(fen: string, turnColor: "w" | "b") {

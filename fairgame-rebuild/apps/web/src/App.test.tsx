@@ -1349,6 +1349,74 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Board B square e2 white pawn" })).toBeDisabled();
   }, 10_000);
 
+  it("renders a legal Chess move optimistically while the server response is pending", async () => {
+    const seatSession = createChessSeatSession("match-chess-optimistic");
+    const confirmedSession = structuredClone(seatSession);
+    const confirmedBoardA = confirmedSession.match.boards[0] as ChessBoardView | undefined;
+    if (!confirmedBoardA) throw new Error("Missing Board A fixture");
+    const boardAFenAfterE4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
+    confirmedBoardA.fen = boardAFenAfterE4;
+    confirmedBoardA.turnColor = "b";
+    confirmedBoardA.squares = createChessSquares({
+      e2: null,
+      e4: { color: "w", type: "p" }
+    }) as ChessBoardView["squares"];
+    confirmedBoardA.legalMoves = [];
+    confirmedBoardA.moveHistory = [
+      {
+        seat: "seat1",
+        color: "w",
+        piece: "p",
+        from: "e2",
+        to: "e4",
+        san: "e4",
+        lan: "e2e4",
+        fenAfter: boardAFenAfterE4
+      }
+    ];
+    confirmedBoardA.seatsToAct = [];
+
+    let resolveMove: (() => void) | null = null;
+    const fetchMock = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url);
+      const method = init?.method ?? "GET";
+      if (path.endsWith("/api/matches") && method === "GET") return Promise.resolve(createJsonResponse({ matches: [] }));
+      if (path.endsWith("/api/matches") && method === "POST") return Promise.resolve(createJsonResponse(seatSession));
+      if (path.endsWith("/api/matches/match-chess-optimistic/moves") && method === "POST") {
+        return new Promise<ReturnType<typeof createJsonResponse>>((resolve) => {
+          resolveMove = () => resolve(createJsonResponse({ match: confirmedSession.match }));
+        });
+      }
+      return Promise.resolve(createJsonResponse(seatSession));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
+
+    const boardA = await screen.findByTestId("board-A-chessboard");
+    expect(boardA).toHaveAttribute("data-position-fen", initialChessFen);
+
+    fireEvent.click(screen.getByRole("button", { name: "Board A square e2 white pawn" }));
+    fireEvent.click(screen.getByRole("button", { name: "Board A square e4 empty legal destination" }));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/matches/match-chess-optimistic/moves"),
+      expect.objectContaining({
+        body: JSON.stringify({ boardId: "A", seat: "seat1", move: { from: "e2", to: "e4" } })
+      })
+    );
+    expect(boardA).toHaveAttribute("data-position-fen", boardAFenAfterE4);
+
+    await act(async () => {
+      resolveMove?.();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(boardA).toHaveAttribute("data-position-fen", boardAFenAfterE4));
+  });
+
   it("submits a board-local Chess resign command", async () => {
     const seatSession = createChessSeatSession("match-chess-resign");
     const resignedSession = createChessSeatSession("match-chess-resign");

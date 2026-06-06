@@ -1,12 +1,16 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  browserChessBotPresets,
   createBrowserChessBotController,
+  getBrowserChessBotTiming,
   selectBrowserChessBotAction,
   toChessMovePayloadFromUci
 } from "./browserChessBot";
 import type { ChessBoardView, MatchView, MovePayload } from "./types";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("browserChessBot", () => {
   it("maps UCI moves to legal move payloads including promotions", () => {
@@ -51,6 +55,7 @@ describe("browserChessBot", () => {
   });
 
   it("configures Stockfish with preset skill and movetime", async () => {
+    vi.useFakeTimers();
     const messages: string[] = [];
     const submitMove = vi.fn(async (_move: { boardId: "A" | "B"; move: MovePayload }) => undefined);
     const controller = createBrowserChessBotController({
@@ -61,19 +66,125 @@ describe("browserChessBot", () => {
       }),
       submitMove
     });
+    const match = createBotMatch({
+      drawOffer: null,
+      takebackRequest: null,
+      seatsToAct: ["seat2"],
+      clockInitialMs: 300_000
+    });
+    const timing = getBrowserChessBotTiming(match);
 
-    await controller.runForMatch(
-      createBotMatch({
-        drawOffer: null,
-        takebackRequest: null,
-        seatsToAct: ["seat2"]
-      })
-    );
+    const runPromise = controller.runForMatch(match);
+    await Promise.resolve();
 
-    expect(messages).toContain(`setoption name Skill Level value ${browserChessBotPresets.normal.skillLevel}`);
+    expect(messages).toContain(`setoption name Skill Level value ${timing.skillLevel}`);
     expect(messages).toContain("position fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1");
-    expect(messages).toContain(`go movetime ${browserChessBotPresets.normal.moveTimeMs}`);
+    expect(messages).toContain(`go movetime ${timing.maximumMoveTimeMs}`);
+    expect(submitMove).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(timing.minimumMoveTimeMs);
+    await runPromise;
+
     expect(submitMove).toHaveBeenCalledWith({ boardId: "A", move: { from: "e7", to: "e5" } });
+  });
+
+  it("scales bot search time by difficulty and game clock", () => {
+    expect(
+      getBrowserChessBotTiming(
+        createBotMatch({ drawOffer: null, takebackRequest: null, seatsToAct: ["seat2"], clockInitialMs: 180_000 })
+      )
+    ).toMatchObject({ minimumMoveTimeMs: 1_500, maximumMoveTimeMs: 2_100 });
+    expect(
+      getBrowserChessBotTiming(
+        createBotMatch({ drawOffer: null, takebackRequest: null, seatsToAct: ["seat2"], clockInitialMs: 300_000 })
+      )
+    ).toMatchObject({ minimumMoveTimeMs: 1_500, maximumMoveTimeMs: 2_800 });
+    expect(
+      getBrowserChessBotTiming(
+        createBotMatch({ drawOffer: null, takebackRequest: null, seatsToAct: ["seat2"], clockInitialMs: 600_000 })
+      )
+    ).toMatchObject({ minimumMoveTimeMs: 1_500, maximumMoveTimeMs: 3_500 });
+
+    const hardMatch = createBotMatch({
+      drawOffer: null,
+      takebackRequest: null,
+      seatsToAct: ["seat2"],
+      clockInitialMs: 600_000
+    });
+    if (!hardMatch.bot) throw new Error("Missing bot fixture");
+    hardMatch.bot.difficulty = "hard";
+
+    expect(getBrowserChessBotTiming(hardMatch)).toMatchObject({ minimumMoveTimeMs: 1_500, maximumMoveTimeMs: 5_000 });
+  });
+
+  it("waits at least the minimum delay when a hard bot engine returns immediately", async () => {
+    vi.useFakeTimers();
+    const submitMove = vi.fn(async (_move: { boardId: "A" | "B"; move: MovePayload }) => undefined);
+    const controller = createBrowserChessBotController({
+      createEngine: () => ({
+        post: vi.fn(),
+        nextBestMove: async () => "e7e5",
+        dispose: vi.fn()
+      }),
+      submitMove
+    });
+    const match = createBotMatch({
+      drawOffer: null,
+      takebackRequest: null,
+      seatsToAct: ["seat2"],
+      clockInitialMs: 600_000
+    });
+    if (!match.bot) throw new Error("Missing bot fixture");
+    match.bot.difficulty = "hard";
+    const timing = getBrowserChessBotTiming(match);
+
+    const runPromise = controller.runForMatch(match);
+    await Promise.resolve();
+
+    expect(submitMove).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(timing.minimumMoveTimeMs - 1);
+    expect(submitMove).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await runPromise;
+
+    expect(submitMove).toHaveBeenCalledWith({ boardId: "A", move: { from: "e7", to: "e5" } });
+  });
+
+  it("submits after the engine finishes once the minimum delay has elapsed", async () => {
+    vi.useFakeTimers();
+    const submitMove = vi.fn(async (_move: { boardId: "A" | "B"; move: MovePayload }) => undefined);
+    const controller = createBrowserChessBotController({
+      createEngine: () => ({
+        post: vi.fn(),
+        nextBestMove: () =>
+          new Promise<string>((resolve) => {
+            setTimeout(() => resolve("e7e5"), 2_300);
+          }),
+        dispose: vi.fn()
+      }),
+      submitMove
+    });
+    const match = createBotMatch({
+      drawOffer: null,
+      takebackRequest: null,
+      seatsToAct: ["seat2"],
+      clockInitialMs: 600_000
+    });
+    if (!match.bot) throw new Error("Missing bot fixture");
+    match.bot.difficulty = "hard";
+
+    const runPromise = controller.runForMatch(match);
+    await Promise.resolve();
+
+    await vi.advanceTimersByTimeAsync(2_299);
+    expect(submitMove).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(submitMove).toHaveBeenCalledWith({ boardId: "A", move: { from: "e7", to: "e5" } });
+
+    await runPromise;
   });
 });
 
@@ -81,6 +192,7 @@ function createBotMatch(options: {
   readonly drawOffer: ChessBoardView["drawOffer"];
   readonly takebackRequest: ChessBoardView["takebackRequest"];
   readonly seatsToAct: ChessBoardView["seatsToAct"];
+  readonly clockInitialMs?: number | null;
 }): MatchView {
   const board: ChessBoardView = {
     kind: "chess",
@@ -114,7 +226,21 @@ function createBotMatch(options: {
       seat2: { label: "Player 2", name: "Stockfish Normal" }
     },
     outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
-    clock: null,
+    clock:
+      options.clockInitialMs === undefined || options.clockInitialMs === null
+        ? null
+        : {
+            config: { initialMs: options.clockInitialMs, incrementMs: 0 },
+            seats: {
+              seat1: { remainingMs: options.clockInitialMs, isRunning: false },
+              seat2: { remainingMs: options.clockInitialMs, isRunning: false }
+            },
+            runningSeats: [],
+            updatedAtMs: 0,
+            serverNowMs: 0,
+            status: "active",
+            expiredSeats: []
+          },
     boards: [board],
     bot: {
       seat: "seat2",

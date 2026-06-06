@@ -11,14 +11,23 @@ export type BrowserChessBotStatus = "idle" | "loading" | "thinking" | "error";
 
 export type BrowserChessBotPreset = {
   readonly skillLevel: number;
-  readonly moveTimeMs: number;
+  readonly maximumMoveTimeMs: number;
 };
 
 export const browserChessBotPresets: Readonly<Record<BrowserChessBotDifficulty, BrowserChessBotPreset>> = {
-  easy: { skillLevel: 2, moveTimeMs: 1_200 },
-  normal: { skillLevel: 7, moveTimeMs: 2_500 },
-  hard: { skillLevel: 12, moveTimeMs: 5_000 }
+  easy: { skillLevel: 2, maximumMoveTimeMs: 2_000 },
+  normal: { skillLevel: 7, maximumMoveTimeMs: 3_500 },
+  hard: { skillLevel: 12, maximumMoveTimeMs: 5_000 }
 };
+
+export type BrowserChessBotTiming = {
+  readonly skillLevel: number;
+  readonly minimumMoveTimeMs: number;
+  readonly maximumMoveTimeMs: number;
+};
+
+const browserChessBotMinimumMoveTimeMs = 1_500;
+const defaultBrowserChessClockInitialMs = 300_000;
 
 export type BrowserChessBotAction =
   | { readonly kind: "control"; readonly boardId: BoardId; readonly move: MovePayload }
@@ -85,6 +94,21 @@ export function selectBrowserChessBotAction(match: MatchView): BrowserChessBotAc
   return null;
 }
 
+export function getBrowserChessBotTiming(match: MatchView): BrowserChessBotTiming {
+  const preset = browserChessBotPresets[match.bot?.difficulty ?? "normal"];
+  const clockScale = getBrowserChessBotClockScale(match.clock?.config.initialMs ?? defaultBrowserChessClockInitialMs);
+  const maximumMoveTimeMs = Math.max(
+    browserChessBotMinimumMoveTimeMs,
+    Math.round(preset.maximumMoveTimeMs * clockScale)
+  );
+
+  return {
+    skillLevel: preset.skillLevel,
+    minimumMoveTimeMs: Math.min(browserChessBotMinimumMoveTimeMs, maximumMoveTimeMs),
+    maximumMoveTimeMs
+  };
+}
+
 export function createBrowserChessBotController(
   options: BrowserChessBotControllerOptions
 ): BrowserChessBotController {
@@ -120,13 +144,18 @@ export function createBrowserChessBotController(
           return;
         }
 
-        const preset = browserChessBotPresets[match.bot?.difficulty ?? "normal"];
+        const timing = getBrowserChessBotTiming(match);
         const activeEngine = getEngine();
         options.onStatus?.("thinking");
-        activeEngine.post(`setoption name Skill Level value ${preset.skillLevel}`);
+        activeEngine.post(`setoption name Skill Level value ${timing.skillLevel}`);
         activeEngine.post(`position fen ${action.board.fen}`);
-        activeEngine.post(`go movetime ${preset.moveTimeMs}`);
+        activeEngine.post(`go movetime ${timing.maximumMoveTimeMs}`);
+        const searchStartedAtMs = Date.now();
         const bestMove = await activeEngine.nextBestMove();
+        const remainingMinimumDelayMs = timing.minimumMoveTimeMs - (Date.now() - searchStartedAtMs);
+        if (remainingMinimumDelayMs > 0) {
+          await waitForBotMoveTime(remainingMinimumDelayMs);
+        }
         const move = toChessMovePayloadFromUci(bestMove, action.board.legalMoves);
         if (!move) {
           options.onStatus?.("error");
@@ -149,6 +178,25 @@ export function createBrowserChessBotController(
       options.onStatus?.("idle");
     }
   };
+}
+
+function getBrowserChessBotClockScale(clockInitialMs: number) {
+  const threeMinutesMs = 180_000;
+  const fiveMinutesMs = 300_000;
+  const tenMinutesMs = 600_000;
+
+  if (clockInitialMs <= threeMinutesMs) return 0.6;
+  if (clockInitialMs <= fiveMinutesMs) {
+    return 0.6 + ((clockInitialMs - threeMinutesMs) / (fiveMinutesMs - threeMinutesMs)) * 0.2;
+  }
+  if (clockInitialMs >= tenMinutesMs) return 1;
+  return 0.8 + ((clockInitialMs - fiveMinutesMs) / (tenMinutesMs - fiveMinutesMs)) * 0.2;
+}
+
+function waitForBotMoveTime(moveTimeMs: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, moveTimeMs);
+  });
 }
 
 export function createStockfishEngine(): BrowserChessBotEngine {
