@@ -12,8 +12,8 @@ describe("styles.css", () => {
 
     expect(styles).toContain("animation: chess-turn-status-pulse 2.8s ease-in-out infinite;");
     expect(styles).toContain("@keyframes chess-turn-status-pulse");
-    expect(styles).toContain("background-color: #dff0cf;");
     expect(styles).toContain("background-color: #bce88a;");
+    expect(styles).toContain("background-color: #ffffff;");
     expect(styles).not.toContain("box-shadow: 0 0 0 4px rgb(106 161 39 / 24%)");
   });
 });

@@ -561,7 +561,7 @@ button:disabled {
 
 .board-heading .chess-turn-status.active {
   border-color: #6aa127;
-  background-color: #dff0cf;
+  background-color: #bce88a;
   color: #1f2a3d;
   box-shadow: 0 0 0 2px rgb(106 161 39 / 18%);
   animation: chess-turn-status-pulse 2.8s ease-in-out infinite;
@@ -570,11 +570,11 @@ button:disabled {
 @keyframes chess-turn-status-pulse {
   0%,
   100% {
-    background-color: #dff0cf;
+    background-color: #bce88a;
   }
 
   50% {
-    background-color: #bce88a;
+    background-color: #ffffff;
   }
 }
 
