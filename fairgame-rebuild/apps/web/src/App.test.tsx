@@ -1325,8 +1325,8 @@ describe("App", () => {
     expect(boardA).toHaveAttribute("data-review-ply", "live");
     expect(boardB).toHaveAttribute("data-review-ply", "live");
     fireEvent.wheel(boardAPanel, { deltaY: -80 });
-    expect(boardA).toHaveAttribute("data-review-ply", "1");
-    expect(boardA).toHaveAttribute("data-position-fen", boardAFenAfterE4);
+    expect(boardA).toHaveAttribute("data-review-ply", "live");
+    expect(boardA).toHaveAttribute("data-position-fen", boardAFenAfterE5);
     expect(boardB).toHaveAttribute("data-review-ply", "live");
     fireEvent.wheel(boardAPanel, { deltaY: 80 });
     expect(boardA).toHaveAttribute("data-review-ply", "live");

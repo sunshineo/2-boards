@@ -5,8 +5,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent,
-  type MouseEvent,
-  type WheelEvent
+  type MouseEvent
 } from "react";
 import {
   chessRules,
@@ -1342,14 +1341,6 @@ function ChessBoard(props: {
     }
   }
 
-  function handleChessWheel(event: WheelEvent<HTMLElement>) {
-    if (event.deltaY === 0) return;
-    const didNavigate = event.deltaY < 0 ? handlePreviousReplay() : handleNextReplay();
-    if (didNavigate) {
-      event.preventDefault();
-    }
-  }
-
   function handleChessContextMenu(event: MouseEvent<HTMLElement>) {
     const square = getChessSquareFromEventTarget(event.target);
     if (!square) return;
@@ -1576,7 +1567,6 @@ function ChessBoard(props: {
       onKeyDown={handleChessKeyDown}
       onMouseDown={handleChessMouseDown}
       onMouseUp={handleChessMouseUp}
-      onWheel={handleChessWheel}
       tabIndex={0}
     >
       <div className="board-heading chess-heading">
