@@ -26,7 +26,7 @@ export type BrowserChessBotTiming = {
   readonly maximumMoveTimeMs: number;
 };
 
-const browserChessBotMinimumMoveTimeMs = 1_500;
+const browserChessBotMinimumMoveTimeRatio = 0.5;
 const defaultBrowserChessClockInitialMs = 300_000;
 
 export type BrowserChessBotAction =
@@ -97,14 +97,11 @@ export function selectBrowserChessBotAction(match: MatchView): BrowserChessBotAc
 export function getBrowserChessBotTiming(match: MatchView): BrowserChessBotTiming {
   const preset = browserChessBotPresets[match.bot?.difficulty ?? "normal"];
   const clockScale = getBrowserChessBotClockScale(match.clock?.config.initialMs ?? defaultBrowserChessClockInitialMs);
-  const maximumMoveTimeMs = Math.max(
-    browserChessBotMinimumMoveTimeMs,
-    Math.round(preset.maximumMoveTimeMs * clockScale)
-  );
+  const maximumMoveTimeMs = Math.round(preset.maximumMoveTimeMs * clockScale);
 
   return {
     skillLevel: preset.skillLevel,
-    minimumMoveTimeMs: Math.min(browserChessBotMinimumMoveTimeMs, maximumMoveTimeMs),
+    minimumMoveTimeMs: Math.round(maximumMoveTimeMs * browserChessBotMinimumMoveTimeRatio),
     maximumMoveTimeMs
   };
 }
