@@ -88,22 +88,36 @@ describe("browserChessBot", () => {
     expect(submitMove).toHaveBeenCalledWith({ boardId: "A", move: { from: "e7", to: "e5" } });
   });
 
-  it("scales bot search time by difficulty and game clock", () => {
+  it("scales bot search time and minimum delay by difficulty and game clock", () => {
+    const shortEasyMatch = createBotMatch({
+      drawOffer: null,
+      takebackRequest: null,
+      seatsToAct: ["seat2"],
+      clockInitialMs: 180_000
+    });
+    if (!shortEasyMatch.bot) throw new Error("Missing bot fixture");
+    shortEasyMatch.bot.difficulty = "easy";
+
+    expect(getBrowserChessBotTiming(shortEasyMatch)).toMatchObject({
+      minimumMoveTimeMs: 600,
+      maximumMoveTimeMs: 1_200
+    });
+
     expect(
       getBrowserChessBotTiming(
         createBotMatch({ drawOffer: null, takebackRequest: null, seatsToAct: ["seat2"], clockInitialMs: 180_000 })
       )
-    ).toMatchObject({ minimumMoveTimeMs: 1_500, maximumMoveTimeMs: 2_100 });
+    ).toMatchObject({ minimumMoveTimeMs: 1_050, maximumMoveTimeMs: 2_100 });
     expect(
       getBrowserChessBotTiming(
         createBotMatch({ drawOffer: null, takebackRequest: null, seatsToAct: ["seat2"], clockInitialMs: 300_000 })
       )
-    ).toMatchObject({ minimumMoveTimeMs: 1_500, maximumMoveTimeMs: 2_800 });
+    ).toMatchObject({ minimumMoveTimeMs: 1_400, maximumMoveTimeMs: 2_800 });
     expect(
       getBrowserChessBotTiming(
         createBotMatch({ drawOffer: null, takebackRequest: null, seatsToAct: ["seat2"], clockInitialMs: 600_000 })
       )
-    ).toMatchObject({ minimumMoveTimeMs: 1_500, maximumMoveTimeMs: 3_500 });
+    ).toMatchObject({ minimumMoveTimeMs: 1_750, maximumMoveTimeMs: 3_500 });
 
     const hardMatch = createBotMatch({
       drawOffer: null,
@@ -114,7 +128,7 @@ describe("browserChessBot", () => {
     if (!hardMatch.bot) throw new Error("Missing bot fixture");
     hardMatch.bot.difficulty = "hard";
 
-    expect(getBrowserChessBotTiming(hardMatch)).toMatchObject({ minimumMoveTimeMs: 1_500, maximumMoveTimeMs: 5_000 });
+    expect(getBrowserChessBotTiming(hardMatch)).toMatchObject({ minimumMoveTimeMs: 2_500, maximumMoveTimeMs: 5_000 });
   });
 
   it("waits at least the minimum delay when a hard bot engine returns immediately", async () => {
@@ -132,7 +146,7 @@ describe("browserChessBot", () => {
       drawOffer: null,
       takebackRequest: null,
       seatsToAct: ["seat2"],
-      clockInitialMs: 600_000
+      clockInitialMs: 300_000
     });
     if (!match.bot) throw new Error("Missing bot fixture");
     match.bot.difficulty = "hard";
@@ -170,7 +184,7 @@ describe("browserChessBot", () => {
       drawOffer: null,
       takebackRequest: null,
       seatsToAct: ["seat2"],
-      clockInitialMs: 600_000
+      clockInitialMs: 300_000
     });
     if (!match.bot) throw new Error("Missing bot fixture");
     match.bot.difficulty = "hard";
