@@ -503,6 +503,36 @@ describe("App", () => {
     expect(screen.queryByText("Bot thinking")).not.toBeInTheDocument();
   });
 
+  it("floats Chess bot failure alerts outside the match layout", async () => {
+    const botSession = createChessSeatSession("match-bot-failed");
+    (botSession.match as typeof botSession.match & { bot: unknown }).bot = {
+      seat: "seat2",
+      kind: "browser-stockfish",
+      difficulty: "normal",
+      displayName: "Stockfish Normal"
+    };
+    vi.stubGlobal("fetch", createFetchMock({ matches: [], seatSession: botSession }));
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
+
+    await screen.findByTestId("match-code");
+    await waitFor(() => expect(browserChessBotMock.controllers).toHaveLength(1));
+
+    act(() => {
+      browserChessBotMock.controllers[0]?.setStatus("error");
+    });
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Bot move failed");
+    expect(alert.closest(".floating-alerts")).not.toBeNull();
+    expect(alert.closest(".match-room")).toBeNull();
+    expect(screen.getByRole("region", { name: "Clocks" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
   it("renders the two boards after creating a match", async () => {
     const fetchMock = createFetchMock({
       matches: [],
