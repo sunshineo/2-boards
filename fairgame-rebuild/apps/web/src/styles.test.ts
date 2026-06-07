@@ -16,4 +16,15 @@ describe("styles.css", () => {
     expect(styles).toContain("background-color: #ffffff;");
     expect(styles).not.toContain("box-shadow: 0 0 0 4px rgb(106 161 39 / 24%)");
   });
+
+  it("keeps floating alerts fixed above the board layout", () => {
+    const styles = readFileSync(stylesPath, "utf8");
+
+    expect(styles).toContain(".floating-alerts {");
+    expect(styles).toContain("position: fixed;");
+    expect(styles).toContain("top: max(14px, env(safe-area-inset-top));");
+    expect(styles).toContain("pointer-events: none;");
+    expect(styles).toContain(".floating-alerts .secondary-button {");
+    expect(styles).toContain("pointer-events: auto;");
+  });
 });

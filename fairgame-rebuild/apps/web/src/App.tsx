@@ -511,9 +511,39 @@ export function App() {
   const lobbyRecentMatches = lobbyGame ? recentMatches.filter((match) => match.gameType === lobbyGame) : [];
   const activeGameType = activeSession?.match.gameType ?? lobbyGame;
   const showMatchLoading = route.view === "match" && !activeSession;
+  const activeBrowserBotStatus =
+    activeSession?.match.bot?.kind === "browser-stockfish" ? browserBotStatus : "idle";
+  const shouldShowFloatingBotStatus =
+    activeSession?.match.bot?.kind === "browser-stockfish" &&
+    activeBrowserBotStatus !== "idle" &&
+    activeBrowserBotStatus !== "thinking" &&
+    !isChessZenModeActive;
 
   return (
     <main className={appShellClassName}>
+      {error || shouldShowFloatingBotStatus ? (
+        <div className="floating-alerts" aria-live="polite">
+          {shouldShowFloatingBotStatus ? (
+            <div
+              className={`bot-status${activeBrowserBotStatus === "error" ? " error" : ""}`}
+              role={activeBrowserBotStatus === "error" ? "alert" : "status"}
+            >
+              <span>{formatBrowserBotStatus(activeBrowserBotStatus)}</span>
+              {activeBrowserBotStatus === "error" ? (
+                <button className="secondary-button compact-button" onClick={handleBrowserBotRetry} type="button">
+                  Retry
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {error ? (
+            <p className="error-banner" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {isChessZenModeActive ? (
         <p className="sr-only">Chess Zen mode active. Press z to exit.</p>
       ) : (
@@ -562,10 +592,8 @@ export function App() {
           isZenMode={isChessZenModeActive}
           match={activeSession.match}
           seat={activeSession.seat}
-          botStatus={activeSession.match.bot?.kind === "browser-stockfish" ? browserBotStatus : "idle"}
           onMove={handleMove}
           onRematch={handleRematch}
-          onBotRetry={handleBrowserBotRetry}
           isBusy={isBusy}
         />
       ) : showMatchLoading ? (
@@ -765,8 +793,6 @@ export function App() {
           ))}
         </section>
       )}
-
-      {error ? <p className="error-banner">{error}</p> : null}
     </main>
   );
 }
@@ -780,21 +806,14 @@ function isEditableShortcutTarget(target: EventTarget | null) {
 function MatchRoom(props: {
   match: MatchView;
   seat: SeatId | null;
-  botStatus: BrowserChessBotStatus;
   onMove: (boardId: BoardId, move: MovePayload) => void;
   onRematch: () => void;
-  onBotRetry: () => void;
   isBusy: boolean;
   isZenMode: boolean;
 }) {
   const status = formatMatchStatus(props.match, props.seat);
   const canRematch = props.match.outcome.status !== "in_progress" && !props.isZenMode;
   const matchRoomClassName = `match-room${props.match.gameType === "chess" ? " chess-match-room" : ""}${props.isZenMode ? " zen-match-room" : ""}`;
-  const shouldShowBotStatus =
-    props.match.bot?.kind === "browser-stockfish" &&
-    props.botStatus !== "idle" &&
-    props.botStatus !== "thinking" &&
-    !props.isZenMode;
 
   return (
     <section
@@ -832,17 +851,6 @@ function MatchRoom(props: {
           <button className="primary-button" onClick={props.onRematch} type="button">
             Rematch
           </button>
-        </div>
-      ) : null}
-
-      {shouldShowBotStatus ? (
-        <div className={`bot-status${props.botStatus === "error" ? " error" : ""}`}>
-          <span>{formatBrowserBotStatus(props.botStatus)}</span>
-          {props.botStatus === "error" ? (
-            <button className="secondary-button compact-button" onClick={props.onBotRetry} type="button">
-              Retry
-            </button>
-          ) : null}
         </div>
       ) : null}
 
