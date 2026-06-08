@@ -45,6 +45,13 @@ Docs:
 
 ## Task 1: Generalize Server Automated Seat And Bot Capabilities
 
+Status: Complete.
+
+Evidence:
+- Commits: `87af145` (`Generalize server bot capabilities`) and `6f95dd0` (`Fix server bot capability layering`).
+- Verification: `npm test -w @fairgame/server -- gameRegistry.test.ts browserChessBot.test.ts` passed with 12 tests; `npm run test -w @fairgame/server` passed with 65 tests; `npm run typecheck` passed.
+- Reviews: spec compliance approved; code quality approved after moving automated-seat types into neutral `apps/server/src/seatAgents/types.ts` and adding non-Chess `/agent-moves` coverage.
+
 **Files:**
 - Modify: `fairgame-rebuild/apps/server/src/matches/seatAgents.ts`
 - Modify: `fairgame-rebuild/apps/server/src/games/registry.ts`
@@ -1404,6 +1411,13 @@ git commit -m "Enable bot mode for every game lobby"
 ---
 
 ## Task 6: Server Route And Agent-Move Integration Tests
+
+Status: Complete early in Task 1 follow-up.
+
+Evidence:
+- Commit: `6f95dd0` (`Fix server bot capability layering`).
+- Verification: `npm test -w @fairgame/server -- gameRegistry.test.ts browserChessBot.test.ts` passed with 12 tests.
+- Coverage added: TicTacToe bot match posts to `/agent-moves` with the `fg_agent_*` cookie, applies board B cell 0 as `seat2`, and advances `seat1` clock state.
 
 **Files:**
 - Modify: `fairgame-rebuild/apps/server/src/matches/browserChessBot.test.ts`
