@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createBrowserChessBotController,
+  createBrowserGameBotController,
   getBrowserChessBotTiming,
   selectBrowserChessBotAction,
   toChessMovePayloadFromUci
 } from "./browserChessBot";
-import type { ChessBoardView, MatchView, MovePayload } from "./types";
+import type { ChessBoardView, ConnectFourBoardView, MatchView, MovePayload } from "./types";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -200,6 +201,26 @@ describe("browserChessBot", () => {
 
     await runPromise;
   });
+
+  it("submits random-legal moves for a Connect Four automated seat", async () => {
+    vi.useFakeTimers();
+    const submitted: { boardId: "A" | "B"; move: MovePayload }[] = [];
+    const controller = createBrowserGameBotController({
+      submitMove: async (input) => {
+        submitted.push(input);
+      }
+    });
+
+    const runPromise = controller.runForMatch(createConnectFourBotMatch());
+    await Promise.resolve();
+
+    expect(submitted).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(250);
+    await runPromise;
+
+    expect(submitted).toEqual([{ boardId: "B", move: { column: 0 } }]);
+  });
 });
 
 function createBotMatch(options: {
@@ -262,6 +283,47 @@ function createBotMatch(options: {
       gameType: "chess",
       difficulty: "normal",
       displayName: "Stockfish Normal"
+    }
+  };
+}
+
+function createConnectFourBotMatch(): MatchView {
+  const createBoard = (
+    id: "A" | "B",
+    seatsToAct: ConnectFourBoardView["seatsToAct"],
+    playableColumns: ConnectFourBoardView["playableColumns"]
+  ): ConnectFourBoardView => ({
+    kind: "connect4",
+    id,
+    firstSeat: "seat1",
+    rows: 6,
+    columns: 7,
+    cells: Array.from({ length: 42 }, () => null),
+    playableColumns,
+    seatsToAct,
+    outcome: { status: "in_progress" }
+  });
+
+  return {
+    id: "match-connect4-bot",
+    gameType: "connect4",
+    gameLabel: "Connect Four",
+    seats: ["seat1", "seat2"],
+    joinedSeats: 2,
+    maxSeats: 2,
+    players: {
+      seat1: { label: "Player 1", name: "Player 1" },
+      seat2: { label: "Player 2", name: "Connect Four Bot" }
+    },
+    outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
+    clock: null,
+    boards: [createBoard("A", ["seat1"], [0]), createBoard("B", ["seat2"], [0])],
+    automatedSeat: {
+      seat: "seat2",
+      kind: "random-legal",
+      gameType: "connect4",
+      difficulty: "normal",
+      displayName: "Connect Four Bot"
     }
   };
 }

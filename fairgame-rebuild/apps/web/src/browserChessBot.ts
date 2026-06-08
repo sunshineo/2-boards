@@ -2,10 +2,12 @@ import type {
   BoardId,
   BrowserChessBotDifficulty,
   ChessBoardView,
+  MatchBoardView,
   ChessLegalMove,
   MatchView,
   MovePayload
 } from "./types";
+import { getWebGamePlugin } from "./games/registry";
 
 export type BrowserChessBotStatus = "idle" | "loading" | "thinking" | "error";
 
@@ -40,6 +42,13 @@ export type BrowserChessBotEngine = {
 };
 
 export type BrowserChessBotController = {
+  runForMatch(match: MatchView): Promise<void>;
+  dispose(): void;
+};
+
+export type BrowserGameBotStatus = BrowserChessBotStatus;
+
+export type BrowserGameBotController = {
   runForMatch(match: MatchView): Promise<void>;
   dispose(): void;
 };
@@ -177,6 +186,81 @@ export function createBrowserChessBotController(
       options.onStatus?.("idle");
     }
   };
+}
+
+export function createBrowserGameBotController(
+  options: BrowserChessBotControllerOptions
+): BrowserGameBotController {
+  const chessController = createBrowserChessBotController(options);
+  let isRunning = false;
+  let isDisposed = false;
+
+  return {
+    async runForMatch(match) {
+      if (isDisposed || isRunning) return;
+
+      const automatedSeat = match.automatedSeat ?? match.bot ?? null;
+      if (!automatedSeat || match.outcome.status !== "in_progress") {
+        options.onStatus?.("idle");
+        return;
+      }
+
+      if (automatedSeat.kind === "browser-stockfish") {
+        isRunning = true;
+        try {
+          await chessController.runForMatch(match);
+        } finally {
+          isRunning = false;
+        }
+        return;
+      }
+
+      isRunning = true;
+      try {
+        const plugin = getWebGamePlugin(match.gameType);
+        const bot = plugin?.bot;
+        if (bot?.kind !== "random-legal") {
+          options.onStatus?.("idle");
+          return;
+        }
+
+        const board = selectRandomLegalBotBoard(match, automatedSeat.seat);
+        if (!board) {
+          options.onStatus?.("idle");
+          return;
+        }
+
+        options.onStatus?.("thinking");
+        await waitForBotMoveTime(250);
+        const move = await bot.chooseMove({ board, seat: automatedSeat.seat });
+        if (move) {
+          await options.submitMove({ boardId: board.id, move });
+        }
+        options.onStatus?.("idle");
+      } catch {
+        options.onStatus?.("error");
+      } finally {
+        isRunning = false;
+      }
+    },
+
+    dispose() {
+      isDisposed = true;
+      chessController.dispose();
+      options.onStatus?.("idle");
+    }
+  };
+}
+
+function selectRandomLegalBotBoard(match: MatchView, seat: MatchView["seats"][number]): MatchBoardView | null {
+  for (const board of match.boards) {
+    if (board.kind !== match.gameType) continue;
+    if (board.outcome.status !== "in_progress") continue;
+    if (!board.seatsToAct.includes(seat)) continue;
+    return board;
+  }
+
+  return null;
 }
 
 function getBrowserChessBotClockScale(clockInitialMs: number) {
