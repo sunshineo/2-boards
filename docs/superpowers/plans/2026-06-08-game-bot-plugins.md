@@ -1505,6 +1505,15 @@ git commit -m "Cover non-chess agent bot moves"
 
 ## Task 7: Final Verification And Browser Checks
 
+Status: Complete.
+
+Evidence:
+- Verification: `git diff --check` passed; `npm run typecheck` passed; `npm test` passed with shared 2, domain 104, server 65, web 79 tests; `npm run build` passed.
+- Official e2e note: `DATABASE_URL` is unset in this shell, so the DB-backed `npm run test:e2e` server cannot be started here without local database config.
+- Supplementary e2e: temporary no-persistence API on `localhost:4210` and Vite on `localhost:5177`; `PLAYWRIGHT_REUSE_SERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:5177 PLAYWRIGHT_API_URL=http://localhost:4210 npm run test:e2e` passed with 6 Playwright tests.
+- Bot smoke check: POST `/api/matches` for Connect Four with `{ bot: { difficulty: "normal" } }` returned `automatedSeat` `{ seat: "seat2", gameType: "connect4", kind: "random-legal", difficulty: "normal", displayName: "Connect Four Bot" }`.
+- Cleanup: temporary API and Vite sessions were stopped; ports `4210` and `5177` are no longer listening.
+
 **Files:**
 - Modify: `docs/superpowers/plans/2026-06-08-game-bot-plugins.md`
 
