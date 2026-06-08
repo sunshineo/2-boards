@@ -1,8 +1,8 @@
 import type { ReactElement } from "react";
 
-import type { GameType, MatchView } from "../types";
+import type { GameType } from "../types";
 import { chooseBreakthroughRandomMove } from "./bots/breakthroughRandom";
-import selectBrowserChessBotAction from "./bots/chessStockfish";
+import { chessStockfishBotCapability } from "./bots/chessStockfish";
 import { chooseConnectFourRandomMove } from "./bots/connectFourRandom";
 import { chooseDotsBoxesRandomMove } from "./bots/dotsBoxesRandom";
 import { chooseGomokuRandomMove } from "./bots/gomokuRandom";
@@ -11,7 +11,7 @@ import { chooseMancalaRandomMove } from "./bots/mancalaRandom";
 import { chooseOrderChaosRandomMove } from "./bots/orderChaosRandom";
 import { chooseReversiRandomMove } from "./bots/reversiRandom";
 import { chooseTicTacToeRandomMove } from "./bots/tictactoeRandom";
-import type { BotMoveInput, WebGameBotCapability } from "./bots/types";
+import type { RandomLegalWebGameBotCapability, WebGameBotCapability } from "./bots/types";
 import { BoardRenderer, type BoardRendererProps } from "./renderers";
 
 export type WebGamePlugin = {
@@ -31,51 +31,15 @@ function renderBoard(props: BoardRendererProps) {
   return <BoardRenderer {...props} />;
 }
 
-const chessBotCapability: WebGameBotCapability = {
-  kind: "browser-stockfish",
-  displayName: "Stockfish",
-  difficulties: ["easy", "normal", "hard"],
-  async chooseMove(input) {
-    if (input.board.kind !== "chess") return null;
-    const action = selectBrowserChessBotAction(matchForBotInput(input, "chessBot"));
-    return action?.kind === "control" ? action.move : null;
-  }
-};
-
 function randomBotCapability(
   displayName: string,
-  chooseMove: WebGameBotCapability["chooseMove"]
-): WebGameBotCapability {
+  chooseMove: RandomLegalWebGameBotCapability["chooseMove"]
+): RandomLegalWebGameBotCapability {
   return {
     kind: "random-legal",
     displayName,
     difficulties: ["normal"],
     chooseMove
-  };
-}
-
-function matchForBotInput(input: BotMoveInput, id: string): MatchView {
-  return {
-    id,
-    gameType: input.board.kind,
-    gameLabel: input.board.kind,
-    seats: ["seat1", "seat2"],
-    joinedSeats: 2,
-    maxSeats: 2,
-    players: {
-      seat1: { label: "Seat 1", name: "Seat 1" },
-      seat2: { label: "Seat 2", name: "Stockfish" }
-    },
-    outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
-    clock: null,
-    boards: [input.board],
-    automatedSeat: {
-      seat: "seat2",
-      kind: "browser-stockfish",
-      gameType: "chess",
-      difficulty: "normal",
-      displayName: "Stockfish"
-    }
   };
 }
 
@@ -86,7 +50,7 @@ export const webGamePlugins: readonly WebGamePlugin[] = [
     imageSrc: "/game-thumbnails/chess.png",
     label: "Chess",
     timeRange: { min: 3, max: 60 },
-    bot: chessBotCapability,
+    bot: chessStockfishBotCapability,
     renderBoard
   },
   {

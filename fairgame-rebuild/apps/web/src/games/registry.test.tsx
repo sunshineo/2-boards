@@ -35,12 +35,23 @@ describe("web game plugin registry", () => {
     ]);
 
     expect(getWebGamePlugin("connect4")?.bot).toMatchObject({
+      kind: "random-legal",
       displayName: "Connect Four Bot",
       difficulties: ["normal"]
     });
     expect(getWebGamePlugin("chess")?.bot).toMatchObject({
+      kind: "browser-stockfish",
       displayName: "Stockfish",
       difficulties: ["easy", "normal", "hard"]
     });
+
+    const connectFourBot = getWebGamePlugin("connect4")?.bot;
+    expect(connectFourBot?.kind).toBe("random-legal");
+    if (connectFourBot?.kind !== "random-legal") throw new Error("Connect Four bot should be random-legal");
+    expect(connectFourBot.chooseMove).toEqual(expect.any(Function));
+
+    const chessBot = getWebGamePlugin("chess")?.bot;
+    expect(chessBot?.kind).toBe("browser-stockfish");
+    expect(chessBot).not.toHaveProperty("chooseMove");
   });
 });
