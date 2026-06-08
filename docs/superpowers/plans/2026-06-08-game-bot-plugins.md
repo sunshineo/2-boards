@@ -14,8 +14,8 @@
 
 - [x] Spec approved: `docs/superpowers/specs/2026-06-08-game-bot-plugins-design.md`.
 - [x] Worktree ready: `.worktrees/game-bot-plugins-spec` on branch `codex/game-bot-plugins-spec`.
-- [ ] Before execution, create or reuse an implementation worktree. If continuing in this worktree, rename/continue the branch intentionally and record the decision here.
-- [ ] Before first code edit, run baseline verification in `fairgame-rebuild`: `npm run typecheck && npm test`.
+- [x] Before execution, create or reuse an implementation worktree. Continuing in this existing approved-spec worktree on branch `codex/game-bot-plugins-spec` so the spec, plan, and implementation stay together.
+- [x] Before first code edit, run baseline verification in `fairgame-rebuild`: `npm run typecheck && npm test` passed after `npm install` restored worktree-local dependencies.
 
 ## Files To Change
 
