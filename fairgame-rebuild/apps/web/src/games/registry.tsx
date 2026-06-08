@@ -1,6 +1,17 @@
 import type { ReactElement } from "react";
 
-import type { GameType } from "../types";
+import type { GameType, MatchView } from "../types";
+import { chooseBreakthroughRandomMove } from "./bots/breakthroughRandom";
+import selectBrowserChessBotAction from "./bots/chessStockfish";
+import { chooseConnectFourRandomMove } from "./bots/connectFourRandom";
+import { chooseDotsBoxesRandomMove } from "./bots/dotsBoxesRandom";
+import { chooseGomokuRandomMove } from "./bots/gomokuRandom";
+import { chooseHexRandomMove } from "./bots/hexRandom";
+import { chooseMancalaRandomMove } from "./bots/mancalaRandom";
+import { chooseOrderChaosRandomMove } from "./bots/orderChaosRandom";
+import { chooseReversiRandomMove } from "./bots/reversiRandom";
+import { chooseTicTacToeRandomMove } from "./bots/tictactoeRandom";
+import type { BotMoveInput, WebGameBotCapability } from "./bots/types";
 import { BoardRenderer, type BoardRendererProps } from "./renderers";
 
 export type WebGamePlugin = {
@@ -12,11 +23,60 @@ export type WebGamePlugin = {
     readonly min: number;
     readonly max: number;
   };
+  readonly bot?: WebGameBotCapability;
   renderBoard(props: BoardRendererProps): ReactElement;
 };
 
 function renderBoard(props: BoardRendererProps) {
   return <BoardRenderer {...props} />;
+}
+
+const chessBotCapability: WebGameBotCapability = {
+  kind: "browser-stockfish",
+  displayName: "Stockfish",
+  difficulties: ["easy", "normal", "hard"],
+  async chooseMove(input) {
+    if (input.board.kind !== "chess") return null;
+    const action = selectBrowserChessBotAction(matchForBotInput(input, "chessBot"));
+    return action?.kind === "control" ? action.move : null;
+  }
+};
+
+function randomBotCapability(
+  displayName: string,
+  chooseMove: WebGameBotCapability["chooseMove"]
+): WebGameBotCapability {
+  return {
+    kind: "random-legal",
+    displayName,
+    difficulties: ["normal"],
+    chooseMove
+  };
+}
+
+function matchForBotInput(input: BotMoveInput, id: string): MatchView {
+  return {
+    id,
+    gameType: input.board.kind,
+    gameLabel: input.board.kind,
+    seats: ["seat1", "seat2"],
+    joinedSeats: 2,
+    maxSeats: 2,
+    players: {
+      seat1: { label: "Seat 1", name: "Seat 1" },
+      seat2: { label: "Seat 2", name: "Stockfish" }
+    },
+    outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
+    clock: null,
+    boards: [input.board],
+    automatedSeat: {
+      seat: "seat2",
+      kind: "browser-stockfish",
+      gameType: "chess",
+      difficulty: "normal",
+      displayName: "Stockfish"
+    }
+  };
 }
 
 export const webGamePlugins: readonly WebGamePlugin[] = [
@@ -26,6 +86,7 @@ export const webGamePlugins: readonly WebGamePlugin[] = [
     imageSrc: "/game-thumbnails/chess.png",
     label: "Chess",
     timeRange: { min: 3, max: 60 },
+    bot: chessBotCapability,
     renderBoard
   },
   {
@@ -34,6 +95,10 @@ export const webGamePlugins: readonly WebGamePlugin[] = [
     imageSrc: "/game-thumbnails/tictactoe.png",
     label: "TicTacToe",
     timeRange: { min: 1, max: 10 },
+    bot: randomBotCapability("TicTacToe Bot", async (input) => {
+      if (input.board.kind !== "tictactoe") return null;
+      return chooseTicTacToeRandomMove({ board: input.board, seat: input.seat });
+    }),
     renderBoard
   },
   {
@@ -42,6 +107,10 @@ export const webGamePlugins: readonly WebGamePlugin[] = [
     imageSrc: "/game-thumbnails/connect-four.png",
     label: "Connect Four",
     timeRange: { min: 2, max: 20 },
+    bot: randomBotCapability("Connect Four Bot", async (input) => {
+      if (input.board.kind !== "connect4") return null;
+      return chooseConnectFourRandomMove({ board: input.board, seat: input.seat });
+    }),
     renderBoard
   },
   {
@@ -50,6 +119,10 @@ export const webGamePlugins: readonly WebGamePlugin[] = [
     imageSrc: "/game-thumbnails/gomoku.png",
     label: "Gomoku",
     timeRange: { min: 3, max: 30 },
+    bot: randomBotCapability("Gomoku Bot", async (input) => {
+      if (input.board.kind !== "gomoku") return null;
+      return chooseGomokuRandomMove({ board: input.board, seat: input.seat });
+    }),
     renderBoard
   },
   {
@@ -58,6 +131,10 @@ export const webGamePlugins: readonly WebGamePlugin[] = [
     imageSrc: "/game-thumbnails/hex.png",
     label: "Hex",
     timeRange: { min: 3, max: 30 },
+    bot: randomBotCapability("Hex Bot", async (input) => {
+      if (input.board.kind !== "hex") return null;
+      return chooseHexRandomMove({ board: input.board, seat: input.seat });
+    }),
     renderBoard
   },
   {
@@ -66,6 +143,10 @@ export const webGamePlugins: readonly WebGamePlugin[] = [
     imageSrc: "/game-thumbnails/reversi.png",
     label: "Reversi",
     timeRange: { min: 2, max: 20 },
+    bot: randomBotCapability("Reversi Bot", async (input) => {
+      if (input.board.kind !== "reversi") return null;
+      return chooseReversiRandomMove({ board: input.board, seat: input.seat });
+    }),
     renderBoard
   },
   {
@@ -74,6 +155,10 @@ export const webGamePlugins: readonly WebGamePlugin[] = [
     imageSrc: "/game-thumbnails/breakthrough.png",
     label: "Breakthrough",
     timeRange: { min: 3, max: 30 },
+    bot: randomBotCapability("Breakthrough Bot", async (input) => {
+      if (input.board.kind !== "breakthrough") return null;
+      return chooseBreakthroughRandomMove({ board: input.board, seat: input.seat });
+    }),
     renderBoard
   },
   {
@@ -82,6 +167,10 @@ export const webGamePlugins: readonly WebGamePlugin[] = [
     imageSrc: "/game-thumbnails/mancala.png",
     label: "Mancala",
     timeRange: { min: 2, max: 20 },
+    bot: randomBotCapability("Mancala Bot", async (input) => {
+      if (input.board.kind !== "mancala") return null;
+      return chooseMancalaRandomMove({ board: input.board, seat: input.seat });
+    }),
     renderBoard
   },
   {
@@ -90,6 +179,10 @@ export const webGamePlugins: readonly WebGamePlugin[] = [
     imageSrc: "/game-thumbnails/dots-boxes.png",
     label: "Dots and Boxes",
     timeRange: { min: 3, max: 30 },
+    bot: randomBotCapability("Dots and Boxes Bot", async (input) => {
+      if (input.board.kind !== "dots-boxes") return null;
+      return chooseDotsBoxesRandomMove({ board: input.board, seat: input.seat });
+    }),
     renderBoard
   },
   {
@@ -98,6 +191,10 @@ export const webGamePlugins: readonly WebGamePlugin[] = [
     imageSrc: "/game-thumbnails/order-chaos.png",
     label: "Order and Chaos",
     timeRange: { min: 3, max: 30 },
+    bot: randomBotCapability("Order and Chaos Bot", async (input) => {
+      if (input.board.kind !== "order-chaos") return null;
+      return chooseOrderChaosRandomMove({ board: input.board, seat: input.seat });
+    }),
     renderBoard
   }
 ];
