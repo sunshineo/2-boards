@@ -29,6 +29,11 @@ export type GameRules<TState, TMove> = {
   readonly gameType: string;
   createInitialState(input: { readonly firstSeat: SeatId; readonly seats: SeatPair }): TState;
   getSeatsToAct(state: TState): readonly SeatId[];
+  canSubmitMove?(input: {
+    readonly state: TState;
+    readonly move: TMove;
+    readonly seat: SeatId;
+  }): ValidationResult;
   validateMove(input: {
     readonly state: TState;
     readonly move: TMove;

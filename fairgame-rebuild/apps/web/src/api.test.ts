@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createMatch, getApiBaseUrl, makeBotMove } from "./api";
+import { createMatch, getApiBaseUrl, makeAgentMove, makeBotMove } from "./api";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -56,14 +56,31 @@ describe("getApiBaseUrl", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await makeBotMove({ matchId: "match-bot", boardId: "B", move: { from: "e7", to: "e5" } });
+    await makeAgentMove({ matchId: "match-bot", boardId: "B", move: { from: "e7", to: "e5" } });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("/api/matches/match-bot/bot-moves"),
+      expect.stringContaining("/api/matches/match-bot/agent-moves"),
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ boardId: "B", move: { from: "e7", to: "e5" } })
       })
+    );
+  });
+
+  it("keeps makeBotMove as a compatibility wrapper over agent moves", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ match: { id: "match-bot" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await makeBotMove({ matchId: "match-bot", boardId: "B", move: { from: "e7", to: "e5" } });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/matches/match-bot/agent-moves"),
+      expect.objectContaining({ method: "POST" })
     );
   });
 });

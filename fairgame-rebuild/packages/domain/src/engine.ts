@@ -57,8 +57,16 @@ export function applyMoveToMatch<TState, TMove>(
     return { ok: false, reason: "board-not-active", match };
   }
 
-  if (!rules.getSeatsToAct(board.state).includes(command.seat)) {
-    return { ok: false, reason: "seat-not-to-act", match };
+  const moveAuthorization = rules.canSubmitMove
+    ? rules.canSubmitMove({
+        state: board.state,
+        move: command.move,
+        seat: command.seat
+      })
+    : canSeatSubmitTurnMove(board.state, rules, command.seat);
+
+  if (!moveAuthorization.ok) {
+    return { ok: false, reason: moveAuthorization.reason, match };
   }
 
   const validation = rules.validateMove({
@@ -116,4 +124,14 @@ function createBoard<TState, TMove>(input: {
     state,
     outcome: input.rules.getOutcome(state)
   };
+}
+
+function canSeatSubmitTurnMove<TState, TMove>(
+  state: TState,
+  rules: GameRules<TState, TMove>,
+  seat: SeatId
+) {
+  return rules.getSeatsToAct(state).includes(seat)
+    ? { ok: true as const }
+    : { ok: false as const, reason: "seat-not-to-act" };
 }

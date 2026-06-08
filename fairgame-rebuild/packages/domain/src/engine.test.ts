@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { applyMoveToMatch, createFairMatch } from "./engine";
+import { chessRules } from "./games/chess";
 import { getMatchOutcome } from "./scoring";
 import type { GameRules } from "./types";
 
@@ -108,6 +109,26 @@ describe("fair match engine", () => {
       reason: "seat-not-to-act",
       match
     });
+  });
+
+  it("lets game rules authorize non-turn board-control moves", () => {
+    const match = createFairMatch({ id: "match-chess", rules: chessRules });
+    const result = applyMoveToMatch(match, chessRules, {
+      boardId: "A",
+      seat: "seat2",
+      move: { drawOffer: true }
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.reason);
+
+    const boardA = result.match.boards[0];
+    expect(boardA?.state.drawOffer).toEqual({ offeredBy: "seat2" });
+    expect(boardA?.state.moveHistory.at(-1)).toMatchObject({
+      seat: "seat2",
+      drawOffer: true
+    });
+    expect(result.match.boards[1]?.state.moveHistory).toEqual([]);
   });
 
   it("rejects game-level validation errors without mutating the match", () => {

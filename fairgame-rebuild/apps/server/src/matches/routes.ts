@@ -3,13 +3,14 @@ import type { Response } from "express";
 import type { BoardId, SeatId } from "@fairgame/shared";
 import type { ClockConfig } from "@fairgame/domain";
 
-import { parseSupportedGameType, type SupportedGameType } from "./gameRegistry.js";
+import { getClockMinuteRange, parseSupportedGameType, type SupportedGameType } from "./gameRegistry.js";
 import {
-  getBotControlCookieName,
-  parseBotControlCookie,
+  createBrowserStockfishSeatAgent,
+  getSeatAgentControlCookieName,
+  parseSeatAgentControlCookie,
   parseBrowserChessBotDifficulty,
-  type BotControlClaim
-} from "./browserChessBot.js";
+  type SeatAgentControlClaim
+} from "./seatAgents.js";
 import type { MatchService, SeatClaim } from "./matchService.js";
 
 type CreateBody = {
@@ -63,11 +64,11 @@ export function createMatchRouter(
       gameType,
       typeof body.playerName === "string" ? body.playerName : undefined,
       clockConfig,
-      botDifficulty ? { browserBotDifficulty: botDifficulty } : {}
+      botDifficulty ? { automatedSeat: createBrowserStockfishSeatAgent(botDifficulty) } : {}
     );
     setSeatClaimCookie(response, result.claim, options);
-    if (result.botControl) {
-      setBotControlCookie(response, result.botControl, options);
+    if (result.seatAgentControl) {
+      setSeatAgentControlCookie(response, result.seatAgentControl, options);
     }
     response.status(201).json({ seat: result.seat, match: result.match });
   });
@@ -120,6 +121,33 @@ export function createMatchRouter(
     response.json({ match });
   });
 
+  router.post("/:id/agent-moves", async (request, response) => {
+    const body = request.body as MoveBody;
+    const id = request.params["id"] ?? "";
+
+    if (!isBoardId(body.boardId) || !isRecord(body.move)) {
+      response.status(400).json({ error: "invalid-command" });
+      return;
+    }
+
+    const result = await matchService.applySeatAgentMove({
+      id,
+      boardId: body.boardId,
+      move: body.move,
+      control: parseSeatAgentControlCookie(request.headers.cookie, id)
+    });
+
+    if (!result.ok) {
+      response.status(result.status).json({
+        error: result.reason,
+        match: result.match
+      });
+      return;
+    }
+
+    response.json({ match: result.match });
+  });
+
   router.post("/:id/bot-moves", async (request, response) => {
     const body = request.body as MoveBody;
     const id = request.params["id"] ?? "";
@@ -133,7 +161,7 @@ export function createMatchRouter(
       id,
       boardId: body.boardId,
       move: body.move,
-      control: parseBotControlCookie(request.headers.cookie, id)
+      control: parseSeatAgentControlCookie(request.headers.cookie, id)
     });
 
     if (!result.ok) {
@@ -204,13 +232,6 @@ function parseClockConfig(
   return { initialMs: clockInitialMs, incrementMs: 0 };
 }
 
-function getClockMinuteRange(gameType: SupportedGameType) {
-  if (gameType === "tictactoe") return { min: 1, max: 10 };
-  if (gameType === "connect4" || gameType === "reversi" || gameType === "mancala") return { min: 2, max: 20 };
-  if (gameType === "chess") return { min: 3, max: 60 };
-  return { min: 3, max: 30 };
-}
-
 export function getSeatCookieName(matchId: string) {
   return `fg_seat_${matchId}`;
 }
@@ -228,12 +249,12 @@ function setSeatClaimCookie(
   });
 }
 
-function setBotControlCookie(
+function setSeatAgentControlCookie(
   response: Response,
-  claim: BotControlClaim,
+  claim: SeatAgentControlClaim,
   options: { readonly secureCookies?: boolean } = {}
 ) {
-  response.cookie(getBotControlCookieName(claim.matchId), claim.secret, {
+  response.cookie(getSeatAgentControlCookieName(claim.matchId), claim.secret, {
     httpOnly: true,
     sameSite: "lax",
     secure: options.secureCookies ?? false,

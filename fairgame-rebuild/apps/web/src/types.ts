@@ -7,9 +7,12 @@ export type BrowserChessBotDifficulty = "easy" | "normal" | "hard";
 export type BrowserChessBot = {
   seat: "seat2";
   kind: "browser-stockfish";
+  gameType: "chess";
   difficulty: BrowserChessBotDifficulty;
   displayName: string;
 };
+
+export type AutomatedSeat = BrowserChessBot;
 
 export type GameType =
   | "tictactoe"
@@ -225,6 +228,7 @@ export type MatchView = {
   outcome: MatchOutcome;
   clock: MatchClockView | null;
   boards: MatchBoardView[];
+  automatedSeat?: AutomatedSeat;
   bot?: BrowserChessBot;
 };
 

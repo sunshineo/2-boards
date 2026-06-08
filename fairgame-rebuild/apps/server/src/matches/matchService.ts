@@ -20,11 +20,9 @@ import {
   type SupportedGameType
 } from "./gameRegistry.js";
 import {
-  createBrowserChessBot,
-  type BotControlClaim,
-  type BrowserChessBot,
-  type BrowserChessBotDifficulty
-} from "./browserChessBot.js";
+  type AutomatedSeat,
+  type SeatAgentControlClaim
+} from "./seatAgents.js";
 import type { MatchEventInput, MatchRepository, SerializedStoredMatch } from "./matchRepository.js";
 import { toMatchView, type MatchView, type OpenMatchView } from "./matchView.js";
 
@@ -33,8 +31,8 @@ type StoredMatch = {
   joinedSeats: Set<SeatId>;
   seatClaims: Map<SeatId, string>;
   playerNames: Map<SeatId, string>;
-  browserBot: BrowserChessBot | null;
-  botControlSecret: string | null;
+  automatedSeat: AutomatedSeat | null;
+  seatAgentControlSecret: string | null;
   lastActivityAtMs: number;
   clock: MatchClock | null;
 };
@@ -43,7 +41,7 @@ type CreateMatchResult = {
   readonly seat: SeatId;
   readonly match: MatchView;
   readonly claim: SeatClaim;
-  readonly botControl?: BotControlClaim;
+  readonly seatAgentControl?: SeatAgentControlClaim;
 };
 
 export type SeatClaim = {
@@ -106,7 +104,7 @@ export class MatchService {
     gameType: SupportedGameType,
     playerName?: string,
     clockConfig?: ClockConfig,
-    options: { readonly browserBotDifficulty?: BrowserChessBotDifficulty } = {}
+    options: { readonly automatedSeat?: AutomatedSeat } = {}
   ): Promise<CreateMatchResult> {
     const game = getGameDefinition(gameType);
     if (!game) {
@@ -116,36 +114,36 @@ export class MatchService {
     const nowMs = this.nowMs();
     const match = game.createMatch(this.createId());
     const matchClockConfig = clockConfig ?? this.clockConfig;
-    const browserBot = options.browserBotDifficulty ? createBrowserChessBot(options.browserBotDifficulty) : null;
-    const botControlSecret = browserBot ? this.createSecret() : null;
+    const automatedSeat = options.automatedSeat ?? null;
+    const seatAgentControlSecret = automatedSeat ? this.createSecret() : null;
     const seatClaims = new Map<SeatId, string>();
     const claim = this.createSeatClaim(match.id, "seat1", seatClaims);
     const baseClock = matchClockConfig ? createMatchClock(matchClockConfig, nowMs) : null;
     const storedMatch: StoredMatch = {
       match,
-      joinedSeats: new Set(browserBot ? ["seat1", browserBot.seat] : ["seat1"]),
+      joinedSeats: new Set(automatedSeat ? ["seat1", automatedSeat.seat] : ["seat1"]),
       seatClaims,
       playerNames: new Map([
         ["seat1", sanitizePlayerName(playerName, "Player 1")],
-        ["seat2", browserBot?.displayName ?? "Player 2"]
+        ["seat2", automatedSeat?.displayName ?? "Player 2"]
       ]),
-      browserBot,
-      botControlSecret,
+      automatedSeat,
+      seatAgentControlSecret,
       lastActivityAtMs: nowMs,
-      clock: browserBot && baseClock ? setClockRunningSeats(baseClock, getActiveSeats(match), nowMs) : baseClock
+      clock: automatedSeat && baseClock ? setClockRunningSeats(baseClock, getActiveSeats(match), nowMs) : baseClock
     };
     this.matches.set(match.id, storedMatch);
     await this.persistChange(storedMatch, {
       matchId: match.id,
       eventType: "match.created",
-      payload: { gameType, seat: "seat1", clockConfig: matchClockConfig, browserBot }
+      payload: { gameType, seat: "seat1", clockConfig: matchClockConfig, automatedSeat }
     });
 
     return {
       seat: "seat1",
       match: this.createMatchView(storedMatch),
       claim,
-      ...(botControlSecret ? { botControl: { matchId: match.id, secret: botControlSecret } } : {})
+      ...(seatAgentControlSecret ? { seatAgentControl: { matchId: match.id, secret: seatAgentControlSecret } } : {})
     };
   }
 
@@ -323,36 +321,52 @@ export class MatchService {
     };
   }
 
-  async applyBrowserBotMove(input: {
+  async applySeatAgentMove(input: {
     readonly id: string;
     readonly boardId: BoardId;
     readonly move: unknown;
-    readonly control: BotControlClaim | null;
+    readonly control: SeatAgentControlClaim | null;
   }): Promise<MoveResult> {
     const stored = this.matches.get(input.id);
     if (!stored) {
       return { ok: false, status: 404, reason: "match-not-found" };
     }
 
-    if (!stored.browserBot) {
-      return { ok: false, status: 409, reason: "browser-bot-not-enabled", match: this.createMatchView(stored) };
+    if (!stored.automatedSeat) {
+      return { ok: false, status: 409, reason: "automated-seat-not-enabled", match: this.createMatchView(stored) };
     }
 
     if (
       !input.control ||
       input.control.matchId !== input.id ||
-      !stored.botControlSecret ||
-      input.control.secret !== stored.botControlSecret
+      !stored.seatAgentControlSecret ||
+      input.control.secret !== stored.seatAgentControlSecret
     ) {
-      return { ok: false, status: 403, reason: "unauthorized-bot", match: this.createMatchView(stored) };
+      return { ok: false, status: 403, reason: "unauthorized-seat-agent", match: this.createMatchView(stored) };
     }
 
     return this.applyMove({
       id: input.id,
       boardId: input.boardId,
-      seat: stored.browserBot.seat,
+      seat: stored.automatedSeat.seat,
       move: input.move
     });
+  }
+
+  async applyBrowserBotMove(input: {
+    readonly id: string;
+    readonly boardId: BoardId;
+    readonly move: unknown;
+    readonly control: SeatAgentControlClaim | null;
+  }): Promise<MoveResult> {
+    const result = await this.applySeatAgentMove(input);
+    if (!result.ok && result.reason === "automated-seat-not-enabled") {
+      return { ...result, reason: "browser-bot-not-enabled" };
+    }
+    if (!result.ok && result.reason === "unauthorized-seat-agent") {
+      return { ...result, reason: "unauthorized-bot" };
+    }
+    return result;
   }
 
   onMatchUpdated(listener: (match: MatchView) => void): () => void {
@@ -422,7 +436,7 @@ export class MatchService {
       stored.playerNames,
       stored.joinedSeats.size,
       this.areAllSeatsJoined(stored),
-      stored.browserBot
+      stored.automatedSeat
     );
   }
 
@@ -463,8 +477,8 @@ function serializeStoredMatch(stored: StoredMatch): SerializedStoredMatch<Suppor
     joinedSeats: [...stored.joinedSeats],
     seatClaims: [...stored.seatClaims.entries()],
     playerNames: [...stored.playerNames.entries()],
-    browserBot: stored.browserBot,
-    botControlSecret: stored.botControlSecret,
+    automatedSeat: stored.automatedSeat,
+    seatAgentControlSecret: stored.seatAgentControlSecret,
     lastActivityAtMs: stored.lastActivityAtMs,
     clock: stored.clock
   };
@@ -479,8 +493,8 @@ function deserializeStoredMatch(snapshot: SerializedStoredMatch<SupportedGameSta
       ["seat1", "Player 1"],
       ["seat2", "Player 2"]
     ]),
-    browserBot: snapshot.browserBot ?? null,
-    botControlSecret: snapshot.botControlSecret ?? null,
+    automatedSeat: snapshot.automatedSeat ?? snapshot.browserBot ?? null,
+    seatAgentControlSecret: snapshot.seatAgentControlSecret ?? snapshot.botControlSecret ?? null,
     lastActivityAtMs: snapshot.lastActivityAtMs ?? fallbackActivityAtMs,
     clock: snapshot.clock ?? null
   };

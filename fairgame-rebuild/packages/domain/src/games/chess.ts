@@ -127,6 +127,16 @@ export const chessRules: GameRules<ChessState, ChessMove> = {
     return state.outcome.status === "in_progress" ? [getSeatForTurn(state)] : [];
   },
 
+  canSubmitMove({ state, move, seat }) {
+    if (isBoardControlMove(move)) {
+      return chessRules.validateMove({ state, move, seat });
+    }
+
+    return chessRules.getSeatsToAct(state).includes(seat)
+      ? { ok: true }
+      : { ok: false, reason: "seat-not-to-act" };
+  },
+
   validateMove({ state, move, seat }) {
     if (state.outcome.status !== "in_progress") {
       return { ok: false, reason: "board-not-active" };
@@ -479,6 +489,27 @@ function isMoveShape(move: ChessMove): boolean {
     isAcceptTakebackMove(move) ||
     isDeclineTakebackMove(move) ||
     (typeof move.from === "string" && typeof move.to === "string")
+  );
+}
+
+function isBoardControlMove(
+  move: ChessMove
+): move is
+  | ChessResignMove
+  | ChessDrawOfferMove
+  | ChessAcceptDrawMove
+  | ChessDeclineDrawMove
+  | ChessRequestTakebackMove
+  | ChessAcceptTakebackMove
+  | ChessDeclineTakebackMove {
+  return (
+    isResignMove(move) ||
+    isDrawOfferMove(move) ||
+    isAcceptDrawMove(move) ||
+    isDeclineDrawMove(move) ||
+    isRequestTakebackMove(move) ||
+    isAcceptTakebackMove(move) ||
+    isDeclineTakebackMove(move)
   );
 }
 

@@ -73,20 +73,21 @@ export function toChessMovePayloadFromUci(
 
 export function selectBrowserChessBotAction(match: MatchView): BrowserChessBotAction | null {
   if (match.gameType !== "chess" || match.outcome.status !== "in_progress") return null;
-  if (match.bot?.kind !== "browser-stockfish") return null;
+  const automatedSeat = match.automatedSeat ?? match.bot ?? null;
+  if (automatedSeat?.kind !== "browser-stockfish") return null;
 
   for (const board of match.boards) {
     if (board.kind !== "chess" || board.outcome.status !== "in_progress") continue;
 
-    if (board.drawOffer && board.drawOffer.offeredBy !== match.bot.seat) {
+    if (board.drawOffer && board.drawOffer.offeredBy !== automatedSeat.seat) {
       return { kind: "control", boardId: board.id, move: { declineDraw: true } };
     }
 
-    if (board.takebackRequest && board.takebackRequest.requestedBy !== match.bot.seat) {
+    if (board.takebackRequest && board.takebackRequest.requestedBy !== automatedSeat.seat) {
       return { kind: "control", boardId: board.id, move: { declineTakeback: true } };
     }
 
-    if (board.seatsToAct.includes(match.bot.seat)) {
+    if (board.seatsToAct.includes(automatedSeat.seat)) {
       return { kind: "engine", boardId: board.id, board };
     }
   }
@@ -95,7 +96,8 @@ export function selectBrowserChessBotAction(match: MatchView): BrowserChessBotAc
 }
 
 export function getBrowserChessBotTiming(match: MatchView): BrowserChessBotTiming {
-  const preset = browserChessBotPresets[match.bot?.difficulty ?? "normal"];
+  const automatedSeat = match.automatedSeat ?? match.bot ?? null;
+  const preset = browserChessBotPresets[automatedSeat?.difficulty ?? "normal"];
   const clockScale = getBrowserChessBotClockScale(match.clock?.config.initialMs ?? defaultBrowserChessClockInitialMs);
   const maximumMoveTimeMs = Math.round(preset.maximumMoveTimeMs * clockScale);
 

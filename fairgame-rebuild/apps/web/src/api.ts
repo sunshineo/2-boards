@@ -82,13 +82,13 @@ export async function makeMove(input: {
   return response.match;
 }
 
-export async function makeBotMove(input: {
+export async function makeAgentMove(input: {
   matchId: string;
   boardId: BoardId;
   move: MovePayload;
 }): Promise<MatchView> {
   const response = await request<{ match: MatchView }>(
-    `/api/matches/${encodeURIComponent(input.matchId)}/bot-moves`,
+    `/api/matches/${encodeURIComponent(input.matchId)}/agent-moves`,
     {
       method: "POST",
       body: JSON.stringify({
@@ -99,6 +99,14 @@ export async function makeBotMove(input: {
   );
 
   return response.match;
+}
+
+export async function makeBotMove(input: {
+  matchId: string;
+  boardId: BoardId;
+  move: MovePayload;
+}): Promise<MatchView> {
+  return makeAgentMove(input);
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {

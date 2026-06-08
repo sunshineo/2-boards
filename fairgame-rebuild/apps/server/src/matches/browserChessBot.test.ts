@@ -58,11 +58,19 @@ describe("browser Chess bot", () => {
     expect(response.body.match.bot).toEqual({
       seat: "seat2",
       kind: "browser-stockfish",
+      gameType: "chess",
+      difficulty: "normal",
+      displayName: "Stockfish Normal"
+    });
+    expect(response.body.match.automatedSeat).toEqual({
+      seat: "seat2",
+      kind: "browser-stockfish",
+      gameType: "chess",
       difficulty: "normal",
       displayName: "Stockfish Normal"
     });
     expect(response.body.match.players.seat2.name).toBe("Stockfish Normal");
-    expect(getSetCookies(response).join("\n")).toContain(`fg_bot_${response.body.match.id}=`);
+    expect(getSetCookies(response).join("\n")).toContain(`fg_agent_${response.body.match.id}=`);
   });
 
   it("creates Chess bot matches without a feature flag", async () => {

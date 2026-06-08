@@ -137,7 +137,7 @@ describe("match API", () => {
       }
     });
     expect(response.headers["set-cookie"]).toEqual(
-      expect.arrayContaining([expect.stringContaining("fg_bot_match-1=")])
+      expect.arrayContaining([expect.stringContaining("fg_agent_match-1=")])
     );
 
     const boardA = response.body.match.boards[0];

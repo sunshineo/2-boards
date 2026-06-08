@@ -259,6 +259,7 @@ function createBotMatch(options: {
     bot: {
       seat: "seat2",
       kind: "browser-stockfish",
+      gameType: "chess",
       difficulty: "normal",
       displayName: "Stockfish Normal"
     }
