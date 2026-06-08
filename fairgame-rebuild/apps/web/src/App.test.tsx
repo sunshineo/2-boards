@@ -2564,6 +2564,49 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "Copied" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Rematch" })).toBeInTheDocument();
   });
+
+  it("keeps the bot opponent when rematching a completed TicTacToe bot match", async () => {
+    const botSession = createTicTacToeSeatSession("match-bot-done");
+    const ticTacToeBot = {
+      seat: "seat2",
+      kind: "random-legal",
+      gameType: "tictactoe",
+      difficulty: "normal",
+      displayName: "TicTacToe Bot"
+    };
+    botSession.match.joinedSeats = 2;
+    botSession.match.players.seat2.name = "TicTacToe Bot";
+    botSession.match.outcome = { status: "completed", score: { seat1: 1, seat2: 1 } };
+    botSession.match.boards = botSession.match.boards.map((board) => ({
+      ...board,
+      outcome: { status: "draw", reason: "board-full" }
+    }));
+    (botSession.match as typeof botSession.match & { automatedSeat: unknown; bot: unknown }).automatedSeat =
+      ticTacToeBot;
+    (botSession.match as typeof botSession.match & { automatedSeat: unknown; bot: unknown }).bot = ticTacToeBot;
+    const fetchMock = createFetchMock({ matches: [], seatSession: botSession });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.replaceState(null, "", "/matches/match-bot-done");
+
+    render(<App />);
+
+    expect(await screen.findByTestId("match-code")).toHaveAttribute("data-match-id", "match-bot-done");
+    fireEvent.click(screen.getByRole("button", { name: "Rematch" }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/api/matches") && init?.method === "POST")
+      ).toHaveLength(1);
+    });
+    const createCalls = fetchMock.mock.calls.filter(
+      ([url, init]) => String(url).endsWith("/api/matches") && init?.method === "POST"
+    );
+    expect(createCalls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        body: JSON.stringify({ gameType: "tictactoe", clockInitialMs: 300_000, bot: { difficulty: "normal" } })
+      })
+    );
+  });
 });
 
 function createFetchMock(input: {

@@ -396,11 +396,12 @@ export function App() {
 
   async function handleRematch() {
     if (!session) return;
+    const automatedSeat = getAutomatedSeat(session.match);
     await run(async () => {
-      const nextSession = await createMatch(
-        session.match.gameType,
-        session.match.clock ? { clockInitialMs: session.match.clock.config.initialMs } : {}
-      );
+      const nextSession = await createMatch(session.match.gameType, {
+        ...(session.match.clock ? { clockInitialMs: session.match.clock.config.initialMs } : {}),
+        ...(automatedSeat ? { bot: { difficulty: automatedSeat.difficulty } } : {})
+      });
       setSession(nextSession);
       navigateTo({ view: "match", matchId: nextSession.match.id });
     });
