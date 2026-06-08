@@ -692,6 +692,13 @@ git commit -m "Add per-game random bot modules"
 
 ## Task 3: Register Web Bot Capabilities
 
+Status: Complete.
+
+Evidence:
+- Commits: `75efe26` (`Register web bot capabilities`) and `8f5acbd` (`Make web bot capability contracts honest`).
+- Verification: `npm test -w @fairgame/web -- registry.test.tsx randomBots.test.ts browserChessBot.test.ts` passed with 22 tests; `npm run typecheck` passed.
+- Reviews: spec compliance approved; code quality approved after making `browser-stockfish` metadata-only and removing circular dependency from `games/bots/chessStockfish.ts` to `browserChessBot.ts`.
+
 **Files:**
 - Modify: `fairgame-rebuild/apps/web/src/games/registry.tsx`
 - Modify: `fairgame-rebuild/apps/web/src/games/registry.test.tsx`
