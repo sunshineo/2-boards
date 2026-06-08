@@ -353,6 +353,13 @@ git commit -m "Generalize server bot capabilities"
 
 ## Task 2: Add Web Bot Types And Per-Game Random Bot Modules
 
+Status: Complete.
+
+Evidence:
+- Commits: `fab3b27` (`Add per-game random bot modules`) and `136e2d5` (`Harden random bot move guards`).
+- Verification: `npm test -w @fairgame/web -- randomBots.test.ts` passed with 12 tests; `npm run typecheck` passed.
+- Reviews: spec compliance approved; code quality approved after widening `MatchView.bot` to `AutomatedSeat` and adding active-seat guards to all random bot modules.
+
 **Files:**
 - Modify: `fairgame-rebuild/apps/web/src/types.ts`
 - Create: `fairgame-rebuild/apps/web/src/games/bots/types.ts`
