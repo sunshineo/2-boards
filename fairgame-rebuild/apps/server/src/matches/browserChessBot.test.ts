@@ -83,12 +83,22 @@ describe("browser Chess bot", () => {
     expect(response.body.match.joinedSeats).toBe(2);
   });
 
-  it("rejects bot match creation for non-Chess games", async () => {
-    await request(createTestApp())
+  it("creates a TicTacToe bot match with seat2 joined and bot metadata", async () => {
+    const response = await request(createTestApp())
       .post("/api/matches")
-      .send({ gameType: "tictactoe", bot: { difficulty: "easy" } })
-      .expect(400)
-      .expect(({ body }) => expect(body.error).toBe("unsupported-bot-game"));
+      .send({ gameType: "tictactoe", bot: { difficulty: "normal" } })
+      .expect(201);
+
+    expect(response.body.match.automatedSeat).toEqual({
+      seat: "seat2",
+      kind: "random-legal",
+      gameType: "tictactoe",
+      difficulty: "normal",
+      displayName: "TicTacToe Bot"
+    });
+    expect(response.body.match.joinedSeats).toBe(2);
+    expect(response.body.match.players.seat2.name).toBe("TicTacToe Bot");
+    expect(getSetCookies(response).join("\n")).toContain(`fg_agent_${response.body.match.id}=`);
   });
 
   it("rejects bot moves without the bot-control cookie", async () => {

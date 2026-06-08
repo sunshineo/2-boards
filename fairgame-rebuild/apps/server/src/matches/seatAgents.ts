@@ -1,11 +1,13 @@
 import type { SeatId } from "@fairgame/shared";
+import type { SupportedGameType } from "../games/registry.js";
 
 export type SeatAgentDifficulty = "easy" | "normal" | "hard";
+export type SeatAgentKind = "browser-stockfish" | "random-legal";
 
 export type AutomatedSeat = {
   readonly seat: SeatId;
-  readonly kind: "browser-stockfish";
-  readonly gameType: "chess";
+  readonly kind: SeatAgentKind;
+  readonly gameType: SupportedGameType;
   readonly difficulty: SeatAgentDifficulty;
   readonly displayName: string;
 };
@@ -15,18 +17,36 @@ export type SeatAgentControlClaim = {
   readonly secret: string;
 };
 
-export function parseBrowserChessBotDifficulty(value: unknown): SeatAgentDifficulty | null {
+export function parseSeatAgentDifficulty(value: unknown): SeatAgentDifficulty | null {
   return value === "easy" || value === "normal" || value === "hard" ? value : null;
 }
 
-export function createBrowserStockfishSeatAgent(difficulty: SeatAgentDifficulty): AutomatedSeat {
+export function parseBrowserChessBotDifficulty(value: unknown): SeatAgentDifficulty | null {
+  return parseSeatAgentDifficulty(value);
+}
+
+export function createAutomatedSeat(options: {
+  readonly gameType: SupportedGameType;
+  readonly kind: SeatAgentKind;
+  readonly difficulty: SeatAgentDifficulty;
+  readonly displayName: string;
+}): AutomatedSeat {
   return {
     seat: "seat2",
-    kind: "browser-stockfish",
+    gameType: options.gameType,
+    kind: options.kind,
+    difficulty: options.difficulty,
+    displayName: options.displayName
+  };
+}
+
+export function createBrowserStockfishSeatAgent(difficulty: SeatAgentDifficulty): AutomatedSeat {
+  return createAutomatedSeat({
     gameType: "chess",
+    kind: "browser-stockfish",
     difficulty,
     displayName: getBrowserChessBotDisplayName(difficulty)
-  };
+  });
 }
 
 export function getBrowserChessBotDisplayName(difficulty: SeatAgentDifficulty): string {

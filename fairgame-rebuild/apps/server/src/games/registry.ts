@@ -1,4 +1,11 @@
 import {
+  createAutomatedSeat,
+  createBrowserStockfishSeatAgent,
+  type AutomatedSeat,
+  type SeatAgentDifficulty,
+  type SeatAgentKind
+} from "../matches/seatAgents.js";
+import {
   applyMoveToMatch,
   breakthroughRules,
   chessRules,
@@ -81,6 +88,12 @@ export type SupportedGameMove =
   | DotsBoxesMove
   | OrderChaosMove;
 export type SupportedFairMatch = FairMatch<SupportedGameState>;
+
+export type GameBotCapability = {
+  readonly kind: SeatAgentKind;
+  readonly displayName: string;
+  createAutomatedSeat(difficulty: SeatAgentDifficulty): AutomatedSeat;
+};
 
 export type TicTacToeBoardView = {
   readonly kind: "tictactoe";
@@ -227,6 +240,7 @@ type SupportedGameDefinition<TState, TMove> = {
   readonly gameType: SupportedGameType;
   readonly label: string;
   readonly clockRange: ClockMinuteRange;
+  readonly bot?: GameBotCapability;
   createMatch(id: string): FairMatch<TState>;
   parseMove(move: unknown): TMove | null;
   getSeatsToAct(state: TState): readonly SeatId[];
@@ -238,6 +252,7 @@ type AnySupportedGameDefinition = {
   readonly gameType: SupportedGameType;
   readonly label: string;
   readonly clockRange: ClockMinuteRange;
+  readonly bot?: GameBotCapability;
   createMatch(id: string): SupportedFairMatch;
   parseMove(move: unknown): SupportedGameMove | null;
   getSeatsToAct(state: SupportedGameState): readonly SeatId[];
@@ -254,6 +269,7 @@ const ticTacToeDefinition: SupportedGameDefinition<TicTacToeState, TicTacToeMove
   gameType: "tictactoe",
   label: "TicTacToe",
   clockRange: { min: 1, max: 10 },
+  bot: createRandomLegalBotCapability("tictactoe", "TicTacToe Bot"),
 
   createMatch(id) {
     return createFairMatch({ id, rules: ticTacToeRules });
@@ -288,6 +304,7 @@ const connectFourDefinition: SupportedGameDefinition<ConnectFourState, ConnectFo
   gameType: "connect4",
   label: "Connect Four",
   clockRange: { min: 2, max: 20 },
+  bot: createRandomLegalBotCapability("connect4", "Connect Four Bot"),
 
   createMatch(id) {
     return createFairMatch({ id, rules: connectFourRules });
@@ -325,6 +342,7 @@ const chessDefinition: SupportedGameDefinition<ChessState, ChessMove> = {
   gameType: "chess",
   label: "Chess",
   clockRange: { min: 3, max: 60 },
+  bot: createChessBotCapability(),
 
   createMatch(id) {
     return createFairMatch({ id, rules: chessRules });
@@ -381,6 +399,7 @@ const gomokuDefinition: SupportedGameDefinition<GomokuState, GomokuMove> = {
   gameType: "gomoku",
   label: "Gomoku",
   clockRange: { min: 3, max: 30 },
+  bot: createRandomLegalBotCapability("gomoku", "Gomoku Bot"),
 
   createMatch(id) {
     return createFairMatch({ id, rules: gomokuRules });
@@ -418,6 +437,7 @@ const hexDefinition: SupportedGameDefinition<HexState, HexMove> = {
   gameType: "hex",
   label: "Hex",
   clockRange: { min: 3, max: 30 },
+  bot: createRandomLegalBotCapability("hex", "Hex Bot"),
 
   createMatch(id) {
     return createFairMatch({ id, rules: hexRules });
@@ -454,6 +474,7 @@ const reversiDefinition: SupportedGameDefinition<ReversiState, ReversiMove> = {
   gameType: "reversi",
   label: "Reversi",
   clockRange: { min: 2, max: 20 },
+  bot: createRandomLegalBotCapability("reversi", "Reversi Bot"),
 
   createMatch(id) {
     return createFairMatch({ id, rules: reversiRules });
@@ -491,6 +512,7 @@ const breakthroughDefinition: SupportedGameDefinition<BreakthroughState, Breakth
   gameType: "breakthrough",
   label: "Breakthrough",
   clockRange: { min: 3, max: 30 },
+  bot: createRandomLegalBotCapability("breakthrough", "Breakthrough Bot"),
 
   createMatch(id) {
     return createFairMatch({ id, rules: breakthroughRules });
@@ -528,6 +550,7 @@ const mancalaDefinition: SupportedGameDefinition<MancalaState, MancalaMove> = {
   gameType: "mancala",
   label: "Mancala",
   clockRange: { min: 2, max: 20 },
+  bot: createRandomLegalBotCapability("mancala", "Mancala Bot"),
 
   createMatch(id) {
     return createFairMatch({ id, rules: mancalaRules });
@@ -566,6 +589,7 @@ const dotsBoxesDefinition: SupportedGameDefinition<DotsBoxesState, DotsBoxesMove
   gameType: "dots-boxes",
   label: "Dots and Boxes",
   clockRange: { min: 3, max: 30 },
+  bot: createRandomLegalBotCapability("dots-boxes", "Dots and Boxes Bot"),
 
   createMatch(id) {
     return createFairMatch({ id, rules: dotsBoxesRules });
@@ -605,6 +629,7 @@ const orderChaosDefinition: SupportedGameDefinition<OrderChaosState, OrderChaosM
   gameType: "order-chaos",
   label: "Order and Chaos",
   clockRange: { min: 3, max: 30 },
+  bot: createRandomLegalBotCapability("order-chaos", "Order and Chaos Bot"),
 
   createMatch(id) {
     return createFairMatch({ id, rules: orderChaosRules });
@@ -654,6 +679,8 @@ const supportedGames = {
   "dots-boxes": asAnyDefinition(dotsBoxesDefinition),
   "order-chaos": asAnyDefinition(orderChaosDefinition)
 } as const satisfies Record<SupportedGameType, AnySupportedGameDefinition>;
+
+export const supportedGameDefinitions = Object.values(supportedGames);
 
 export function getDefaultGameType(): SupportedGameType {
   return "tictactoe";
@@ -793,12 +820,37 @@ function asAnyDefinition<TState extends SupportedGameState, TMove extends Suppor
     gameType: definition.gameType,
     label: definition.label,
     clockRange: definition.clockRange,
+    ...(definition.bot ? { bot: definition.bot } : {}),
     createMatch: (id) => definition.createMatch(id) as SupportedFairMatch,
     parseMove: (move) => definition.parseMove(move),
     getSeatsToAct: (state) => definition.getSeatsToAct(state as TState),
     applyMove: (match, command) =>
       definition.applyMove(match as FairMatch<TState>, command as ApplyMoveCommand<TMove>) as ApplyMoveResult<SupportedGameState>,
     toBoardView: (board) => definition.toBoardView(board as FairBoard<TState>)
+  };
+}
+
+function createRandomLegalBotCapability(
+  gameType: SupportedGameType,
+  displayName: string
+): GameBotCapability {
+  return {
+    kind: "random-legal",
+    displayName,
+    createAutomatedSeat: (difficulty) => createAutomatedSeat({
+      gameType,
+      kind: "random-legal",
+      difficulty,
+      displayName
+    })
+  };
+}
+
+function createChessBotCapability(): GameBotCapability {
+  return {
+    kind: "browser-stockfish",
+    displayName: "Stockfish",
+    createAutomatedSeat: createBrowserStockfishSeatAgent
   };
 }
 

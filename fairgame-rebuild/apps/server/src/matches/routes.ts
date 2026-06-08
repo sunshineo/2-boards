@@ -3,12 +3,11 @@ import type { Response } from "express";
 import type { BoardId, SeatId } from "@fairgame/shared";
 import type { ClockConfig } from "@fairgame/domain";
 
-import { getClockMinuteRange, parseSupportedGameType, type SupportedGameType } from "./gameRegistry.js";
+import { getClockMinuteRange, getGameDefinition, parseSupportedGameType, type SupportedGameType } from "./gameRegistry.js";
 import {
-  createBrowserStockfishSeatAgent,
   getSeatAgentControlCookieName,
   parseSeatAgentControlCookie,
-  parseBrowserChessBotDifficulty,
+  parseSeatAgentDifficulty,
   type SeatAgentControlClaim
 } from "./seatAgents.js";
 import type { MatchService, SeatClaim } from "./matchService.js";
@@ -54,17 +53,24 @@ export function createMatchRouter(
       return;
     }
 
+    const gameDefinition = getGameDefinition(gameType);
+    if (!gameDefinition) {
+      response.status(400).json({ error: "unsupported-game" });
+      return;
+    }
+
     const botDifficulty = parseCreateBotDifficulty(body.bot);
-    if (botDifficulty && gameType !== "chess") {
+    if (botDifficulty && !gameDefinition.bot) {
       response.status(400).json({ error: "unsupported-bot-game" });
       return;
     }
+    const automatedSeat = botDifficulty ? gameDefinition.bot?.createAutomatedSeat(botDifficulty) : undefined;
 
     const result = await matchService.createMatch(
       gameType,
       typeof body.playerName === "string" ? body.playerName : undefined,
       clockConfig,
-      botDifficulty ? { automatedSeat: createBrowserStockfishSeatAgent(botDifficulty) } : {}
+      automatedSeat ? { automatedSeat } : {}
     );
     setSeatClaimCookie(response, result.claim, options);
     if (result.seatAgentControl) {
@@ -218,7 +224,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function parseCreateBotDifficulty(value: unknown) {
   if (!isRecord(value)) return null;
-  return parseBrowserChessBotDifficulty(value["difficulty"]);
+  return parseSeatAgentDifficulty(value["difficulty"]);
 }
 
 function parseClockConfig(
