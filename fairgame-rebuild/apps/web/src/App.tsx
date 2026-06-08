@@ -659,11 +659,12 @@ export function App() {
               <div className="quick-time-grid">
                 {quickTimeOptions.map((option) => (
                   <button
-                    aria-label={`Create ${option.minutes} minute ${selectedGameLabel} match`}
-                    className="time-preset-button"
+                    aria-label={`${option.label} ${option.pace}`}
+                    aria-pressed={customMinutes === option.minutes}
+                    className={`time-preset-button${customMinutes === option.minutes ? " selected" : ""}`}
                     disabled={isBusy}
                     key={option.minutes}
-                    onClick={() => void handleCreate(option.minutes)}
+                    onClick={() => setCustomMinutes(clampMinutes(option.minutes, selectedGameTimeRange))}
                     type="button"
                   >
                     <strong>{option.label}</strong>

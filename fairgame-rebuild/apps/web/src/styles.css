@@ -260,6 +260,13 @@ input {
   color: #ffffff;
 }
 
+.mode-toggle button.selected:not(:disabled):hover,
+.difficulty-grid button.selected:not(:disabled):hover {
+  border-color: #245d63;
+  background: #245d63;
+  color: #ffffff;
+}
+
 .time-preset-button {
   display: grid;
   place-items: center;
@@ -277,6 +284,18 @@ input {
   background: #eef7f5;
 }
 
+.time-preset-button.selected {
+  border-color: #245d63;
+  background: #245d63;
+  color: #ffffff;
+}
+
+.time-preset-button.selected:not(:disabled):hover {
+  border-color: #245d63;
+  background: #245d63;
+  color: #ffffff;
+}
+
 .time-preset-button strong {
   font-size: 1.35rem;
 }
@@ -285,6 +304,14 @@ input {
   color: #56627a;
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+.time-preset-button.selected span {
+  color: #ffffff;
+}
+
+.time-preset-button.selected:not(:disabled):hover span {
+  color: #ffffff;
 }
 
 .panel-title-row {

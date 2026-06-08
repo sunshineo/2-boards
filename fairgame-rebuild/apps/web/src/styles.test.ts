@@ -27,4 +27,14 @@ describe("styles.css", () => {
     expect(styles).toContain(".floating-alerts .secondary-button {");
     expect(styles).toContain("pointer-events: auto;");
   });
+
+  it("keeps selected lobby controls unchanged on hover", () => {
+    const styles = readFileSync(stylesPath, "utf8");
+
+    expect(styles).toContain(".mode-toggle button.selected:not(:disabled):hover");
+    expect(styles).toContain(".difficulty-grid button.selected:not(:disabled):hover");
+    expect(styles).toContain(".time-preset-button.selected:not(:disabled):hover");
+    expect(styles).toContain("background: #245d63;");
+    expect(styles).toContain("color: #ffffff;");
+  });
 });
