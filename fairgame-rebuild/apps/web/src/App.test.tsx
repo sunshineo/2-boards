@@ -68,7 +68,8 @@ vi.mock("./browserChessBot", async () => {
   const actual = await vi.importActual<typeof import("./browserChessBot")>("./browserChessBot");
   return {
     ...actual,
-    createBrowserChessBotController: browserChessBotMock.createBrowserChessBotController
+    createBrowserChessBotController: browserChessBotMock.createBrowserChessBotController,
+    createBrowserGameBotController: browserChessBotMock.createBrowserChessBotController
   };
 });
 
@@ -259,6 +260,16 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Hard" })).toBeInTheDocument();
   });
 
+  it("shows Connect Four bot mode controls with Human selected", () => {
+    vi.stubGlobal("fetch", createFetchMock({ matches: [] }));
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Connect Four lobby" }));
+
+    expect(screen.getByRole("button", { name: "Human" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Bot" })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("stores game lobbies in browser history", async () => {
     vi.stubGlobal("fetch", createFetchMock({ matches: [] }));
 
@@ -417,6 +428,35 @@ describe("App", () => {
       expect.any(String),
       expect.objectContaining({
         body: JSON.stringify({ gameType: "chess", clockInitialMs: 300_000, bot: { difficulty: "normal" } })
+      })
+    );
+  });
+
+  it("creates a Connect Four bot match with the normal bot difficulty", async () => {
+    const botSession = createConnectFourSeatSession("match-connect4-bot-create");
+    (botSession.match as typeof botSession.match & { bot: unknown }).bot = {
+      seat: "seat2",
+      kind: "random-legal",
+      gameType: "connect4",
+      difficulty: "normal",
+      displayName: "Connect Four Bot"
+    };
+    botSession.match.players.seat2.name = "Connect Four Bot";
+    botSession.match.joinedSeats = 2;
+    const fetchMock = createFetchMock({ matches: [], seatSession: botSession });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Connect Four lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bot" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Connect Four match" }));
+
+    expect(await screen.findByTestId("match-code")).toHaveAttribute("data-match-id", "match-connect4-bot-create");
+    expect(screen.getByTestId("match-opponent-name")).toHaveTextContent("Connect Four Bot");
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: JSON.stringify({ gameType: "connect4", clockInitialMs: 300_000, bot: { difficulty: "normal" } })
       })
     );
   });
@@ -2581,6 +2621,47 @@ function createTicTacToeSeatSession(id: string) {
           id: "B",
           firstSeat: "seat2",
           cells: Array(9).fill(null),
+          seatsToAct: [],
+          outcome: { status: "in_progress" }
+        }
+      ]
+    }
+  };
+}
+
+function createConnectFourSeatSession(id: string) {
+  return {
+    seat: "seat1",
+    match: {
+      id,
+      gameType: "connect4",
+      gameLabel: "Connect Four",
+      seats: ["seat1", "seat2"],
+      joinedSeats: 1,
+      maxSeats: 2,
+      players: createPlayersMock(),
+      outcome: { status: "in_progress", score: { seat1: 0, seat2: 0 } },
+      clock: createClockMock(),
+      boards: [
+        {
+          kind: "connect4",
+          id: "A",
+          firstSeat: "seat1",
+          rows: 6,
+          columns: 7,
+          cells: Array(42).fill(null),
+          playableColumns: [0, 1, 2, 3, 4, 5, 6],
+          seatsToAct: [],
+          outcome: { status: "in_progress" }
+        },
+        {
+          kind: "connect4",
+          id: "B",
+          firstSeat: "seat2",
+          rows: 6,
+          columns: 7,
+          cells: Array(42).fill(null),
+          playableColumns: [0, 1, 2, 3, 4, 5, 6],
           seatsToAct: [],
           outcome: { status: "in_progress" }
         }
