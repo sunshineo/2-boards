@@ -194,10 +194,13 @@ export function createBrowserGameBotController(
   const chessController = createBrowserChessBotController(options);
   let isRunning = false;
   let isDisposed = false;
+  let runGeneration = 0;
 
   return {
     async runForMatch(match) {
       if (isDisposed || isRunning) return;
+      const runToken = ++runGeneration;
+      const isCurrentRun = () => !isDisposed && runGeneration === runToken;
 
       const automatedSeat = match.automatedSeat ?? match.bot ?? null;
       if (!automatedSeat || match.outcome.status !== "in_progress") {
@@ -232,13 +235,21 @@ export function createBrowserGameBotController(
 
         options.onStatus?.("thinking");
         await waitForBotMoveTime(250);
+        if (!isCurrentRun()) return;
+
         const move = await bot.chooseMove({ board, seat: automatedSeat.seat });
+        if (!isCurrentRun()) return;
+
         if (move) {
           await options.submitMove({ boardId: board.id, move });
         }
+        if (!isCurrentRun()) return;
+
         options.onStatus?.("idle");
       } catch {
-        options.onStatus?.("error");
+        if (isCurrentRun()) {
+          options.onStatus?.("error");
+        }
       } finally {
         isRunning = false;
       }
@@ -246,8 +257,8 @@ export function createBrowserGameBotController(
 
     dispose() {
       isDisposed = true;
+      runGeneration++;
       chessController.dispose();
-      options.onStatus?.("idle");
     }
   };
 }

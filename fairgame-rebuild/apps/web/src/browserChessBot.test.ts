@@ -221,6 +221,28 @@ describe("browserChessBot", () => {
 
     expect(submitted).toEqual([{ boardId: "B", move: { column: 0 } }]);
   });
+
+  it("does not submit a random-legal move after disposal during the move delay", async () => {
+    vi.useFakeTimers();
+    const submitted: { boardId: "A" | "B"; move: MovePayload }[] = [];
+    const statuses: string[] = [];
+    const controller = createBrowserGameBotController({
+      submitMove: async (input) => {
+        submitted.push(input);
+      },
+      onStatus: (status) => statuses.push(status)
+    });
+
+    const runPromise = controller.runForMatch(createConnectFourBotMatch());
+    await Promise.resolve();
+    controller.dispose();
+
+    await vi.advanceTimersByTimeAsync(250);
+    await runPromise;
+
+    expect(submitted).toEqual([]);
+    expect(statuses).toEqual(["thinking", "idle"]);
+  });
 });
 
 function createBotMatch(options: {
