@@ -1133,6 +1133,13 @@ git commit -m "Add generic browser bot controller"
 
 ## Task 5: Wire Lobby And App To Generic Bot Capabilities
 
+Status: Complete.
+
+Evidence:
+- Commit: `5a11d93` (`Enable bot mode for every game lobby`).
+- Verification: `npm test -w @fairgame/web -- App.test.tsx browserChessBot.test.ts registry.test.tsx randomBots.test.ts api.test.ts` passed with 76 tests; `npm test --workspace @fairgame/web -- App.test.tsx` passed with 46 tests; `npm run typecheck` passed.
+- Reviews: spec compliance approved; code quality approved.
+
 **Files:**
 - Modify: `fairgame-rebuild/apps/web/src/App.tsx`
 - Modify: `fairgame-rebuild/apps/web/src/App.test.tsx`
