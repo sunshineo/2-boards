@@ -4,7 +4,7 @@ import {
   type AutomatedSeat,
   type SeatAgentDifficulty,
   type SeatAgentKind
-} from "../matches/seatAgents.js";
+} from "../seatAgents/types.js";
 import {
   applyMoveToMatch,
   breakthroughRules,

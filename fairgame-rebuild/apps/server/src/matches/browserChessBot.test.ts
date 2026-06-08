@@ -101,6 +101,24 @@ describe("browser Chess bot", () => {
     expect(getSetCookies(response).join("\n")).toContain(`fg_agent_${response.body.match.id}=`);
   });
 
+  it("applies authorized TicTacToe agent moves as seat2 and advances the opponent clock", async () => {
+    const app = createTestApp();
+    const created = await request(app)
+      .post("/api/matches")
+      .send({ gameType: "tictactoe", bot: { difficulty: "normal" } })
+      .expect(201);
+
+    const moved = await request(app)
+      .post(`/api/matches/${created.body.match.id}/agent-moves`)
+      .set("Cookie", getSetCookies(created))
+      .send({ boardId: "B", move: { cell: 0 } })
+      .expect(200);
+
+    const boardB = findBoard(moved.body.match, "B") as { readonly cells?: readonly (string | null)[] } | undefined;
+    expect(boardB?.cells?.[0]).toBe("seat2");
+    expect(moved.body.match.clock.runningSeats).toContain("seat1");
+  });
+
   it("rejects bot moves without the bot-control cookie", async () => {
     const app = createTestApp();
     const created = await request(app)
