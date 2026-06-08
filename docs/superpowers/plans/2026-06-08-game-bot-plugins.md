@@ -911,6 +911,13 @@ git commit -m "Register web bot capabilities"
 
 ## Task 4: Add Generic Browser Bot Controller
 
+Status: Complete.
+
+Evidence:
+- Commits: `eae82d0` (`Add generic browser bot controller`) and `1093b71` (`Cancel stale random bot runs`).
+- Verification: `npm test -w @fairgame/web -- browserChessBot.test.ts registry.test.tsx randomBots.test.ts` passed with 23 tests; `npm test -w @fairgame/web -- browserChessBot.test.ts` passed with 10 tests after cancellation fix; `npm run typecheck` passed.
+- Reviews: spec compliance approved; code quality approved after adding run-generation cancellation for disposed random bot runs.
+
 **Files:**
 - Modify: `fairgame-rebuild/apps/web/src/browserChessBot.ts`
 - Modify: `fairgame-rebuild/apps/web/src/browserChessBot.test.ts`
