@@ -234,7 +234,7 @@ export type MatchView = {
   clock: MatchClockView | null;
   boards: MatchBoardView[];
   automatedSeat?: AutomatedSeat;
-  bot?: BrowserChessBot;
+  bot?: AutomatedSeat;
 };
 
 export type OpenMatchView = {

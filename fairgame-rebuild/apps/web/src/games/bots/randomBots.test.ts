@@ -201,6 +201,27 @@ describe("random legal game bots", () => {
       })
     ).toBeNull();
   });
+
+  it("returns null for completed TicTacToe boards before scanning empty cells", () => {
+    const board = baseBoard("tictactoe", {
+      cells: ["seat1", null, "seat2", null],
+      outcome: { status: "draw", reason: "filled" }
+    }) as TicTacToeBoardView;
+
+    expect(chooseTicTacToeRandomMove({ board, seat: "seat2" }, () => 0.99)).toBeNull();
+  });
+
+  it("returns null when the bot seat is not active", () => {
+    const board = baseBoard("connect4", {
+      rows: 6,
+      columns: 7,
+      cells: Array(42).fill(null),
+      playableColumns: [2, 4],
+      seatsToAct: ["seat1"]
+    }) as ConnectFourBoardView;
+
+    expect(chooseConnectFourRandomMove({ board, seat: "seat2" }, () => 0.99)).toBeNull();
+  });
 });
 
 function baseBoard(kind: string, extra: object) {
