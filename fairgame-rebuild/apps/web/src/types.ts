@@ -2,17 +2,22 @@ export type SeatId = "seat1" | "seat2";
 
 export type BoardId = "A" | "B";
 
-export type BrowserChessBotDifficulty = "easy" | "normal" | "hard";
+export type SeatAgentDifficulty = "easy" | "normal" | "hard";
+export type BrowserChessBotDifficulty = SeatAgentDifficulty;
+export type SeatAgentKind = "browser-stockfish" | "random-legal";
 
-export type BrowserChessBot = {
+export type AutomatedSeat = {
   seat: "seat2";
-  kind: "browser-stockfish";
-  gameType: "chess";
-  difficulty: BrowserChessBotDifficulty;
+  kind: SeatAgentKind;
+  gameType: GameType;
+  difficulty: SeatAgentDifficulty;
   displayName: string;
 };
 
-export type AutomatedSeat = BrowserChessBot;
+export type BrowserChessBot = AutomatedSeat & {
+  kind: "browser-stockfish";
+  gameType: "chess";
+};
 
 export type GameType =
   | "tictactoe"
