@@ -1039,7 +1039,7 @@ describe("App", () => {
     await waitFor(() => expect(socketIoMock.sockets).toHaveLength(1));
     expect(boardB).toHaveAttribute("data-interactive", "false");
     fireEvent.click(screen.getByRole("button", { name: "Board B square e7 black pawn" }));
-    fireEvent.click(screen.getByRole("button", { name: "Board B square e5 empty premove destination" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Board B square e5 empty premove destination" }));
 
     expect(screen.getByRole("button", { name: "Board B square e7 black pawn premove source" })).toHaveClass(
       "premove-source"
@@ -1086,8 +1086,8 @@ describe("App", () => {
     expect(screen.getByTestId("board-B-chessboard")).toHaveAttribute("data-interactive", "false");
     fireEvent.click(screen.getByRole("button", { name: "Board B square e7 black pawn" }));
 
-    const e6Target = screen.getByRole("button", { name: "Board B square e6 empty premove destination" });
-    const e5Target = screen.getByRole("button", { name: "Board B square e5 empty premove destination" });
+    const e6Target = await screen.findByRole("button", { name: "Board B square e6 empty premove destination" });
+    const e5Target = await screen.findByRole("button", { name: "Board B square e5 empty premove destination" });
     expect(e6Target.querySelector(".chess-legal-move-dot")).toBeInTheDocument();
     expect(e5Target.querySelector(".chess-legal-move-dot")).toBeInTheDocument();
     expect(
@@ -1111,7 +1111,7 @@ describe("App", () => {
 
     const boardB = await screen.findByTestId("board-B-chessboard");
     fireEvent.click(screen.getByRole("button", { name: "Board B square e7 black pawn" }));
-    fireEvent.click(screen.getByRole("button", { name: "Board B square e5 empty premove destination" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Board B square e5 empty premove destination" }));
 
     expect(screen.getByRole("button", { name: "Board B square e7 black pawn premove source" })).toHaveClass(
       "premove-source"
@@ -1150,7 +1150,7 @@ describe("App", () => {
 
     const boardBPanel = await screen.findByLabelText("Board B", { selector: "section.board-panel" });
     fireEvent.click(screen.getByRole("button", { name: "Board B square e7 black pawn" }));
-    fireEvent.click(screen.getByRole("button", { name: "Board B square e5 empty premove destination" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Board B square e5 empty premove destination" }));
 
     expect(screen.getByRole("button", { name: "Board B square e7 black pawn premove source" })).toHaveClass(
       "premove-source"
@@ -1474,15 +1474,17 @@ describe("App", () => {
     resignedBoardB.seatsToAct = ["seat2"];
     resignedSession.match.outcome = { status: "in_progress", score: { seat1: 0, seat2: 1 } };
 
+    let currentSession = seatSession;
     const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url);
       const method = init?.method ?? "GET";
       if (path.endsWith("/api/matches") && method === "GET") return createJsonResponse({ matches: [] });
       if (path.endsWith("/api/matches") && method === "POST") return createJsonResponse(seatSession);
       if (path.endsWith("/api/matches/match-chess-resign/moves") && method === "POST") {
+        currentSession = resignedSession;
         return createJsonResponse({ match: resignedSession.match });
       }
-      return createJsonResponse(seatSession);
+      return createJsonResponse(currentSession);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1587,15 +1589,17 @@ describe("App", () => {
     acceptedBoardB.seatsToAct = ["seat2"];
     acceptedSession.match.outcome = { status: "in_progress", score: { seat1: 0.5, seat2: 0.5 } };
 
+    let currentSession = seatSession;
     const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url);
       const method = init?.method ?? "GET";
       if (path.endsWith("/api/matches") && method === "GET") return createJsonResponse({ matches: [] });
       if (path.endsWith("/api/matches") && method === "POST") return createJsonResponse(seatSession);
       if (path.endsWith("/api/matches/match-chess-draw-accept/moves") && method === "POST") {
+        currentSession = acceptedSession;
         return createJsonResponse({ match: acceptedSession.match });
       }
-      return createJsonResponse(seatSession);
+      return createJsonResponse(currentSession);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1640,15 +1644,17 @@ describe("App", () => {
     offeredBoardA.drawOffer = { offeredBy: "seat2" };
     declinedBoardA.drawOffer = null;
 
+    let currentSession = seatSession;
     const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url);
       const method = init?.method ?? "GET";
       if (path.endsWith("/api/matches") && method === "GET") return createJsonResponse({ matches: [] });
       if (path.endsWith("/api/matches") && method === "POST") return createJsonResponse(seatSession);
       if (path.endsWith("/api/matches/match-chess-draw-decline/moves") && method === "POST") {
+        currentSession = declinedSession;
         return createJsonResponse({ match: declinedSession.match });
       }
-      return createJsonResponse(seatSession);
+      return createJsonResponse(currentSession);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1736,15 +1742,17 @@ describe("App", () => {
     ];
     requestedBoardA.seatsToAct = ["seat2"];
 
+    let currentSession = seatSession;
     const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url);
       const method = init?.method ?? "GET";
       if (path.endsWith("/api/matches") && method === "GET") return createJsonResponse({ matches: [] });
       if (path.endsWith("/api/matches") && method === "POST") return createJsonResponse(seatSession);
       if (path.endsWith("/api/matches/match-chess-takeback-request/moves") && method === "POST") {
+        currentSession = requestedSession;
         return createJsonResponse({ match: requestedSession.match });
       }
-      return createJsonResponse(seatSession);
+      return createJsonResponse(currentSession);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1763,8 +1771,7 @@ describe("App", () => {
         body: JSON.stringify({ boardId: "A", seat: "seat1", move: { requestTakeback: true } })
       })
     );
-    const pendingButton = await screen.findByRole("button", { name: "Takeback Requested Board A" });
-    expect(pendingButton).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Takeback Requested Board A" })).toBeDisabled());
     expect(screen.getByLabelText("Board A", { selector: "section.board-panel" })).toHaveTextContent("Takeback request sent");
     expect(screen.getByTestId("board-B-chessboard")).toHaveAttribute("data-review-ply", "live");
   });
@@ -1841,15 +1848,17 @@ describe("App", () => {
     acceptedBoardA.seatsToAct = ["seat1"];
     acceptedBoardB.seatsToAct = ["seat2"];
 
+    let currentSession = seatSession;
     const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url);
       const method = init?.method ?? "GET";
       if (path.endsWith("/api/matches") && method === "GET") return createJsonResponse({ matches: [] });
       if (path.endsWith("/api/matches") && method === "POST") return createJsonResponse(seatSession);
       if (path.endsWith("/api/matches/match-chess-takeback-accept/moves") && method === "POST") {
+        currentSession = acceptedSession;
         return createJsonResponse({ match: acceptedSession.match });
       }
-      return createJsonResponse(seatSession);
+      return createJsonResponse(currentSession);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1933,15 +1942,17 @@ describe("App", () => {
       }
     ];
 
+    let currentSession = seatSession;
     const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url);
       const method = init?.method ?? "GET";
       if (path.endsWith("/api/matches") && method === "GET") return createJsonResponse({ matches: [] });
       if (path.endsWith("/api/matches") && method === "POST") return createJsonResponse(seatSession);
       if (path.endsWith("/api/matches/match-chess-takeback-decline/moves") && method === "POST") {
+        currentSession = declinedSession;
         return createJsonResponse({ match: declinedSession.match });
       }
-      return createJsonResponse(seatSession);
+      return createJsonResponse(currentSession);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1962,7 +1973,9 @@ describe("App", () => {
       )
     );
     await waitFor(() => expect(screen.getByRole("button", { name: "Request Takeback Board A" })).toBeEnabled());
-    expect(screen.getByRole("region", { name: "Board A move history" })).toHaveTextContent("declines takeback");
+    await waitFor(() =>
+      expect(screen.getByRole("region", { name: "Board A move history" })).toHaveTextContent("declines takeback")
+    );
   });
 
   it("shows out-of-turn Chess board-control records in move history", async () => {
