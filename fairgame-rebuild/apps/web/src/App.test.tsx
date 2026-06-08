@@ -1097,6 +1097,51 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows the same Chess move dot on enemy capture targets as empty destinations", async () => {
+    const seatSession = createChessSeatSession("match-chess-capture-dot");
+    const boardA = seatSession.match.boards[0] as ChessBoardView | undefined;
+    if (!boardA) throw new Error("Missing Board A fixture");
+    boardA.fen = "8/8/8/3n4/4B3/2N5/8/4K2k w - - 0 1";
+    boardA.squares = createSparseChessSquares({
+      c3: { color: "w", type: "n" },
+      d5: { color: "b", type: "n" },
+      e4: { color: "w", type: "b" },
+      e1: { color: "w", type: "k" },
+      h1: { color: "b", type: "k" }
+    }) as ChessBoardView["squares"];
+    boardA.legalMoves = [
+      { color: "w", piece: "n", from: "c3", to: "a2", san: "Na2", lan: "c3a2" },
+      { color: "w", piece: "n", from: "c3", to: "d5", captured: "n", san: "Nxd5", lan: "c3d5" }
+    ] satisfies ChessLegalMove[];
+    vi.stubGlobal(
+      "fetch",
+      createFetchMock({
+        matches: [],
+        seatSession
+      })
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
+
+    await screen.findByTestId("match-code");
+    fireEvent.click(screen.getByRole("button", { name: "Board A square c3 white knight" }));
+
+    const emptyTarget = screen.getByRole("button", { name: "Board A square a2 empty legal destination" });
+    const captureTarget = screen.getByRole("button", {
+      name: "Board A square d5 black knight legal destination"
+    });
+    const ownPieceSquare = screen.getByRole("button", { name: "Board A square e4 white bishop" });
+    const emptyDot = emptyTarget.querySelector(".chess-legal-move-dot");
+    const captureDot = captureTarget.querySelector(".chess-legal-move-dot");
+
+    expect(emptyDot).toBeInTheDocument();
+    expect(captureDot).toBeInTheDocument();
+    expect(captureDot).toHaveAttribute("class", emptyDot?.getAttribute("class"));
+    expect(ownPieceSquare.querySelector(".chess-legal-move-dot")).not.toBeInTheDocument();
+  });
+
   it("cancels a queued board-local Chess premove without creating an annotation", async () => {
     const seatSession = createChessSeatSession("match-chess-premove-cancel");
     const fetchMock = createFetchMock({
@@ -2778,6 +2823,19 @@ function createChessSquares(
       if (rank === "7") return { square, piece: { color: "b", type: "p" } };
       if (rank === "8") return { square, piece: { color: "b", type: backRankPieces[fileIndex] } };
       return { square, piece: null };
+    })
+  );
+}
+
+function createSparseChessSquares(
+  pieces: Record<string, { readonly color: "w" | "b"; readonly type: "p" | "n" | "b" | "r" | "q" | "k" }>
+) {
+  const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+  const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
+  return ranks.flatMap((rank) =>
+    files.map((file) => {
+      const square = `${file}${rank}`;
+      return { square, piece: pieces[square] ?? null };
     })
   );
 }

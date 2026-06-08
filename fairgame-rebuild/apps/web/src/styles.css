@@ -824,15 +824,6 @@ button:disabled {
   transform: translate(-50%, -50%);
 }
 
-.chess-legal-move-dot.capture {
-  width: 78%;
-  background: transparent;
-  border: clamp(3px, 7%, 7px) solid rgb(52 168 83 / 86%);
-  box-shadow:
-    inset 0 0 0 2px rgb(255 255 255 / 18%),
-    0 2px 8px rgb(31 42 61 / 22%);
-}
-
 .react-chessboard-square-button.selected:not(:disabled) {
   cursor: pointer;
 }

@@ -644,7 +644,6 @@ function ChessBoard(props: {
       const isPremoveTarget = pendingPremove?.to === square;
       const isPremoveDestination =
         canPlanPremove && selectedSquare !== null && selectedSquare !== square && isSelectedTarget;
-      const isCaptureTarget = Boolean(selectedTargetMove?.captured || (isSelectedTarget && piece && !isOwnPiece));
       const canMovePiece =
         isOwnPiece && (canAct ? getChessMovesFromSquare(props.board, square).length > 0 : canPlanPremove);
       const canInteractWithSquare = canAct
@@ -668,12 +667,7 @@ function ChessBoard(props: {
           disabled={props.isBusy || !canInteractWithSquare}
           type="button"
         >
-          {isSelectedTarget ? (
-            <span
-              aria-hidden="true"
-              className={`chess-legal-move-dot${isCaptureTarget ? " capture" : ""}`}
-            />
-          ) : null}
+          {isSelectedTarget ? <span aria-hidden="true" className="chess-legal-move-dot" /> : null}
           {children}
         </button>
       );
@@ -1823,13 +1817,9 @@ function getChessSquareStyles(props: {
   }
 
   for (const move of props.selectedLegalMoves) {
-    mergeChessSquareStyle(
-      styles,
-      move.to,
-      move.captured
-        ? { boxShadow: "inset 0 0 0 4px rgb(52 168 83 / 64%)" }
-        : { background: "radial-gradient(circle, rgb(52 168 83 / 20%) 0 24%, transparent 25%)" }
-    );
+    mergeChessSquareStyle(styles, move.to, {
+      background: "radial-gradient(circle, rgb(52 168 83 / 20%) 0 24%, transparent 25%)"
+    });
   }
 
   return styles;
