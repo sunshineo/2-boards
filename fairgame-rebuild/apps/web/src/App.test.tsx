@@ -211,7 +211,7 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "Chess lobby" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Quick pairing" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create 10 minute Chess match" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "10 min Long" })).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Minutes" })).toHaveAttribute("min", "3");
     expect(screen.getByRole("spinbutton", { name: "Minutes" })).toHaveAttribute("max", "60");
     expect(screen.getByText("3-60 min")).toBeInTheDocument();
@@ -303,7 +303,7 @@ describe("App", () => {
     expect(window.location.pathname + window.location.search).toBe("/matches/match-nav");
   });
 
-  it("creates a quick-pairing match with the chosen total time", async () => {
+  it("selects a quick-pairing time before creating the match", async () => {
     const fetchMock = createFetchMock({
       matches: [],
       seatSession: {
@@ -363,7 +363,22 @@ describe("App", () => {
 
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
-    fireEvent.click(screen.getByRole("button", { name: "Create 10 minute Chess match" }));
+
+    const fiveMinuteButton = screen.getByText("5 min").closest("button");
+    const tenMinuteButton = screen.getByText("10 min").closest("button");
+    expect(fiveMinuteButton).toHaveAttribute("aria-pressed", "true");
+    expect(fiveMinuteButton).toHaveClass("selected");
+    expect(tenMinuteButton).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(tenMinuteButton!);
+
+    expect(screen.getByRole("heading", { name: "Chess lobby" })).toBeInTheDocument();
+    expect(screen.getByText("10 min").closest("button")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("10 min").closest("button")).toHaveClass("selected");
+    expect(fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith("/api/matches") && init?.method === "POST"))
+      .toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
 
     expect(await screen.findByTestId("match-code")).toHaveAttribute("data-match-id", "match-quick");
     expect(fetchMock).toHaveBeenCalledWith(
