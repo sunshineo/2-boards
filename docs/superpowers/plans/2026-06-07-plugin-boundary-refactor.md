@@ -50,3 +50,4 @@
     - `npm run test:e2e` did not reach browser tests in this shell because the official dev server requires `DATABASE_URL`; direct server startup reproduced `Error: DATABASE_URL is required.` before port 4000 was bound.
     - Supplementary browser verification against worktree-local temporary servers passed: `PLAYWRIGHT_REUSE_SERVER=1 PLAYWRIGHT_BASE_URL=http://localhost:5177 PLAYWRIGHT_API_URL=http://localhost:4210 npm run test:e2e` passed with 6 Playwright tests after starting an ephemeral no-persistence API and Vite dev server.
     - Primary changed areas: domain `GameRules.canSubmitMove`, Chess board-control authorization, server `games` registry and clock metadata, generic `seatAgents` automated-seat service/API path, web API/types automated-seat compatibility, and web `games` registry/renderers.
+    - Implementation commit: `ccb50f3` (`Clarify game plugin boundaries`).
