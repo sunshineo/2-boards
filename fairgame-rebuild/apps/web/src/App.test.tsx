@@ -1137,6 +1137,46 @@ describe("App", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("queues a board-local Chess recapture premove onto an own occupied square", async () => {
+    const seatSession = createChessSeatSession("match-chess-premove-recapture");
+    const boardB = seatSession.match.boards[1] as ChessBoardView | undefined;
+    if (!boardB) throw new Error("Missing Board B fixture");
+    boardB.fen = "4k3/4p3/3n4/8/8/8/8/4K3 w - - 0 1";
+    boardB.turnColor = "w";
+    boardB.squares = createSparseChessSquares({
+      e8: { color: "b", type: "k" },
+      e7: { color: "b", type: "p" },
+      d6: { color: "b", type: "n" },
+      e1: { color: "w", type: "k" }
+    });
+    boardB.legalMoves = [];
+
+    const fetchMock = createFetchMock({
+      matches: [],
+      seatSession
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
+
+    await screen.findByTestId("match-code");
+    fireEvent.click(screen.getByRole("button", { name: "Board B square e7 black pawn" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Board B square d6 black knight premove destination" }));
+
+    expect(screen.getByRole("button", { name: "Board B square e7 black pawn premove source" })).toHaveClass(
+      "premove-source"
+    );
+    expect(screen.getByRole("button", { name: "Board B square d6 black knight premove target" })).toHaveClass(
+      "premove-target"
+    );
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/api/matches/match-chess-premove-recapture/moves"),
+      expect.anything()
+    );
+  });
+
   it("shows the same Chess move dot on enemy capture targets as empty destinations", async () => {
     const seatSession = createChessSeatSession("match-chess-capture-dot");
     const boardA = seatSession.match.boards[0] as ChessBoardView | undefined;
@@ -1218,6 +1258,41 @@ describe("App", () => {
     fireEvent.contextMenu(getChessboardSquare(boardB, "e5"));
     expect(screen.getByRole("button", { name: "Board B square e5 empty green circle" })).toHaveClass(
       "annotation-green"
+    );
+  });
+
+  it("cancels a queued board-local Chess premove by clicking a different square", async () => {
+    const seatSession = createChessSeatSession("match-chess-premove-click-cancel");
+    const fetchMock = createFetchMock({
+      matches: [],
+      seatSession
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Chess lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Chess match" }));
+
+    await screen.findByTestId("match-code");
+    fireEvent.click(screen.getByRole("button", { name: "Board B square e7 black pawn" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Board B square e5 empty premove destination" }));
+
+    expect(screen.getByRole("button", { name: "Board B square e7 black pawn premove source" })).toHaveClass(
+      "premove-source"
+    );
+    expect(screen.getByRole("button", { name: "Board B square e5 empty premove target" })).toHaveClass(
+      "premove-target"
+    );
+
+    const cancellationSquare = screen.getByRole("button", { name: "Board B square a6 empty" });
+    expect(cancellationSquare).not.toBeDisabled();
+    fireEvent.click(cancellationSquare);
+
+    expect(screen.getByRole("button", { name: "Board B square e7 black pawn" })).not.toHaveClass("premove-source");
+    expect(screen.getByRole("button", { name: "Board B square e5 empty" })).not.toHaveClass("premove-target");
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      expect.stringContaining("/api/matches/match-chess-premove-click-cancel/moves"),
+      expect.anything()
     );
   });
 
