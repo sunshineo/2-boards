@@ -115,6 +115,7 @@ export type ChessSquareView = {
 
 const files = ["a", "b", "c", "d", "e", "f", "g", "h"] as const;
 const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"] as const;
+const promotionPieces = ["q", "r", "b", "n"] as const;
 
 export const chessRules: GameRules<ChessState, ChessMove> = {
   gameType: "chess",
@@ -422,6 +423,47 @@ export function getChessLegalMoves(state: ChessState): ChessLegalMove[] {
   }));
 }
 
+export function getChessPremoveMoves(state: Pick<ChessState, "fen" | "outcome">, square: string): ChessLegalMove[] {
+  if (state.outcome.status !== "in_progress" || !isChessSquare(square)) return [];
+
+  const from = square;
+  const chess = new Chess(state.fen);
+  const piece = chess.get(from);
+  if (!piece) return [];
+
+  chess.setTurn(piece.color);
+  const movesByCoordinate = new Map<string, ChessLegalMove>();
+  const addMove = (move: ChessLegalMove) => {
+    const key = `${move.from}:${move.to}:${move.promotion ?? ""}`;
+    if (!movesByCoordinate.has(key)) {
+      movesByCoordinate.set(key, move);
+    }
+  };
+
+  for (const move of chess.moves({ verbose: true, square: from })) {
+    addMove({
+      color: move.color as ChessColor,
+      piece: move.piece as ChessPieceType,
+      from: move.from,
+      to: move.to,
+      san: move.san,
+      lan: move.lan,
+      ...(move.captured ? { captured: move.captured as ChessPieceType } : {}),
+      ...(move.promotion ? { promotion: move.promotion as ChessPromotion } : {})
+    });
+  }
+
+  for (const to of getChessSquareNames()) {
+    if (to === from || !chess.attackers(to, piece.color).includes(from)) continue;
+
+    for (const move of createChessPremoveAttackMoves({ color: piece.color, type: piece.type }, from, to)) {
+      addMove(move);
+    }
+  }
+
+  return [...movesByCoordinate.values()];
+}
+
 export function getChessTurnColor(state: Pick<ChessState, "fen">): ChessColor {
   return new Chess(state.fen).turn() as ChessColor;
 }
@@ -571,6 +613,40 @@ function getColorForSeat(state: Pick<ChessState, "whiteSeat" | "blackSeat">, sea
 
 function getOtherSeat(seats: SeatPair, seat: SeatId): SeatId {
   return seat === seats[0] ? seats[1] : seats[0];
+}
+
+function getChessSquareNames(): Square[] {
+  return ranks.flatMap((rank) => files.map((file) => `${file}${rank}` as Square));
+}
+
+function isChessSquare(square: string): square is Square {
+  return /^[a-h][1-8]$/.test(square);
+}
+
+function createChessPremoveAttackMoves(piece: ChessPiece, from: Square, to: Square): ChessLegalMove[] {
+  const isPromotion = piece.type === "p" && (to.endsWith("8") || to.endsWith("1"));
+  if (!isPromotion) {
+    return [
+      {
+        color: piece.color,
+        piece: piece.type,
+        from,
+        to,
+        san: `${from}${to}`,
+        lan: `${from}${to}`
+      }
+    ];
+  }
+
+  return promotionPieces.map((promotion) => ({
+    color: piece.color,
+    piece: piece.type,
+    from,
+    to,
+    san: `${from}${to}${promotion}`,
+    lan: `${from}${to}${promotion}`,
+    promotion
+  }));
 }
 
 function assertValidMove(result: ValidationResult): asserts result is { readonly ok: true } {
