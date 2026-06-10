@@ -667,9 +667,11 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create TicTacToe match" }));
 
     const guide = await screen.findByRole("region", { name: "How two-board matches work" });
-    expect(guide).toHaveTextContent("two games of TicTacToe against the same opponent");
+    expect(guide).toHaveTextContent("two games of TicTacToe at the same time");
     expect(guide).toHaveTextContent("You move first on one board, and your opponent moves first on the other.");
+    expect(guide).toHaveTextContent("one clock for the whole match, shared across both boards");
     expect(guide).toHaveTextContent("Each board is worth one point");
+    expect(guide).toHaveTextContent("you lose every board that has not finished");
 
     fireEvent.click(screen.getByRole("button", { name: "Got it" }));
 
@@ -707,7 +709,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "How it works" }));
 
     const guide = screen.getByRole("region", { name: "How two-board matches work" });
-    expect(guide).toHaveTextContent("You are playing the same game twice against the same opponent");
+    expect(guide).toHaveTextContent("play the same game twice");
 
     fireEvent.click(screen.getByRole("button", { name: "Got it" }));
 
@@ -729,7 +731,9 @@ describe("App", () => {
 
     const guide = await screen.findByRole("region", { name: "How two-board matches work" });
     expect(guide).toHaveTextContent("Each side moves first on one of the two boards.");
+    expect(guide).toHaveTextContent("a player's clock runs out, they lose every board");
     expect(guide).not.toHaveTextContent("You move first");
+    expect(guide).not.toHaveTextContent("you lose every board");
   });
 
   it("rejoins match realtime updates after socket reconnects", async () => {
