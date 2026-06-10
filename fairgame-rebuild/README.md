@@ -4,6 +4,20 @@ FairGame is a fair two-board board-game platform. A match contains two independe
 boards of the same game: Player 1 starts on board A, and Player 2 starts on board B.
 The match result is derived from both board results.
 
+## How a match works
+
+- Every match is two games of the same game between the same two players, played
+  side by side — one game on each board.
+- Each player makes the first move on one of the two boards, so the usual
+  first-move advantage cancels out.
+- The boards are independent. A player may be to-move on both boards, one board,
+  or neither, and can answer the boards in any order.
+- Each board is worth one point: 1 for a win, ½ each for a draw. The higher
+  combined score after both boards finish wins the match.
+
+The web app shows this explanation automatically the first time a player opens a
+match, and it can be reopened anytime with the "How it works" button in the header.
+
 ## Development
 
 Install dependencies:

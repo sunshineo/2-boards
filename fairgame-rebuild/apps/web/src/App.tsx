@@ -50,6 +50,7 @@ const quickTimeOptions: readonly { readonly minutes: number; readonly label: str
 ];
 
 const recentMatchesKey = "fairgame.recentMatches";
+const howToPlaySeenKey = "fairgame.howToPlaySeen";
 type RecentMatch = {
   readonly id: string;
   readonly gameType: GameType;
@@ -67,6 +68,8 @@ export function App() {
   const [route, setRoute] = useState<AppRoute>(() => readRouteFromLocation());
   const [openMatches, setOpenMatches] = useState<OpenMatchView[]>([]);
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>(() => loadRecentMatches());
+  const [hasSeenHowToPlay, setHasSeenHowToPlay] = useState(() => loadHowToPlaySeen());
+  const [isHowToPlayManuallyOpen, setIsHowToPlayManuallyOpen] = useState(false);
   const [customMinutes, setCustomMinutes] = useState(5);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -90,6 +93,8 @@ export function App() {
   const selectedBotDifficulty = selectedBotCapability?.difficulties.includes(botDifficulty) ? botDifficulty : "normal";
   isChessMatchActiveRef.current = isChessMatchActive;
   const isChessZenModeActive = isChessMatchActive && isChessZenMode;
+  const isHowToPlayOpen =
+    !isChessZenModeActive && (isHowToPlayManuallyOpen || (!hasSeenHowToPlay && !!activeSession));
   const appShellClassName = `app-shell${isChessMatchActive ? " chess-match-shell" : ""}${isChessZenModeActive ? " chess-zen-mode" : ""}`;
 
   useEffect(() => {
@@ -394,6 +399,20 @@ export function App() {
     setBrowserBotRetryVersion((version) => version + 1);
   }
 
+  function handleHowToPlayDismiss() {
+    setIsHowToPlayManuallyOpen(false);
+    setHasSeenHowToPlay(true);
+    saveHowToPlaySeen();
+  }
+
+  function handleHowToPlayToggle() {
+    if (isHowToPlayOpen) {
+      handleHowToPlayDismiss();
+      return;
+    }
+    setIsHowToPlayManuallyOpen(true);
+  }
+
   async function handleRematch() {
     if (!session) return;
     const automatedSeat = getAutomatedSeat(session.match);
@@ -479,6 +498,14 @@ export function App() {
                 </button>
               ) : null}
             </nav>
+            <button
+              aria-pressed={isHowToPlayOpen}
+              className="secondary-button compact-button"
+              onClick={handleHowToPlayToggle}
+              type="button"
+            >
+              How it works
+            </button>
             {activeSession ? (
               <button className="secondary-button compact-button" onClick={handleRefresh} disabled={isBusy}>
                 Refresh
@@ -487,6 +514,14 @@ export function App() {
           </div>
         </header>
       )}
+
+      {isHowToPlayOpen ? (
+        <HowToPlayPanel
+          gameLabel={activeSession?.match.gameLabel ?? (lobbyGame ? getGameLabel(lobbyGame) : null)}
+          isSeatedPlayer={activeSession ? activeSession.seat !== null : true}
+          onDismiss={handleHowToPlayDismiss}
+        />
+      ) : null}
 
       {activeSession ? (
         <MatchRoom
@@ -679,24 +714,78 @@ export function App() {
           ) : null}
         </section>
       ) : (
-        <section className="game-picker" aria-label="Choose game">
-          {gameOptions.map((option) => (
-            <button
-              aria-label={`${option.label} lobby`}
-              className="game-choice"
-              key={option.gameType}
-              onClick={() => navigateTo({ view: "lobby", gameType: option.gameType })}
-              type="button"
-            >
-              <img alt={option.imageAlt} className="game-choice-image" src={option.imageSrc} />
-              <span>{option.label}</span>
-              <strong>Enter lobby</strong>
-            </button>
-          ))}
-        </section>
+        <>
+          <p className="picker-tagline">
+            Every match is the same game on two boards at once: you take the first move on one board, your opponent
+            takes it on the other, and the combined score decides the winner.
+          </p>
+          <section className="game-picker" aria-label="Choose game">
+            {gameOptions.map((option) => (
+              <button
+                aria-label={`${option.label} lobby`}
+                className="game-choice"
+                key={option.gameType}
+                onClick={() => navigateTo({ view: "lobby", gameType: option.gameType })}
+                type="button"
+              >
+                <img alt={option.imageAlt} className="game-choice-image" src={option.imageSrc} />
+                <span>{option.label}</span>
+                <strong>Enter lobby</strong>
+              </button>
+            ))}
+          </section>
+        </>
       )}
     </main>
   );
+}
+
+function HowToPlayPanel(props: {
+  gameLabel: string | null;
+  isSeatedPlayer: boolean;
+  onDismiss: () => void;
+}) {
+  return (
+    <section aria-label="How two-board matches work" className="panel how-to-play-panel">
+      <h2>How two-board matches work</h2>
+      <ol className="how-to-play-steps">
+        <li>
+          <strong>One match, two boards.</strong> {formatHowToPlayMatchShape(props.gameLabel, props.isSeatedPlayer)}
+        </li>
+        <li>
+          <strong>Both sides get the first move.</strong>{" "}
+          {props.isSeatedPlayer
+            ? "You move first on one board, and your opponent moves first on the other."
+            : "Each side moves first on one of the two boards."}{" "}
+          Moving first is often an advantage, so mirroring it makes the match fair.
+        </li>
+        <li>
+          <strong>The boards are independent.</strong>{" "}
+          {props.isSeatedPlayer
+            ? "Play a board whenever it is your turn there — it can be your turn on both boards at once, and you can play them in any order."
+            : "Each board has its own turn, and a side can be to-move on both boards at once."}
+        </li>
+        <li>
+          <strong>Two results, one winner.</strong> Each board is worth one point: 1 for a win, ½ each for a draw. The
+          higher combined score after both boards finish wins the match.
+        </li>
+      </ol>
+      <button className="primary-button how-to-play-dismiss" onClick={props.onDismiss} type="button">
+        Got it
+      </button>
+    </section>
+  );
+}
+
+function formatHowToPlayMatchShape(gameLabel: string | null, isSeatedPlayer: boolean) {
+  if (isSeatedPlayer) {
+    return gameLabel
+      ? `You are playing two games of ${gameLabel} against the same opponent at the same time — one game on each board.`
+      : "You are playing the same game twice against the same opponent, at the same time — once on each board.";
+  }
+  return gameLabel
+    ? `A match is two games of ${gameLabel} between the same two opponents, played at the same time — one game on each board.`
+    : "A match is the same game played twice between the same two opponents, at the same time — once on each board.";
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
@@ -981,6 +1070,22 @@ function loadRecentMatches(): RecentMatch[] {
       .slice(0, 5);
   } catch {
     return [];
+  }
+}
+
+function loadHowToPlaySeen() {
+  try {
+    return localStorage.getItem(howToPlaySeenKey) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveHowToPlaySeen() {
+  try {
+    localStorage.setItem(howToPlaySeenKey, "true");
+  } catch {
+    // Storage failures only mean the instructions show again next visit.
   }
 }
 

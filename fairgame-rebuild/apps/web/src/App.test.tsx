@@ -653,6 +653,85 @@ describe("App", () => {
     expect(container.querySelector(".match-actions")).not.toBeInTheDocument();
   });
 
+  it("shows the two-board instructions the first time a match opens and dismisses them permanently", async () => {
+    vi.stubGlobal(
+      "fetch",
+      createFetchMock({
+        matches: [],
+        seatSession: createTicTacToeSeatSession("match-guide")
+      })
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "TicTacToe lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create TicTacToe match" }));
+
+    const guide = await screen.findByRole("region", { name: "How two-board matches work" });
+    expect(guide).toHaveTextContent("two games of TicTacToe against the same opponent");
+    expect(guide).toHaveTextContent("You move first on one board, and your opponent moves first on the other.");
+    expect(guide).toHaveTextContent("Each board is worth one point");
+
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+
+    expect(screen.queryByRole("region", { name: "How two-board matches work" })).not.toBeInTheDocument();
+    expect(localStorage.getItem("fairgame.howToPlaySeen")).toBe("true");
+  });
+
+  it("does not auto-show the two-board instructions once they were dismissed", async () => {
+    localStorage.setItem("fairgame.howToPlaySeen", "true");
+    vi.stubGlobal(
+      "fetch",
+      createFetchMock({
+        matches: [],
+        seatSession: createTicTacToeSeatSession("match-guide-seen")
+      })
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "TicTacToe lobby" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create TicTacToe match" }));
+
+    await screen.findByRole("region", { name: "Board A" });
+    expect(screen.queryByRole("region", { name: "How two-board matches work" })).not.toBeInTheDocument();
+  });
+
+  it("reopens the two-board instructions from the header How it works control", async () => {
+    localStorage.setItem("fairgame.howToPlaySeen", "true");
+    vi.stubGlobal("fetch", createFetchMock({ matches: [] }));
+
+    render(<App />);
+
+    expect(screen.getByText(/two boards at once/)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "How two-board matches work" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "How it works" }));
+
+    const guide = screen.getByRole("region", { name: "How two-board matches work" });
+    expect(guide).toHaveTextContent("You are playing the same game twice against the same opponent");
+
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+
+    expect(screen.queryByRole("region", { name: "How two-board matches work" })).not.toBeInTheDocument();
+  });
+
+  it("shows neutral two-board instructions copy to spectators", async () => {
+    const spectatorSession = { ...createTicTacToeSeatSession("match-guide-spectator"), seat: null };
+    vi.stubGlobal(
+      "fetch",
+      createFetchMock({
+        matches: [],
+        seatSession: spectatorSession
+      })
+    );
+    window.history.replaceState(null, "", "/matches/match-guide-spectator");
+
+    render(<App />);
+
+    const guide = await screen.findByRole("region", { name: "How two-board matches work" });
+    expect(guide).toHaveTextContent("Each side moves first on one of the two boards.");
+    expect(guide).not.toHaveTextContent("You move first");
+  });
+
   it("rejoins match realtime updates after socket reconnects", async () => {
     vi.stubGlobal(
       "fetch",
