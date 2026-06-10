@@ -13,7 +13,6 @@ This index describes the immediate subfolders of the repository root (GitHub: `h
 
 - What the product is, the architecture, and the roadmap: start with `fairgame-rebuild/docs/architecture.md` and the top-level `roadmap.md`.
 - `CLAUDE.md` at the repo root is a symlink to this file so Claude Code loads these rules automatically.
-- Old pre-rebuild attempts were archived to an `archive/attempts/` folder that is ignored by Git and is not present in every clone (it lived on the original external drive). Roadmap references to `archive/attempts/...` are historical reference material only; do not develop there.
 - Deployment is documented in `fairgame-rebuild/docs/deployment.md`.
 - Current frontend deployment is on Vercel project `two-boards`, URL `https://two-boards.vercel.app`.
 - Current backend deployment is on Northflank project `two-boards`, service `two-boards`.
@@ -70,7 +69,7 @@ sessions; never reset or revert another session's work without explicit user app
 ## Fair Two-Board Roadmap Tracking
 
 - Treat `roadmap.md` as the durable execution roadmap for the FairGame rebuild.
-- The active implementation lives in `fairgame-rebuild/`; do not develop in archived attempts or new sibling folders.
+- The active implementation lives in `fairgame-rebuild/`; do not develop in new sibling folders.
 - Commit completed roadmap checkpoints to this repository.
 - Use `npm` as the package manager and Neon Postgres through `DATABASE_URL` for both local and deployed runs.
 - Use both append-only event storage and current snapshots for persistence unless the user explicitly changes this decision.
