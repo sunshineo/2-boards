@@ -99,6 +99,37 @@ input {
   line-height: 1.5;
 }
 
+.how-to-play-panel {
+  margin-bottom: 18px;
+  border-color: #b9cf9e;
+  background: #f7fbf2;
+}
+
+.how-to-play-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+  color: #435066;
+  line-height: 1.5;
+}
+
+.how-to-play-steps li::marker {
+  color: #6aa127;
+  font-weight: 700;
+}
+
+.how-to-play-dismiss {
+  justify-self: start;
+}
+
+.picker-tagline {
+  margin: 0 0 20px;
+  max-width: 780px;
+  color: #5d684f;
+  line-height: 1.55;
+}
+
 .game-picker {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
