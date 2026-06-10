@@ -194,7 +194,7 @@
 
 ## Execution Notes
 
-- Started from gate worktree `/Volumes/T9/code/2-boards/.worktrees/add-seven-games-gate` on branch `codex/add-seven-games-gate`.
+- Started from gate worktree `.worktrees/add-seven-games-gate` on branch `codex/add-seven-games-gate`.
 - Baseline verification before implementation: `npm run typecheck` passed; `npm test` passed with shared 2 tests, domain 44 tests, server 40 tests, and web 16 tests.
 - Final verification after review fixes: `npm run typecheck && npm test && npm run build && npm run test:e2e` passed. Unit totals: shared 2, domain 96, server 44, web 18. Playwright: 6 Chromium tests passed.
 - Built-in browser attempt: local dev server started, but Browser plugin reported no available in-app browser backend (`agent.browsers.list()` returned `[]`). Dev server was stopped; Playwright e2e is the browser-flow verification evidence.

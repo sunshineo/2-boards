@@ -121,19 +121,11 @@ Work through the roadmap one checkpoint at a time:
 - [x] Decide whether to rebuild in a clean new folder or evolve an existing attempt.
   Evidence: User confirmed clean new folder on 2026-05-27; `AGENTS.md` records this decision.
 - [x] Decide how to organize old attempts and Git ownership.
-  Evidence: User approved moving old attempts into an ignored archive folder and initializing a top-level Git repo on 2026-05-27.
-- [x] Create `archive/attempts/` and move old project folders there.
-  Evidence: Moved `board2`, `chess-llm-claude`, `chess-with-llm`, `chess2`, `claude-fairgame`, `claude-fairgame2`, `claude-fairgame3`, `fairgame`, `fairgame-gpt5`, `fairgame-old`, `fairgame0`, `fairgame1`, `fairgame2`, and `fairgame3` into `archive/attempts/`.
-- [x] Add `/archive/attempts/` to the top-level `.gitignore`.
-  Evidence: `.gitignore` ignores `/archive/attempts/`; `git status --short --ignored` reports `!! archive/attempts/`.
-- [x] Add a tracked `archive/README.md` explaining the archived attempts.
-  Evidence: `archive/README.md` documents the ignored archive and key reference projects.
-- [x] Update `AGENTS.md` and `roadmap.md` references after moving old attempts.
-  Evidence: `AGENTS.md` top-level index now lists `archive`, `docs`, and `fairgame-rebuild`; roadmap lessons reference `archive/attempts/...` paths.
-- [x] Create the clean new project folder under `/Volumes/T9/code/2-boards`.
+  Evidence: User approved moving the old pre-rebuild attempts out of the repo on 2026-05-27 and initializing a top-level Git repo. The old attempts were kept outside version control as personal reference material and are no longer referenced by this repository.
+- [x] Create the clean new project folder at the repository root.
   Evidence: Created `fairgame-rebuild/` with npm workspace structure for `packages/shared`, `packages/domain`, `apps/server`, `apps/web`, and `tests/e2e`.
-- [x] Initialize a Git repository at `/Volumes/T9/code/2-boards`.
-  Evidence: `git init` created the top-level repo; archived attempts are ignored and not tracked.
+- [x] Initialize a Git repository at the repository root.
+  Evidence: `git init` created the top-level repo; old attempts are not tracked.
 - [x] Choose test runner, app structure, and initial scripts.
   Evidence: Chose Vitest, Playwright, TypeScript project references, React/Vite web app, Express/Socket.IO-ready server app, npm workspace scripts in `fairgame-rebuild/package.json`.
 - [x] Set up Playwright end-to-end testing and a documented browser verification command.
@@ -141,9 +133,8 @@ Work through the roadmap one checkpoint at a time:
 - [x] Add initial README and development commands.
   Evidence: Added `fairgame-rebuild/README.md`; verification commands passed from `fairgame-rebuild`: `npm run typecheck`, `npm test`, `npm run build`, and `npm run test:e2e`.
 
-Checkpoint: the workspace has a top-level Git repo, archived attempts are local references
-only, the new product has a clean folder, and browser-based testing is available before
-UI-heavy work begins.
+Checkpoint: the workspace has a top-level Git repo, the new product has a clean folder,
+and browser-based testing is available before UI-heavy work begins.
 
 Checkpoint 0 implementation commit: `6c933e3`.
 
@@ -295,7 +286,7 @@ Checkpoint 8 implementation commit: `cbd1cd7`.
 Post-checkpoint UX feedback revision (2026-05-27):
 
 - [x] Replace typed player-name and match-code setup with a lobby-first quick create/join flow.
-  Evidence: Referenced `archive/attempts/fairgame-gpt5/web/src/ui/GameLobby.tsx` for the compact lobby pattern. Changed `fairgame-rebuild/apps/server/src/matches/matchService.ts`, `fairgame-rebuild/apps/server/src/matches/matchView.ts`, `fairgame-rebuild/apps/server/src/matches/routes.ts`, `fairgame-rebuild/apps/server/tests/matches.test.ts`, `fairgame-rebuild/apps/web/src/api.ts`, `fairgame-rebuild/apps/web/src/types.ts`, `fairgame-rebuild/apps/web/src/App.tsx`, `fairgame-rebuild/apps/web/src/App.test.tsx`, `fairgame-rebuild/apps/web/src/styles.css`, and `fairgame-rebuild/tests/e2e/tictactoe.spec.ts`. Added `GET /api/matches` for newest open matches, removed normal lobby name/code inputs, capped and scrolled the open-game list, and changed E2E joins to click the listed game row.
+  Evidence: Referenced an earlier prototype's compact lobby pattern. Changed `fairgame-rebuild/apps/server/src/matches/matchService.ts`, `fairgame-rebuild/apps/server/src/matches/matchView.ts`, `fairgame-rebuild/apps/server/src/matches/routes.ts`, `fairgame-rebuild/apps/server/tests/matches.test.ts`, `fairgame-rebuild/apps/web/src/api.ts`, `fairgame-rebuild/apps/web/src/types.ts`, `fairgame-rebuild/apps/web/src/App.tsx`, `fairgame-rebuild/apps/web/src/App.test.tsx`, `fairgame-rebuild/apps/web/src/styles.css`, and `fairgame-rebuild/tests/e2e/tictactoe.spec.ts`. Added `GET /api/matches` for newest open matches, removed normal lobby name/code inputs, capped and scrolled the open-game list, and changed E2E joins to click the listed game row.
   Verification: Red tests failed first with missing `GET /api/matches` and existing name/code UI. After implementation, `npm run typecheck`, `npm test`, `npm run build`, and `PLAYWRIGHT_REUSE_SERVER=1 npm run test:e2e` passed on 2026-05-27. Built-in browser verification loaded `http://127.0.0.1:5173/`, confirmed no name/code inputs, created TicTacToe match `6d65f9f8-4613-4a07-ab0b-d276d80d5cfc`, joined it from a second browser tab by clicking `Join 6d65f9f8-4613-4a07-ab0b-d276d80d5cfc`, and confirmed the second tab entered as Player 2.
 
 - [x] Hide internal GUIDs from the lobby and stop tests from polluting open games.
@@ -421,20 +412,7 @@ Checkpoint 9 implementation commit: `54193e2`.
 ### 14. Contributor Documentation
 
 - [x] Document the codebase so a new contributor or agent can understand the project without reading the full roadmap or source.
-  Evidence: Started and completed on 2026-06-09 in worktree `.worktrees/contributor-docs` on branch `codex/contributor-docs`. Added `fairgame-rebuild/docs/architecture.md` covering the product model, repository and workspace layout, design constraints, the `GameRules` and server/web game-plugin contracts, the HTTP and Socket.IO API surface, persistence and clock models, bot architecture, a step-by-step add-a-new-game guide, and testing commands with known gotchas (required `DATABASE_URL`, worktree `npm install` + `.env`, and the full-parallel e2e rate-limit flake). Refreshed `AGENTS.md` for the repository's current home: replaced stale `/Volumes/T9/code/2-boards` absolute paths with repo-relative wording, removed the index row for the `archive/` folder that is not present in this clone (kept as a historical note), dropped completed bootstrap-era instructions, and linked the architecture doc. Fixed the stale roadmap path in `fairgame-rebuild/README.md`, linked the architecture doc, and documented the `DATABASE_URL`/.env requirement. Added a root `CLAUDE.md` symlink to `AGENTS.md` so Claude Code auto-loads the worktree gate and project rules. Historical `/Volumes/T9` references inside roadmap evidence entries and archived Superpowers plans were intentionally left unchanged.
-  Verification: `git diff --check` clean; `grep -rn "Volumes/T9" AGENTS.md fairgame-rebuild/README.md fairgame-rebuild/docs/` returned no matches; `ls -la CLAUDE.md` confirmed the symlink resolves to `AGENTS.md`, and a live Claude Code session loaded the rules through it. Docs-only change with no application code touched, so unit/build verification was not rerun. Feature commit: `2914722`.
+  Evidence: Started and completed on 2026-06-09 in worktree `.worktrees/contributor-docs` on branch `codex/contributor-docs`. Added `fairgame-rebuild/docs/architecture.md` covering the product model, repository and workspace layout, design constraints, the `GameRules` and server/web game-plugin contracts, the HTTP and Socket.IO API surface, persistence and clock models, bot architecture, a step-by-step add-a-new-game guide, and testing commands with known gotchas (required `DATABASE_URL`, worktree `npm install` + `.env`, and the full-parallel e2e rate-limit flake). Refreshed `AGENTS.md` for the repository's current home: replaced stale external-drive absolute paths with repo-relative wording, removed the index row for a folder no longer present, dropped completed bootstrap-era instructions, and linked the architecture doc. Fixed the stale roadmap path in `fairgame-rebuild/README.md`, linked the architecture doc, and documented the `DATABASE_URL`/.env requirement. Added a root `CLAUDE.md` symlink to `AGENTS.md` so Claude Code auto-loads the worktree gate and project rules.
+  Verification: `git diff --check` clean; a grep audit confirmed the living docs (`AGENTS.md`, `fairgame-rebuild/README.md`, `fairgame-rebuild/docs/`) contained no stale absolute paths; `ls -la CLAUDE.md` confirmed the symlink resolves to `AGENTS.md`, and a live Claude Code session loaded the rules through it. Docs-only change with no application code touched, so unit/build verification was not rerun. Feature commit: `2914722`.
 
-## Lessons From Prior Attempts
-
-- `archive/attempts/fairgame-gpt5` has the best compact two-board model, but client-side PouchDB writes
-  should not be reused as the authority model.
-- `archive/attempts/board2` has useful chess-rule reference code and tests, but the new chess path should
-  prefer `chess.js` unless there is a deliberate reason to own the engine.
-- `archive/attempts/chess2` demonstrates real double-board chess, color assignment, scoring, and timer
-  ideas, but its custom chess rules are risky.
-- `archive/attempts/claude-fairgame` has useful timer ideas, especially around shared vs separate clocks
-  and increments.
-- `archive/attempts/fairgame2` has a useful compositional `DualBoardGame` idea, but the game logic and
-  tests are not reliable enough to reuse directly.
-- `archive/attempts/fairgame-old` shows the main design mistake to avoid: one global turn/current-board
-  model for two independent boards.
+  Follow-up 2026-06-09: Removed all remaining references to the old external-drive location and to the pre-rebuild attempts folder, per user request. Deleted the bootstrap-era plan and spec documents that were entirely about that one-time migration (`docs/superpowers/plans/2026-05-27-checkpoint-0-bootstrap.md`, `docs/superpowers/specs/2026-05-27-checkpoint-0-bootstrap-design.md`), removed the obsolete ignore entry from `.gitignore`, removed the `Lessons From Prior Attempts` section and reworded checkpoint 0 and lobby-revision evidence in this roadmap, reworded stale working-directory lines in `docs/superpowers/plans/2026-05-27-checkpoint-1-domain-model.md` and `docs/superpowers/plans/2026-05-28-seven-board-games.md`, and dropped the historical attempts note from `AGENTS.md`. Verification: repo-wide grep for the old drive path and the attempts folder name returned no matches outside `.worktrees/`; `git diff --check` clean.

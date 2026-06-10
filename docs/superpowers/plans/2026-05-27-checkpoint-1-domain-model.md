@@ -97,7 +97,7 @@ Mark checkpoint 1 items complete and record changed files, verification results,
 
 - [ ] **Step 3: Commit checkpoint 1**
 
-Run from `/Volumes/T9/code/2-boards`:
+Run from the repository root:
 
 ```bash
 git add roadmap.md docs/superpowers fairgame-rebuild/packages/domain fairgame-rebuild/packages/shared fairgame-rebuild/apps/server fairgame-rebuild/apps/web
