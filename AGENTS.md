@@ -1,20 +1,19 @@
-# /Volumes/T9/code/2-boards Index
+# 2-boards Repository Index
 
-Last updated: 2026-05-28
+Last updated: 2026-06-09
 
-This index describes the immediate subfolders under `/Volumes/T9/code/2-boards`. It is intentionally one level deep; deeper indexes can be added inside individual project folders later.
+This index describes the immediate subfolders of the repository root (GitHub: `https://github.com/sunshineo/2-boards`). It is intentionally one level deep; deeper indexes can be added inside individual project folders later.
 
 | Folder | Description | Status / Notes |
 | --- | --- | --- |
-| `archive` | Historical reference material. `archive/attempts/` contains old board-game and FairGame attempts and is ignored by the top-level Git repo. | Keep as reference only. Do not develop in archived attempts unless explicitly instructed. |
 | `docs` | Durable Superpowers specs and implementation plans for the rebuild. | Tracked in the top-level repo. |
-| `fairgame-rebuild` | Clean active implementation of the Fair Two-Board Game platform. | Create and develop here. |
+| `fairgame-rebuild` | Clean active implementation of the Fair Two-Board Game platform. | Develop here. Codebase map and add-a-new-game guide: `fairgame-rebuild/docs/architecture.md`. |
 
 ## Notes
 
-- The top-level `/Volumes/T9/code/2-boards` folder is the active rebuild repository.
-- Old attempts have moved to `archive/attempts/` and should remain ignored by the top-level Git repo.
-- `archive/attempts/fairgame3/fairgame` is a nested Git repo under another archived Git repo. Treat it as historical reference material only.
+- What the product is, the architecture, and the roadmap: start with `fairgame-rebuild/docs/architecture.md` and the top-level `roadmap.md`.
+- `CLAUDE.md` at the repo root is a symlink to this file so Claude Code loads these rules automatically.
+- Old pre-rebuild attempts were archived to an `archive/attempts/` folder that is ignored by Git and is not present in every clone (it lived on the original external drive). Roadmap references to `archive/attempts/...` are historical reference material only; do not develop there.
 - Deployment is documented in `fairgame-rebuild/docs/deployment.md`.
 - Current frontend deployment is on Vercel project `two-boards`, URL `https://two-boards.vercel.app`.
 - Current backend deployment is on Northflank project `two-boards`, service `two-boards`.
@@ -70,12 +69,9 @@ sessions; never reset or revert another session's work without explicit user app
 
 ## Fair Two-Board Roadmap Tracking
 
-- Treat `roadmap.md` as the durable execution roadmap for the next FairGame rebuild.
-- Build the next FairGame implementation in a clean new project folder under `/Volumes/T9/code/2-boards`, not inside any existing attempt folder.
-- Use `fairgame-rebuild` as the default new folder name unless the user explicitly chooses a different name before bootstrapping.
-- Move old attempt folders into `archive/attempts/`, ignore that directory from the top-level Git repo, and treat those attempts as references only.
-- After the archive move, refer to old attempts by paths such as `archive/attempts/fairgame-gpt5`, `archive/attempts/board2`, `archive/attempts/chess2`, `archive/attempts/claude-fairgame`, and `archive/attempts/fairgame2`.
-- Initialize a Git repository at `/Volumes/T9/code/2-boards` and commit completed roadmap checkpoints there. Do not track `archive/attempts/`.
+- Treat `roadmap.md` as the durable execution roadmap for the FairGame rebuild.
+- The active implementation lives in `fairgame-rebuild/`; do not develop in archived attempts or new sibling folders.
+- Commit completed roadmap checkpoints to this repository.
 - Use `npm` as the package manager and Neon Postgres through `DATABASE_URL` for both local and deployed runs.
 - Use both append-only event storage and current snapshots for persistence unless the user explicitly changes this decision.
 - Keep the fair-match framework game-agnostic. Game-specific concepts such as checkmate, castling, columns, captures, marks, and draw-offer rules belong inside each game rules module.

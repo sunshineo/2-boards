@@ -18,6 +18,9 @@ The match result is derived from both board results.
 The web app shows this explanation automatically the first time a player opens a
 match, and it can be reopened anytime with the "How it works" button in the header.
 
+For the codebase map, layer contracts, and the add-a-new-game guide, see
+`docs/architecture.md`.
+
 ## Development
 
 Install dependencies:
@@ -41,7 +44,8 @@ Start local development servers:
 npm run dev
 ```
 
-The server loads `fairgame-rebuild/.env` automatically for local runs.
+The server loads `fairgame-rebuild/.env` automatically for local runs and refuses
+to start without `DATABASE_URL`; copy `.env.example` to `.env` and fill it in.
 
 The Chess lobby includes Bot mode. The server creates and authorizes the bot
 match, but Stockfish runs in the player's browser and submits validated bot
@@ -56,4 +60,5 @@ NODE_ENV=production DATABASE_URL='postgresql://...' FAIRGAME_WEB_DIST_DIR=apps/w
 
 See `docs/deployment.md` for Docker, health checks, environment variables, and Neon/Postgres persistence.
 
-The active rebuild follows `/Volumes/T9/code/2-boards/roadmap.md`.
+The active rebuild follows `roadmap.md` at the repository root; `AGENTS.md` there
+documents the agent workflow, including the mandatory worktree gate.
