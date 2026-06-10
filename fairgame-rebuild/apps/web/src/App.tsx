@@ -760,14 +760,17 @@ function HowToPlayPanel(props: {
           Moving first is often an advantage, so mirroring it makes the match fair.
         </li>
         <li>
-          <strong>The boards are independent.</strong>{" "}
+          <strong>One clock covers both boards.</strong>{" "}
           {props.isSeatedPlayer
-            ? "Play a board whenever it is your turn there — it can be your turn on both boards at once, and you can play them in any order."
-            : "Each board has its own turn, and a side can be to-move on both boards at once."}
+            ? "Each player has one clock for the whole match, shared across both boards. Yours counts down whenever it is your turn on either board — which can be both at once — so spend your time wisely across the two games."
+            : "Each player has one clock for the whole match, shared across both boards. It counts down whenever that player is to move on either board."}
         </li>
         <li>
-          <strong>Two results, one winner.</strong> Each board is worth one point: 1 for a win, ½ each for a draw. The
-          higher combined score after both boards finish wins the match.
+          <strong>Two results, one winner.</strong> Each board is worth one point: 1 for a win, ½ each for a draw.{" "}
+          {props.isSeatedPlayer
+            ? "If your clock runs out, you lose every board that has not finished yet."
+            : "If a player's clock runs out, they lose every board that has not finished yet."}{" "}
+          The higher combined score after both boards finish wins the match.
         </li>
       </ol>
       <button className="primary-button how-to-play-dismiss" onClick={props.onDismiss} type="button">
@@ -778,14 +781,11 @@ function HowToPlayPanel(props: {
 }
 
 function formatHowToPlayMatchShape(gameLabel: string | null, isSeatedPlayer: boolean) {
+  const gamePhrase = gameLabel ? `two games of ${gameLabel}` : "the same game twice";
   if (isSeatedPlayer) {
-    return gameLabel
-      ? `You are playing two games of ${gameLabel} against the same opponent at the same time — one game on each board.`
-      : "You are playing the same game twice against the same opponent, at the same time — once on each board.";
+    return `You and your opponent play ${gamePhrase} at the same time, one game on each board. The boards are independent — each has its own turn and result, and you can play them in either order.`;
   }
-  return gameLabel
-    ? `A match is two games of ${gameLabel} between the same two opponents, played at the same time — one game on each board.`
-    : "A match is the same game played twice between the same two opponents, at the same time — once on each board.";
+  return `The two players play ${gamePhrase} at the same time, one game on each board. The boards are independent — each has its own turn and result.`;
 }
 
 function isEditableShortcutTarget(target: EventTarget | null) {
